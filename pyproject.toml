@@ -1,0 +1,45 @@
+[project]
+name = "robotic-workbench"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "workbench-contracts", "workbench-common", "workbench-vision",
+  "workbench-voice", "workbench-assistant", "workbench-coordinator",
+  "workbench-arm-controller",
+]
+
+[project.optional-dependencies]
+vision = ["workbench-vision[hardware]"]
+voice = ["workbench-voice[hardware]"]
+assistant = ["workbench-assistant[hardware]"]
+arm = ["workbench-arm-controller[hardware]"]
+
+[tool.uv]
+# NumPy 2.4 raises the CPU baseline beyond this workbench's Phenom II host.
+constraint-dependencies = ["numpy<2.4"]
+
+[tool.uv.workspace]
+members = ["apps/vision", "apps/voice", "apps/assistant", "apps/coordinator", "apps/arm-controller", "packages/contracts", "packages/python-common"]
+
+[tool.uv.sources]
+workbench-contracts = { workspace = true }
+workbench-common = { workspace = true }
+workbench-vision = { workspace = true }
+workbench-voice = { workspace = true }
+workbench-assistant = { workspace = true }
+workbench-coordinator = { workspace = true }
+workbench-arm-controller = { workspace = true }
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.24,<2", "ruff>=0.9,<1"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

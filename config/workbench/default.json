@@ -1,0 +1,27 @@
+{
+  "tools": [
+    {"id": "adjustable_wrench", "name": "Adjustable wrench", "aliases": ["adjustable wrench", "crescent wrench", "wrench"]},
+    {"id": "screwdriver", "name": "Screwdriver", "aliases": ["screwdriver"]},
+    {"id": "pliers", "name": "Pliers", "aliases": ["pliers"]}
+  ],
+  "vision": {
+    "regions": {
+      "adjustable_wrench": [20, 60, 180, 160],
+      "screwdriver": [230, 60, 180, 160],
+      "pliers": [440, 60, 180, 160],
+      "tray": [150, 300, 340, 140]
+    },
+    "references": {},
+    "match_threshold": 0.94,
+    "match_margin": 0.03
+  },
+  "arm": {
+    "calibrated": false,
+    "speed": 100,
+    "acceleration": 5,
+    "tolerance_radians": 0.05,
+    "waypoint_timeout_seconds": 10,
+    "joint_limits": {"base": [-1.5, 1.5], "shoulder": [-0.5, 1.5], "elbow": [-0.5, 2.5], "hand": [0, 3.14]},
+    "sequences": {}
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "mode": "mock",
+  "services": {
+    "vision": "http://127.0.0.1:8101",
+    "voice": "http://127.0.0.1:8102",
+    "assistant": "http://127.0.0.1:8103",
+    "arm-controller": "http://127.0.0.1:8104",
+    "coordinator": "http://127.0.0.1:8100"
+  },
+  "observation_max_age_seconds": 2,
+  "confidence_threshold": 0.9,
+  "motion_timeout_seconds": 60,
+  "camera": {"device": 0, "width": 640, "height": 480, "interval_seconds": 0.25},
+  "speech": {"model_path": "models/whisper", "device": "cpu", "compute_type": "int8"},
+  "llm": {"model_path": "models/assistant.gguf", "gpu_layers": 0, "context_size": 2048},
+  "arm": {"port": "/dev/ttyUSB0", "baudrate": 115200, "mock_step_seconds": 0.4}
+}

@@ -1,0 +1,10 @@
+[project]
+name = "workbench-assistant"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["workbench-common", "workbench-contracts"]
+[project.optional-dependencies]
+hardware = ["llama-cpp-python>=0.3,<1"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -1,0 +1,10 @@
+[project]
+name = "workbench-arm-controller"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["workbench-common", "workbench-contracts"]
+[project.optional-dependencies]
+hardware = ["pyserial>=3.5,<4"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

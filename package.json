@@ -1,0 +1,13 @@
+{
+  "name": "robotic-workbench",
+  "private": true,
+  "workspaces": ["apps/dashboard", "packages/contracts"],
+  "scripts": {
+    "dev": "uv run python scripts/dev.py",
+    "build": "npm run build --workspace @workbench/dashboard",
+    "contracts": "uv run python scripts/export_contracts.py && openapi-typescript packages/contracts/openapi.json -o packages/contracts/src/api.d.ts",
+    "check": "npm run check --workspace @workbench/dashboard",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": { "openapi-typescript": "^7.6.1", "@playwright/test": "^1.63.0" }
+}
