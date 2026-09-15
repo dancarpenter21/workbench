@@ -122,6 +122,37 @@ leave prior PWM outputs active; loss of PWM or power may release the arm. Startu
 completion, stop and recovery need physical validation before integration, as described
 in the [implementation plan](../PLAN.md).
 
+Before assembly, use these offline preparations:
+
+- [Arm-control design and rehearsal](arm-control.md) specifies the software states and
+  compares independently observed open-loop checkpoints with added measured feedback.
+  It explicitly separates simulated checkpoint evidence from physical observations.
+- [Commissioning notebooks](commissioning.md) record measured assignments/limits, pose
+  review evidence and physical trials. Templates leave unknown values unset, and snapshot
+  or acceptance reports cannot enable the arm service.
+- [Pi deployment preparation](pi-deployment.md) produces a mock-only configuration/service
+  bundle and read-only health checks. Its lifecycle, OS environment, camera and model
+  performance still need testing on the actual Pi.
+
+### Commissioning status after offline development
+
+The [latest software verification](../PLAN.md#latest-local-verification--2026-09-15)
+records local tests only. No physical measurements or acceptance results have been
+collected. Keep the following values and decisions unset until supported by bench evidence:
+
+| Area | Evidence still required |
+| --- | --- |
+| Electronics and harness | Actual contacts/polarity, protection, Pi/HAT fit and PWM timing/signal integrity under load |
+| Joint calibration | Six channel assignments, usable pulse limits, direction and any required angle mapping |
+| Poses and tools | Supported startup/recovery poses, full transition clearance, reach, grip and payload at that reach |
+| Completion and stop | Choice of independent observations or measured feedback; validated thresholds; response to stop, partial writes, process freeze, reset and PWM/power loss |
+| Pi deployment | OS/packages, permissions, systemd startup/shutdown and state retention, camera/focus/reference checks, model memory/latency and thermal behavior |
+| Physical acceptance | Thirty supervised deliveries with at least 27 successes and zero wrong-tool deliveries, plus failure/recovery scenarios |
+
+The rehearsal model, notebook completeness and HTTP health cannot fill these evidence
+gaps or enable automated retrieval. Use the commissioning records to preserve actual
+observations and the conditions under which they were obtained.
+
 ### Camera Module 3 smoke check on the Pi
 
 Use a current Raspberry Pi OS with its matching system Python and distribution-managed

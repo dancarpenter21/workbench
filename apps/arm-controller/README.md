@@ -54,3 +54,22 @@ is no automatic retry, measured feedback, homing, interpolation or watchdog.
 
 The [hardware guide](../../docs/hardware.md) and [plan](../../PLAN.md) describe what
 must be established before supervised motor testing and automatic execution.
+
+## Offline motion rehearsal and commissioning records
+
+The [motion design](../../docs/arm-control.md) describes startup/readiness, bounded
+commands, independent completion evidence, stop, faults and recovery, including the
+open physical decisions. `rehearsal.RehearsalController` is an independent simulation
+model using a dedicated durable `Store`; it has no hardware callback or application
+backend. Commands and simulated checkpoint observations remain separate. Deadlines
+fault, stop stays unconfirmed, recovery needs fresh evidence, and submitted IDs never
+replay. Run its scenarios with:
+
+```sh
+uv run --no-sync pytest tests/integration/test_rehearsal.py -q
+```
+
+The [commissioning CLI](../../docs/commissioning.md) prepares editable notebooks with
+unknown measurements unset, validates records, freezes calibration/trial evidence and
+summarizes physical and simulated acceptance separately. Neither tool changes the
+PCA9685 hardware refusal or qualifies a physical path.

@@ -147,6 +147,9 @@ async def test_unsupported_hardware_is_unready_and_cannot_move_or_recover(
     cfg = settings()
     cfg["mode"] = "hardware"
     cfg["arm"]["backend"] = backend
+    # Neither an existing calibration flag nor offline record/rehearsal results
+    # can remove the separate PCA9685 application gate.
+    cfg["workbench"]["arm"]["calibrated"] = True
     monkeypatch.setitem(sys.modules, "smbus2", None)
     monkeypatch.setattr(
         "workbench_arm_controller.app.SerialArm",

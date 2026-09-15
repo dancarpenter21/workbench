@@ -41,6 +41,12 @@ using independently validated observations or additional feedback. A delay or su
 I2C write alone cannot establish that the arm reached a target. The existing RoArm
 execution behavior described below continues to apply only to that legacy backend.
 
+The [offline rehearsal model](arm-control.md) exercises those software gates with
+explicit simulated checkpoint events and a separate SQLite journal. It is not an
+application backend and supplies no physical observation or output. [Commissioning
+records](commissioning.md) and [Pi preparation](pi-deployment.md) likewise do not
+alter runtime contracts or remove the PCA9685 hardware gate.
+
 ## Ownership
 
 The browser captures microphone audio and submits WAV to the coordinator, which asks
