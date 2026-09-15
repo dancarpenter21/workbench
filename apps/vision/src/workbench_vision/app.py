@@ -8,6 +8,8 @@ from fastapi import HTTPException, Response
 from workbench_common import ROOT, app_base, settings
 from workbench_contracts import Health, MockScene, Observation, Observations, now
 
+from .capture import open_capture
+
 
 class Camera:
     def __init__(self, cfg):
@@ -55,17 +57,20 @@ class Camera:
             return "uncertain", score
         return label, score
 
+    def record_error(self, exc):
+        with self.lock:
+            self.error = str(exc) or type(exc).__name__
+            self.jpeg = None
+            self.observations.camera_ok = False
+
     def run(self):
         camera = self.cfg["camera"]
-        cap = self.cv.VideoCapture(camera["device"])
-        cap.set(self.cv.CAP_PROP_FRAME_WIDTH, camera["width"])
-        cap.set(self.cv.CAP_PROP_FRAME_HEIGHT, camera["height"])
+        cap = None
         try:
+            cap = open_capture(camera, self.cv)
             while not self.stop.is_set():
                 try:
-                    ok, frame = cap.read()
-                    if not ok:
-                        raise ValueError("Camera disconnected or unavailable")
+                    frame = cap.read()
                     labels = {}
                     for region, (x, y, w, h) in self.cfg["workbench"]["vision"]["regions"].items():
                         if (
@@ -105,16 +110,22 @@ class Camera:
                         )
                         self.error = ""
                 except Exception as exc:
-                    with self.lock:
-                        self.error = str(exc)
-                        self.observations.camera_ok = False
+                    self.record_error(exc)
                 self.stop.wait(camera["interval_seconds"])
+        except Exception as exc:
+            self.record_error(exc)
         finally:
-            cap.release()
+            if cap is not None:
+                try:
+                    cap.close()
+                except Exception as exc:
+                    self.record_error(exc)
 
     def close(self):
         self.stop.set()
         self.thread.join(timeout=2)
+        if self.thread.is_alive():
+            self.record_error("Camera capture did not stop within two seconds")
 
 
 def create_app(config=None):

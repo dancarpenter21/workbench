@@ -13,6 +13,7 @@ vision = ["workbench-vision[hardware]"]
 voice = ["workbench-voice[hardware]"]
 assistant = ["workbench-assistant[hardware]"]
 arm = ["workbench-arm-controller[hardware]"]
+pwm = ["workbench-arm-controller[pwm]"]
 
 [tool.uv]
 # NumPy 2.4 raises the CPU baseline beyond this workbench's Phenom II host.

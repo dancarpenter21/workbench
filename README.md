@@ -8,6 +8,26 @@ The working default is a **simulated bench** with three tools in fixed positions
 OpenCV, local speech/LLM and RoArm-M2-S adapters are included but require local models,
 reference images and reviewed arm calibration. Physical pickup has not been validated.
 
+## Raspberry Pi hardware direction
+
+The selected build uses a **Raspberry Pi 5, Camera Module 3, Waveshare PCA9685 HAT,
+ServoCity power board and DFRobot ROB0036 V2 arm**. The
+[Pi implementation plan](PLAN.md) and [hardware guide](docs/hardware.md) describe
+the owner's overhead control station, separate servo power and remaining setup.
+
+The Pi foundations now provide:
+
+- A Picamera2 capture backend, alongside the existing OpenCV USB-camera backend.
+- [Camera setup commands](apps/vision/README.md#camera-setup-without-the-service) for raw
+  captures, region overlays, reference collection and validation before starting vision.
+- Six-channel pulse validation, an offline pose checker and low-level PCA9685 output.
+- A Pi profile at `config/development/pi.json`, still defaulting to mock mode.
+
+**PCA9685 automated retrieval is not enabled.** The arm does not provide measured
+joint feedback through this controller; starting pose, motion completion and stop/recovery
+must be established before connecting it to retrieval. The existing RoArm serial adapter
+remains available for that separate hardware.
+
 ## Quick start
 
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22.12+ and npm.
@@ -72,10 +92,10 @@ calibration. All applications load these files at startup. Environment overrides
 
 The launcher explicitly selects `mock` unless passed `--mode hardware`. Follow the
 [hardware and calibration guide](docs/hardware.md) before enabling hardware mode. It covers
-the $500 shopping budget, optional dependencies, local models, camera references, arm paths,
-and stop behavior. Start with a USB webcam; GoPro integration and simultaneous multi-camera
-fusion are deferred. Webcam selection is configurable, but compatibility needs testing with
-the actual cameras.
+the selected Pi hardware, Camera Module 3 setup, pulse calibration, power boundaries and
+legacy RoArm instructions. USB webcams remain supported through OpenCV. GoPro integration
+and simultaneous multi-camera fusion are deferred; actual camera compatibility and physical
+pickup still need bench validation.
 
 ## Development and verification
 

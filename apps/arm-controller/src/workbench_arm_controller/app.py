@@ -6,6 +6,7 @@ from workbench_common import Store, app_base, settings
 from workbench_contracts import ArmCommand, ArmStatus, Health, Recovery
 
 from workbench_arm_controller.driver import SerialArm
+from workbench_arm_controller.pca9685 import AUTOMATION_UNAVAILABLE
 
 
 def create_app(config=None, store=None):
@@ -27,6 +28,8 @@ def create_app(config=None, store=None):
                 return "Software hold requested. Verify the arm is stationary before recovery."
             except Exception:
                 return "Could not confirm arm control. Use the physical power cutoff."
+        if cfg["mode"] == "hardware":
+            return "Hardware control unavailable. Use the physical cutoff and inspect the arm."
         return "Simulated motion stopped"
 
     @asynccontextmanager
@@ -39,6 +42,11 @@ def create_app(config=None, store=None):
             await save(status)
         if cfg["mode"] == "hardware":
             try:
+                backend = cfg["arm"].get("backend", "roarm")
+                if backend == "pca9685":
+                    raise ValueError(AUTOMATION_UNAVAILABLE)
+                if backend != "roarm":
+                    raise ValueError(f"Unknown arm backend: {backend}")
                 state["driver"] = await asyncio.to_thread(SerialArm, cfg)
                 await asyncio.to_thread(state["driver"].feedback)
                 # Every hardware startup requires operator inspection before movement.
@@ -48,6 +56,10 @@ def create_app(config=None, store=None):
                 await save(status)
             except Exception as exc:
                 state["error"] = str(exc)
+                status = current()
+                status.state, status.recovery_required = "fault", True
+                status.message = str(exc)
+                await save(status)
         yield
         if state["task"] and not state["task"].done():
             status = current()

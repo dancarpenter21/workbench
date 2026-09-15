@@ -822,6 +822,9 @@ arm = [
 assistant = [
     { name = "workbench-assistant", extra = ["hardware"] },
 ]
+pwm = [
+    { name = "workbench-arm-controller", extra = ["pwm"] },
+]
 vision = [
     { name = "workbench-vision", extra = ["hardware"] },
 ]
@@ -840,6 +843,7 @@ dev = [
 requires-dist = [
     { name = "workbench-arm-controller", editable = "apps/arm-controller" },
     { name = "workbench-arm-controller", extras = ["hardware"], marker = "extra == 'arm'", editable = "apps/arm-controller" },
+    { name = "workbench-arm-controller", extras = ["pwm"], marker = "extra == 'pwm'", editable = "apps/arm-controller" },
     { name = "workbench-assistant", editable = "apps/assistant" },
     { name = "workbench-assistant", extras = ["hardware"], marker = "extra == 'assistant'", editable = "apps/assistant" },
     { name = "workbench-common", editable = "packages/python-common" },
@@ -850,7 +854,7 @@ requires-dist = [
     { name = "workbench-voice", editable = "apps/voice" },
     { name = "workbench-voice", extras = ["hardware"], marker = "extra == 'voice'", editable = "apps/voice" },
 ]
-provides-extras = ["vision", "voice", "assistant", "arm"]
+provides-extras = ["vision", "voice", "assistant", "arm", "pwm"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -882,6 +886,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5f/ea/7f9b938a63ece4bec677ad7f9f7fa02df3383db1949ed93a382441c09a87/ruff-0.16.7-py3-none-win32.whl", hash = "sha256:2ea3470fcebcbc5df2fb0c6f3b90333fa9084c534e0111c038fa4a6ab9f1c4b7", size = 10059082, upload-time = "2026-09-10T18:03:59.632Z" },
     { url = "https://files.pythonhosted.org/packages/39/11/480a6973a927aa653e1cead6a6416008640e03a99d05b34c0434b8c6c366/ruff-0.16.7-py3-none-win_amd64.whl", hash = "sha256:7ac26aca826e9e21d0f1cb25b54ac660760a9fdd094d3e4df9848232be98cfc6", size = 10593368, upload-time = "2026-09-10T18:04:01.999Z" },
     { url = "https://files.pythonhosted.org/packages/8b/4b/51327018d056f0dad2c2238f26d1fb0f53707a9d91b75dea6d1b3039f136/ruff-0.16.7-py3-none-win_arm64.whl", hash = "sha256:aab7f39e2c9df6c596216070f98eef1207b94f8516cca20c808826974971855b", size = 10412401, upload-time = "2026-09-10T18:04:04.098Z" },
+]
+
+[[package]]
+name = "smbus2"
+version = "0.6.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/87/37/b3f7b501502c4915ba3819d1dc277bf3f5fae4a9d067caa4f502aaddd889/smbus2-0.6.1.tar.gz", hash = "sha256:2b043372abf8f6029a632c3aab36b641c5d5872b1cbad599fc68e17ac4fd90a5", size = 17274, upload-time = "2026-04-09T20:37:54.821Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/96/f2/c78a68bd739ac8fc608747cff73a4db3b19f3135658ed4e64374f6425cbf/smbus2-0.6.1-py2.py3-none-any.whl", hash = "sha256:650feeb27ca0ed58b07db4c10201c2a662c41305b7bf6e5fab9d888056f48180", size = 11767, upload-time = "2026-04-09T20:37:53.728Z" },
 ]
 
 [[package]]
@@ -983,14 +996,18 @@ dependencies = [
 hardware = [
     { name = "pyserial" },
 ]
+pwm = [
+    { name = "smbus2" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "pyserial", marker = "extra == 'hardware'", specifier = ">=3.5,<4" },
+    { name = "smbus2", marker = "extra == 'pwm'", specifier = ">=0.5,<1" },
     { name = "workbench-common", editable = "packages/python-common" },
     { name = "workbench-contracts", editable = "packages/contracts" },
 ]
-provides-extras = ["hardware"]
+provides-extras = ["hardware", "pwm"]
 
 [[package]]
 name = "workbench-assistant"
