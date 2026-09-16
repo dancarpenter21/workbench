@@ -7,6 +7,8 @@ Raspberry Pi 5, Camera Module 3, Waveshare PCA9685 Servo Driver HAT, and DFRobot
 ROB0036 V2 arm. Favor ready-made connections and minimal soldering. The
 [hardware baseline](docs/hardware.md#selected-hardware-dfrobot-rob0036-v2) records
 component choices, the overhead-to-table layout, and remaining physical checks.
+The [shopping list](docs/shopping-list.md) adds quantities, accessory requirements,
+dated price checks and unresolved purchase choices for this assembly.
 
 The repository already provides six applications, shared API contracts, durable
 operation tracking, mock devices, and local hardware/model adapters. Recorded

@@ -14,6 +14,8 @@ The selected build uses a **Raspberry Pi 5, Camera Module 3, Waveshare PCA9685 H
 ServoCity power board and DFRobot ROB0036 V2 arm**. The
 [Pi implementation plan](PLAN.md) and [hardware guide](docs/hardware.md) describe
 the owner's overhead control station, separate servo power and remaining setup.
+The [current shopping list](docs/shopping-list.md) records quantities, product links,
+accessories, price checks and purchasing decisions still to resolve for this build.
 
 The Pi foundations now provide:
 

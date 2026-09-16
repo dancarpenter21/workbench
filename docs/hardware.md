@@ -7,6 +7,9 @@ Working design recorded on 2026-09-15 from the
 Favor a modest budget, minimal soldering and ready-made connections; prefer DFRobot
 parts where they fit. These selections have not been physically qualified together.
 
+Use the [current shopping list](shopping-list.md) for component quantities, included
+accessories, price checks and pending purchases for this Pi/DFRobot build.
+
 | Location | Selected component | Still to establish |
 | --- | --- | --- |
 | Overhead | Raspberry Pi 5; [DFRobot KIT-003](https://www.dfrobot.com/kit-003.html) | Exact kit contents, RAM, power adapter, case and cooling fit |
@@ -190,6 +193,9 @@ vision service. Camera capture support alone does not qualify localization, phys
 motion or the Pi's ability to run all local models together.
 
 ## Previous RoArm-M2-S shopping budget
+
+Historical alternative only. Use the [Pi/DFRobot shopping list](shopping-list.md)
+for the selected build; the allowance below does not apply to that assembly.
 
 Target an existing GPU computer plus at most $500 in new hardware:
 
