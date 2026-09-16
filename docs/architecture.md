@@ -5,16 +5,47 @@ use FastAPI and HTTP/JSON; a TypeScript dashboard uses Vite. Each service has it
 package, dependency list, entry point and health endpoint. Python packages are managed
 as a uv workspace and JavaScript packages as an npm workspace.
 
+## Hardware direction and current support
+
+The working hardware direction is a Raspberry Pi 5 with a local Camera Module 3 and
+PCA9685 HAT driving a DFRobot ROB0036 V2 through the table's separate servo power board.
+See the [hardware guide](hardware.md) and [implementation plan](../PLAN.md).
+
 ```mermaid
 flowchart LR
     Dashboard --> Coordinator
     Coordinator --> Voice[Voice / local Whisper]
     Coordinator --> Assistant[Assistant / local GGUF LLM]
-    Coordinator --> Vision[Vision / OpenCV]
-    Coordinator --> Arm[Arm controller / USB serial]
-    Vision --> Camera[USB camera]
-    Arm --> Robot[RoArm-M2-S]
+    Coordinator --> Vision[Vision / camera backend]
+    Coordinator --> Arm[Arm controller]
+    Vision --> PiCamera[Picamera2 / Camera Module 3]
+    Vision --> USBCamera[OpenCV / USB camera]
+    Arm --> Legacy[Legacy RoArm / USB serial]
+    Arm -. future retrieval integration .-> PWM[PCA9685 / ROB0036]
 ```
+
+`camera.backend` selects `opencv` or `picamera2`. Camera acquisition stays within vision;
+reference matching and API output do not depend on how frames were captured. Hardware
+libraries are optional and are loaded only by the selected backend.
+
+`arm.backend` selects `roarm` or `pca9685`. The default runtime profile retains the legacy
+RoArm backend; the Pi profile selects Picamera2 and PCA9685 while defaulting to mock mode.
+The PCA9685 hardware service reports unavailable and rejects execution and recovery
+before opening hardware. Its standalone module provides pulse validation/dry runs and a
+low-level output boundary, not an automatic retrieval implementation. No API contract has
+been changed to treat commanded pulses as measured positions.
+
+The selected PWM hardware does not report actual joint position. Before integrating it,
+we need an explicit design for startup pose, movement completion, stopping and recovery,
+using independently validated observations or additional feedback. A delay or successful
+I2C write alone cannot establish that the arm reached a target. The existing RoArm
+execution behavior described below continues to apply only to that legacy backend.
+
+The [offline rehearsal model](arm-control.md) exercises those software gates with
+explicit simulated checkpoint events and a separate SQLite journal. It is not an
+application backend and supplies no physical observation or output. [Commissioning
+records](commissioning.md) and [Pi preparation](pi-deployment.md) likewise do not
+alter runtime contracts or remove the PCA9685 hardware gate.
 
 ## Ownership
 
@@ -23,10 +54,10 @@ the voice service to transcribe it. The operator reviews the transcript before s
 a request. The assistant turns text into a structured intent; it cannot send robot commands.
 The coordinator validates tool identity, service readiness/mode, fresh observations, tray
 clearance, and arm status before asking the arm controller to execute a reviewed recipe.
-The arm controller independently validates tool IDs, speed, joint bounds, initial pose and
-feedback at each waypoint. Vision then verifies source absence and tray presence.
+The legacy RoArm controller independently validates tool IDs, speed, joint bounds,
+initial pose and feedback at each waypoint. Vision then verifies source absence and tray presence.
 
-Only the arm application imports serial control code. Only the vision application opens
+Only the arm application owns serial or I2C control code. Only the vision application opens
 the camera. The voice and assistant applications keep their respective models loaded.
 The dashboard owns no workflow state. Common packages contain API models, configuration,
 logging and storage utilities, not application logic.
@@ -67,14 +98,16 @@ is committed. Coordinator history and current state are updated in one transacti
 
 Once dispatch begins, a timeout means the arm may have moved. The coordinator requests a
 stop, records failure and blocks further retrieval until an operator acknowledges recovery.
-Restarting during an unfinished operation also requires recovery. Hardware arm startup
+Restarting during an unfinished operation also requires recovery. Legacy RoArm hardware startup
 always requires inspection and recovery. Stopping before dispatch prevents dispatch;
-stopping during dispatch waits for that bounded request, then requests a hold.
+stopping during legacy RoArm dispatch waits for that bounded request, then requests a
+hold. A PCA9685 backend must define its own validated behavior before retrieval execution.
 
 HTTP logs carry `X-Operation-ID` across the workflow. The dashboard receives state over
 server-sent events and refreshes preview frames independently. An API health response
 indicates initialization/readiness, not a certified guarantee of hardware availability.
-Fresh observations and serial feedback are checked at execution time.
+Fresh observations and legacy RoArm serial feedback are checked at execution time; the
+PWM backend does not supply equivalent feedback.
 
 ## Deployment boundaries
 

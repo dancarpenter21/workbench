@@ -8,6 +8,38 @@ The working default is a **simulated bench** with three tools in fixed positions
 OpenCV, local speech/LLM and RoArm-M2-S adapters are included but require local models,
 reference images and reviewed arm calibration. Physical pickup has not been validated.
 
+## Raspberry Pi hardware direction
+
+The selected build uses a **Raspberry Pi 5, Camera Module 3, Waveshare PCA9685 HAT,
+ServoCity power board and DFRobot ROB0036 V2 arm**. The
+[Pi implementation plan](PLAN.md) and [hardware guide](docs/hardware.md) describe
+the owner's overhead control station, separate servo power and remaining setup.
+The [current shopping list](docs/shopping-list.md) records quantities, product links,
+accessories, price checks and purchasing decisions still to resolve for this build.
+
+The Pi foundations now provide:
+
+- A Picamera2 capture backend, alongside the existing OpenCV USB-camera backend.
+- [Camera setup commands](apps/vision/README.md#camera-setup-without-the-service) for raw
+  captures, region overlays, reference collection and validation before starting vision.
+- Six-channel pulse validation, an offline pose checker and low-level PCA9685 output.
+- A Pi profile at `config/development/pi.json`, still defaulting to mock mode.
+- An [arm-control design and durable offline rehearsal](docs/arm-control.md) covering
+  startup, bounded commands, independent simulated completion evidence, stop and recovery.
+- [Commissioning notebooks and trial snapshots](docs/commissioning.md) for measured
+  assignments, limits, reviewed poses and separate physical/simulated acceptance counts.
+- [Pi deployment preparation](docs/pi-deployment.md): reviewable mock-only service
+  bundles, configuration checks, read-only health inspection and lifecycle instructions.
+
+**PCA9685 automated retrieval is not enabled.** The arm does not provide measured
+joint feedback through this controller; starting pose, motion completion and stop/recovery
+must be established before connecting it to retrieval. The existing RoArm serial adapter
+remains available for that separate hardware.
+
+Rehearsal results and complete record files cannot qualify hardware. Actual signal
+timing, joint limits, paths/payload, completion sensing, physical stop/recovery and Pi
+service/device behavior still require the installed bench.
+
 ## Quick start
 
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22.12+ and npm.
@@ -27,7 +59,8 @@ Mock voice always returns “Grab me the screwdriver” and mock interpretation 
 deterministic command parser. No microphone audio is sent to a cloud service.
 
 **Stop arm** blocks further operations until you inspect the bench and acknowledge recovery.
-In hardware mode, software stop is only a hold request; maintain an accessible physical cutoff.
+For the legacy RoArm backend, software stop requests a hold. The disabled PCA9685 backend
+cannot issue a hold or confirm a physical stop; maintain an accessible physical cutoff.
 Press Ctrl+C in the launcher terminal to stop the applications. Logs and durable operation
 state live under `.runtime/mock/` or `.runtime/hardware/`.
 
@@ -41,7 +74,7 @@ If port 5173 is occupied, use `npm run dev -- --dashboard-port 5174`.
 | [Vision](apps/vision/README.md) | Camera capture, known-tool detection and tray checks | 8101 |
 | [Voice](apps/voice/README.md) | Local WAV transcription | 8102 |
 | [Assistant](apps/assistant/README.md) | Converts natural language to structured intents | 8103 |
-| [Arm controller](apps/arm-controller/README.md) | Calibrated paths, serial feedback and motion limits | 8104 |
+| [Arm controller](apps/arm-controller/README.md) | Recorded paths, legacy RoArm feedback and offline PWM rehearsal | 8104 |
 | [Dashboard](apps/dashboard/README.md) | Camera preview, commands, progress and operator controls | 5173 |
 
 Shared [contracts](packages/contracts/README.md) define the Python API models and generated
@@ -72,12 +105,16 @@ calibration. All applications load these files at startup. Environment overrides
 
 The launcher explicitly selects `mock` unless passed `--mode hardware`. Follow the
 [hardware and calibration guide](docs/hardware.md) before enabling hardware mode. It covers
-the $500 shopping budget, optional dependencies, local models, camera references, arm paths,
-and stop behavior. Start with a USB webcam; GoPro integration and simultaneous multi-camera
-fusion are deferred. Webcam selection is configurable, but compatibility needs testing with
-the actual cameras.
+the selected Pi hardware, Camera Module 3 setup, pulse calibration, power boundaries and
+legacy RoArm instructions. USB webcams remain supported through OpenCV. GoPro integration
+and simultaneous multi-camera fusion are deferred; actual camera compatibility and physical
+pickup still need bench validation.
 
 ## Development and verification
+
+Latest recorded local verification (2026-09-15): **181 Python tests passed**, with
+Ruff lint/format and documentation checks passing. See the [verification record](PLAN.md#latest-local-verification--2026-09-15)
+for scope and commands. Pi/device operation and physical acceptance remain unperformed.
 
 ```sh
 uv run pytest -q
@@ -100,7 +137,9 @@ uv run python scripts/smoke.py
 
 Tests cover service interfaces, request idempotence, missing/uncertain tools, stale camera
 input, mode mismatches, service loss, motion timeout, stop/recovery, restart protection and
-WAV validation. See the [acceptance protocol](tests/acceptance/README.md) for physical trials
+WAV validation. They also cover offline motion evidence, commissioning record integrity,
+physical/simulated result separation and Pi bundle/health validation. See the
+[acceptance protocol](tests/acceptance/README.md) for physical trials
 and the required 27/30 successful deliveries with no wrong-tool deliveries.
 
 Run one process/worker per application on a trusted local computer. Distributed deployment,

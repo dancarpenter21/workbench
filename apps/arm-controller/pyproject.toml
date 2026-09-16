@@ -5,6 +5,7 @@ requires-python = ">=3.11"
 dependencies = ["workbench-common", "workbench-contracts"]
 [project.optional-dependencies]
 hardware = ["pyserial>=3.5,<4"]
+pwm = ["smbus2>=0.5,<1"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
