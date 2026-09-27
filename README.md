@@ -4,6 +4,10 @@ An on-premises assistant for retrieving tools: “Grab me the crescent wrench”
 a validated pickup sequence and delivery to a tray. Vision, voice, language interpretation,
 coordination, arm control and the dashboard are separate applications in one monorepo.
 
+<img src="Concept.png" alt="Concept illustration of the robotic workbench arm and gripper" width="480">
+
+*Robotic arm concept art.*
+
 The working default is a **simulated bench** with three tools in fixed positions. Real
 OpenCV, local speech/LLM and RoArm-M2-S adapters are included but require local models,
 reference images and reviewed arm calibration. Physical pickup has not been validated.
