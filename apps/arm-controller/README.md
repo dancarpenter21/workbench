@@ -118,3 +118,42 @@ The [commissioning CLI](../../docs/commissioning.md) prepares editable notebooks
 unknown measurements unset, validates records, freezes calibration/trial evidence and
 summarizes physical and simulated acceptance separately. Neither tool changes the
 PCA9685 hardware refusal or qualifies a physical path.
+
+## Manual base-servo trial (channel index 5)
+
+`base_servo_test` is a separate supervised commissioning tool. It does not use or
+mark the six-joint calibration as measured. Its defaults are an **offline plan**:
+
+```sh
+uv run --no-sync python -m workbench_arm_controller.base_servo_test
+```
+
+For a later live trial, begin with servo power OFF, other five servos disconnected
+from power, arm supported, base secured, correct polarity/common ground and the
+rotation path and cables clear. Use the nominal 5 V servo supply and keep the
+physical cutoff within reach. Stop other processes accessing this HAT. Then:
+
+```sh
+uv run --no-sync python -m workbench_arm_controller.base_servo_test --live
+```
+
+The terminal asks for `PREPARE` before accessing I2C. It requests and verifies all
+16 channels full-off, configures approximately 50 Hz, then asks you to power only
+the base servo. Type `START` to command 1500 us. **The first pulse may produce a
+large movement from an unknown position.** If that movement cannot occur freely,
+do not start; establish the servo's neutral position with its mechanical load
+safely decoupled first. Do not force the servo shaft by hand.
+
+Use `+` or `-`, followed by Enter, for a 10 us pulse change; `q` then Enter exits.
+Direction is not yet calibrated. The fixed 1450–1550 us trial window constrains
+requested and quantized pulses, but is not a measured mechanical safety envelope.
+There is no sweep, return-to-center command, current sensing or stall detection.
+Cut physical power immediately for binding, persistent buzzing without movement,
+unexpected movement or heating; do not wait for the terminal to respond.
+
+The session stops after 15 seconds without input or 60 seconds total after setup.
+Exit, EOF, Ctrl+C, SIGTERM and normal I2C errors attempt to turn all outputs off
+and verify the off registers. Turn servo power OFF afterward. Disabling pulses
+can release a load and is not proof of a physical stop. Host failure, SIGKILL or
+an I2C fault can leave pulses active; this is not a hardware watchdog. Nominal
+pulse timing assumes the internal 25 MHz clock and still requires measurement.

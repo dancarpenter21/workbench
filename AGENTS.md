@@ -1,0 +1,38 @@
+# Repository Guidelines
+
+## Project Structure & Module Organization
+
+This monorepo implements a local robotic tool-retrieval workbench. Five Python services live in `apps/{coordinator,vision,voice,assistant,arm-controller}/src/workbench_*`; the TypeScript/Vite dashboard lives in `apps/dashboard/src/`. Shared API models and generated types are in `packages/contracts/`, with configuration, logging, and persistence utilities in `packages/python-common/`.
+
+Use `config/` for development settings and bench calibration, `scripts/` for launch and maintenance tools, and `docs/` for architecture, hardware, and commissioning guidance. Tests live in `tests/integration/` and `tests/e2e/`; physical acceptance procedures are documented in `tests/acceptance/`.
+
+## Build, Test, and Development Commands
+
+Requires Python 3.11+, uv, and Node.js 22.12+; CI uses Node.js 24.
+
+On this computer, run Python through `uv` (for example, `uv run python`). Use `uv` for all Python package management and virtual environment creation. Prefer a project-local environment named `.venv`; create it with `uv venv .venv` or let `uv sync` manage it. Prefer `pyproject.toml` over `requirements.txt` for Python project metadata and dependency declarations. Use `uv add`, `uv remove`, and `uv sync` to manage project dependencies.
+
+- `uv sync --locked` and `npm ci`: install locked dependencies.
+- `npm run dev`: launch all services and the dashboard in mock mode at `http://127.0.0.1:5173`.
+- `npm run check`: type-check the dashboard.
+- `npm run build`: type-check and build the dashboard.
+- `uv run pytest -q`: run Python tests; add `--extra vision` after `uv run` for optional classifier coverage.
+- `uv run ruff check .` and `uv run ruff format --check .`: check Python lint and formatting.
+- `npm run contracts`: regenerate OpenAPI and TypeScript contracts after API model changes; commit resulting changes.
+- `npx playwright install chromium`, then `npm run test:e2e`: run browser tests against the mock stack on port 5174.
+
+## Coding Style & Naming Conventions
+
+Use four-space indentation, snake_case functions/modules, and PascalCase classes in Python. Ruff targets Python 3.11, enforces import sorting, and configures a 100-character line length. Run `uv run ruff format .` to format Python. Match existing TypeScript conventions: two-space indentation, double quotes, semicolons, and camelCase identifiers.
+
+## Testing Guidelines
+
+Use pytest and pytest-asyncio for service tests, naming files `test_*.py` and tests `test_*`. Browser tests use Playwright and `*.spec.ts`. Cover changed behavior and relevant failure/recovery paths. No numeric coverage threshold is configured. Browser tests reset the mock scene; avoid concurrent manual trials.
+
+## Commit & Pull Request Guidelines
+
+History favors concise, action-oriented subjects such as “Add Raspberry Pi hardware foundations”; follow that style. Describe behavior changes, link relevant issues, and report validation in pull requests. Include screenshots for dashboard changes. Ensure CI passes and regenerated contracts are current.
+
+## Hardware & Configuration
+
+Keep mock mode as the default. Follow `docs/hardware.md` and commissioning procedures before hardware work. Keep private recordings and runtime state out of Git. Simulated results do not establish physical acceptance; PCA9685 automated retrieval remains disabled.
