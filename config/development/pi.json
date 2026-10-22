@@ -29,6 +29,8 @@
   },
   "arm": {
     "backend": "pca9685",
+    "i2c_bus": 1,
+    "i2c_address": 64,
     "mock_step_seconds": 0.4
   }
 }

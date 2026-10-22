@@ -6,7 +6,8 @@ from pathlib import Path
 
 from fastapi import HTTPException
 from workbench_common import ROOT, app_base, settings
-from workbench_contracts import Health, Intent, TextRequest
+from workbench_common.diagnostics import model_check
+from workbench_contracts import Diagnostic, Health, Intent, TextRequest
 
 
 def mock_intent(text: str, tools: list[dict]) -> Intent:
@@ -33,7 +34,7 @@ def create_app(config=None):
 
     @asynccontextmanager
     async def lifespan(app):
-        if cfg["mode"] == "hardware":
+        if cfg["mode"] == "hardware" and cfg.get("profile") != "diagnostics":
             try:
                 from llama_cpp import Llama
 
@@ -55,10 +56,22 @@ def create_app(config=None):
 
     app = app_base("assistant", lifespan)
 
+    @app.get("/diagnostics", response_model=list[Diagnostic])
+    async def diagnostics():
+        return [
+            model_check(
+                "assistant", cfg, "llama_cpp", cfg["llm"]["model_path"], state["model"] is not None
+            )
+        ]
+
     @app.get("/health", response_model=Health)
     async def health():
         return Health(
-            service="assistant", mode=cfg["mode"], ready=not state["error"], detail=state["error"]
+            service="assistant",
+            mode=cfg["mode"],
+            ready=not state["error"] and cfg.get("profile") != "diagnostics",
+            detail=state["error"]
+            or ("Model loading skipped" if cfg.get("profile") == "diagnostics" else ""),
         )
 
     @app.post("/interpret", response_model=Intent)

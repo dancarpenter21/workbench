@@ -25,17 +25,27 @@ MODULES = {
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["mock", "hardware"], default="mock")
+    parser.add_argument("--profile", choices=["workbench", "diagnostics"], default="workbench")
+    parser.add_argument("--dashboard-host", default="127.0.0.1")
     parser.add_argument("--backend-only", action="store_true")
     parser.add_argument("--dashboard-port", type=int, default=5173)
     args = parser.parse_args()
+    if args.profile == "diagnostics":
+        args.mode = "hardware"
     env = {
         **os.environ,
         "WORKBENCH_ROOT": str(ROOT),
         "WORKBENCH_MODE": args.mode,
+        "WORKBENCH_PROFILE": args.profile,
         "WORKBENCH_STATE_DIR": os.environ.get(
-            "WORKBENCH_STATE_DIR", str(ROOT / ".runtime" / args.mode)
+            "WORKBENCH_STATE_DIR",
+            str(
+                ROOT / ".runtime" / ("diagnostics" if args.profile == "diagnostics" else args.mode)
+            ),
         ),
     }
+    if args.profile == "diagnostics":
+        env.setdefault("WORKBENCH_CONFIG", str(ROOT / "config/development/pi.json"))
     cfg = json.loads(
         Path(env.get("WORKBENCH_CONFIG", ROOT / "config/development/default.json")).read_text()
     )
@@ -49,6 +59,7 @@ def main():
             raise SystemExit(f"Local launcher requires 127.0.0.1 service addresses: {name}")
     for port in ports:
         with socket.socket() as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 sock.bind(("127.0.0.1", port))
             except OSError:
@@ -58,8 +69,13 @@ def main():
     runtime.mkdir(parents=True, exist_ok=True)
     logs = []
 
+    stopping = False
+
     def stop(signum, frame):
-        raise KeyboardInterrupt
+        nonlocal stopping
+        if not stopping:
+            stopping = True
+            raise KeyboardInterrupt
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
@@ -119,6 +135,8 @@ def main():
                         "--",
                         "--port",
                         str(args.dashboard_port),
+                        "--host",
+                        args.dashboard_host,
                     ],
                     cwd=ROOT,
                     env=env,
@@ -128,13 +146,16 @@ def main():
         print(f"Workbench running in {args.mode} mode. Logs: {runtime}", flush=True)
         print("API: " + cfg["services"]["coordinator"] + "/docs", flush=True)
         if not args.backend_only:
-            print(f"Dashboard: http://127.0.0.1:{args.dashboard_port}", flush=True)
+            print(f"Dashboard: http://{args.dashboard_host}:{args.dashboard_port}", flush=True)
         while all(child.poll() is None for child in children):
             time.sleep(0.3)
         raise RuntimeError("An application exited unexpectedly")
     except KeyboardInterrupt:
         print("Stopping applications…", flush=True)
     finally:
+        # npm/uv/test runners can forward the same shutdown signal more than once.
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         # Stop the coordinator before the arm and vision so it can request a hold.
         for child in reversed(children):
             if child.poll() is None:

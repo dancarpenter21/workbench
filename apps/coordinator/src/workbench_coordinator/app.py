@@ -7,12 +7,18 @@ import httpx
 from fastapi import HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from workbench_common import Store, app_base, settings
+from workbench_common.diagnostics import host_check
 from workbench_contracts import (
     TERMINAL,
     WAV_REQUEST_BODY,
     ArmStatus,
+    Diagnostic,
+    DiagnosticsReport,
     Health,
     Intent,
+    MicrophoneDevice,
+    MicrophoneResult,
+    MicrophoneTest,
     Observations,
     Operation,
     Recovery,
@@ -61,6 +67,8 @@ def create_app(config=None, store=None, client=None):
     def snapshot():
         return WorkbenchStatus(
             mode=cfg["mode"],
+            profile=cfg.get("profile", "workbench"),
+            retrieval_enabled=cfg.get("profile") != "diagnostics",
             operation=current(),
             recovery_required=state["store"].get("recovery", False),
             message=state["store"].get("stop_message", ""),
@@ -113,6 +121,90 @@ def create_app(config=None, store=None, client=None):
     @app.get("/health", response_model=Health)
     async def health():
         return Health(service="coordinator", mode=cfg["mode"], ready=True)
+
+    @app.get("/diagnostics", response_model=DiagnosticsReport)
+    async def diagnostics():
+        async def inspect(name):
+            started = time.monotonic()
+            try:
+                response = await call(name, "GET", "/diagnostics", timeout=3.5)
+                checks = [Diagnostic.model_validate(value) for value in response.json()]
+                health = Health.model_validate(
+                    (await call(name, "GET", "/health", timeout=1)).json()
+                )
+                if health.service != name or health.mode != cfg["mode"]:
+                    raise ValueError("Service identity or mode mismatch")
+                checks.append(
+                    Diagnostic(
+                        component=f"service:{name}",
+                        status="ok",
+                        summary="Service responding",
+                        measurements={
+                            "response_ms": round((time.monotonic() - started) * 1000, 1),
+                            "mode": health.mode,
+                            "capability_ready": health.ready,
+                            "detail": health.detail,
+                        },
+                    )
+                )
+                return checks
+            except Exception:
+                return [
+                    Diagnostic(
+                        component=f"service:{name}",
+                        status="unavailable",
+                        summary="Diagnostic endpoint unavailable, invalid, or in a different mode",
+                    )
+                ]
+
+        groups = await asyncio.gather(
+            *(inspect(name) for name in cfg["services"] if name != "coordinator")
+        )
+        host = await host_check(mock=cfg["mode"] == "mock")
+        return DiagnosticsReport(
+            mode=cfg["mode"],
+            profile=cfg.get("profile", "workbench"),
+            retrieval_enabled=cfg.get("profile") != "diagnostics",
+            checks=[
+                host,
+                Diagnostic(
+                    component="service:coordinator", status="ok", summary="Coordinator responding"
+                ),
+                *(check for group in groups for check in group),
+            ],
+        )
+
+    @app.get("/diagnostics/microphone/devices", response_model=list[MicrophoneDevice])
+    async def microphone_devices():
+        try:
+            response = await call("voice", "GET", "/diagnostics/microphone/devices", timeout=4)
+            return [MicrophoneDevice.model_validate(item) for item in response.json()]
+        except Exception as exc:
+            raise HTTPException(503, "Pi microphone enumeration unavailable") from exc
+
+    @app.post("/diagnostics/microphone/test", response_model=MicrophoneResult)
+    async def microphone_test(value: MicrophoneTest, request: Request):
+        task = asyncio.create_task(
+            call(
+                "voice", "POST", "/diagnostics/microphone/test", json=value.model_dump(), timeout=10
+            )
+        )
+        try:
+            while not task.done():
+                if await request.is_disconnected():
+                    raise HTTPException(499, "Microphone client disconnected")
+                await asyncio.wait({task}, timeout=0.1)
+            return MicrophoneResult.model_validate((await task).json())
+        except httpx.HTTPStatusError as exc:
+            raise HTTPException(
+                exc.response.status_code,
+                exc.response.json().get("message", "Microphone test failed"),
+            ) from exc
+        except (httpx.RequestError, ValueError) as exc:
+            raise HTTPException(503, "Pi microphone test unavailable") from exc
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
     @app.get("/services", response_model=list[Health])
     async def services():
@@ -246,6 +338,8 @@ def create_app(config=None, store=None, client=None):
 
     @app.post("/requests", response_model=Operation, status_code=202)
     async def submit(request: TextRequest):
+        if cfg.get("profile") == "diagnostics":
+            raise HTTPException(409, "Retrieval disabled in diagnostics profile")
         if not request.text.strip():
             raise HTTPException(422, "Request must contain text")
         async with gate:

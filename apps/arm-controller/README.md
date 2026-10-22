@@ -55,6 +55,51 @@ is no automatic retry, measured feedback, homing, interpolation or watchdog.
 The [hardware guide](../../docs/hardware.md) and [plan](../../PLAN.md) describe what
 must be established before supervised motor testing and automatic execution.
 
+## Waveshare HAT diagnostic (no servo motion)
+
+From the repository root, install the optional I2C dependency and run:
+
+```sh
+uv sync --locked --extra pwm
+uv run --no-sync python -m workbench_arm_controller.hat_check
+```
+
+The default checks `/dev/i2c-1` at `0x40`, reads mode/prescaler and all sixteen
+channel control registers, and checks PCA9685 reserved-bit constraints. It performs
+no register writes. Use `--bus N --address 0x41` for a deliberately configured bus
+or address; `0x70` is the group all-call address and is rejected. Missing bus,
+missing library, permission errors, no response and inconsistent registers produce
+JSON diagnostics with exit code 1; passing checks return 0. No bus scan is performed.
+If `/dev/i2c-1` is missing, enable I2C in `sudo raspi-config` (Interface Options >
+I2C), reboot if requested and retry. Check access with `ls -l /dev/i2c-1` and
+`id -nG`; on Raspberry Pi OS, membership in the `i2c` group normally grants access
+(log in again after changing membership). Power down before fitting the HAT.
+
+For a stronger register communication test, stop other processes using this
+controller, support the arm and disconnect servo power, then run:
+
+```sh
+uv run --no-sync python -m workbench_arm_controller.hat_check --register-test
+```
+
+This writes two patterns to the disabled SUBADR1 register, verifies each readback,
+and restores and verifies the original value even after a test failure. It refuses
+if that subaddress is enabled. It never changes PWM outputs, mode or frequency;
+existing pulses can continue. Restoration failure is reported as a failure.
+Avoid concurrent controller access throughout either check.
+
+These checks establish register communication, not complete HAT functionality.
+The PCA9685 has no chip-identification register: a pass indicates compatible
+register behavior, not proof of the Waveshare brand. Servo power, output-enable,
+oscillator operation, signal timing and servo movement require separate physical
+measurement. Before connecting servos, verify approximately 50 Hz and calibrated
+pulse widths at the output headers with a scope or logic analyzer during supervised
+commissioning. This diagnostic does not generate that test waveform or enable retrieval.
+
+References: [Waveshare Servo Driver HAT](https://www.waveshare.com/wiki/Servo_Driver_HAT)
+(default address and setup) and [NXP PCA9685 datasheet](https://www.nxp.com/docs/en/data-sheet/PCA9685.pdf)
+(register map, reserved bits and disabled subaddresses).
+
 ## Offline motion rehearsal and commissioning records
 
 The [motion design](../../docs/arm-control.md) describes startup/readiness, bounded

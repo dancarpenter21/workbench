@@ -1,9 +1,12 @@
 import asyncio
+import json
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException
 from workbench_common import Store, app_base, settings
-from workbench_contracts import ArmCommand, ArmStatus, Health, Recovery
+from workbench_common.diagnostics import command
+from workbench_contracts import ArmCommand, ArmStatus, Diagnostic, Health, Recovery
 
 from workbench_arm_controller.driver import SerialArm
 from workbench_arm_controller.pca9685 import AUTOMATION_UNAVAILABLE
@@ -42,6 +45,8 @@ def create_app(config=None, store=None):
             await save(status)
         if cfg["mode"] == "hardware":
             try:
+                if cfg.get("profile") == "diagnostics":
+                    raise ValueError("Motion disabled in diagnostics profile")
                 backend = cfg["arm"].get("backend", "roarm")
                 if backend == "pca9685":
                     raise ValueError(AUTOMATION_UNAVAILABLE)
@@ -73,6 +78,63 @@ def create_app(config=None, store=None):
             state["store"].close()
 
     app = app_base("arm-controller", lifespan)
+
+    diagnostic_lock = asyncio.Lock()
+
+    @app.get("/diagnostics", response_model=list[Diagnostic])
+    async def diagnostics():
+        if cfg["mode"] == "mock":
+            return [
+                Diagnostic(
+                    component="hat",
+                    status="ok",
+                    summary="Simulated HAT",
+                    measurements={"simulated": True, "physical_position": None},
+                )
+            ]
+        if cfg["arm"].get("backend") != "pca9685":
+            return [
+                Diagnostic(
+                    component="hat", status="unavailable", summary="PCA9685 backend not selected"
+                )
+            ]
+        if diagnostic_lock.locked():
+            return [Diagnostic(component="hat", status="unavailable", summary="Check busy")]
+        async with diagnostic_lock:
+            try:
+                data = json.loads(
+                    (
+                        await command(
+                            sys.executable,
+                            "-m",
+                            "workbench_arm_controller.hat_check",
+                            "--bus",
+                            str(cfg["arm"].get("i2c_bus", 1)),
+                            "--address",
+                            str(cfg["arm"].get("i2c_address", 0x40)),
+                            timeout=2,
+                        )
+                    ).decode()
+                )
+                return [
+                    Diagnostic(
+                        component="hat",
+                        status="ok",
+                        summary="Register communication verified; physical position unknown",
+                        measurements={
+                            **{k: v for k, v in data.items() if k != "status"},
+                            "physical_position": None,
+                            "retrieval_enabled": False,
+                            "calibrated": cfg["workbench"]["arm"].get("calibrated", False),
+                        },
+                    )
+                ]
+            except (OSError, ValueError, RuntimeError, TimeoutError) as exc:
+                return [
+                    Diagnostic(
+                        component="hat", status="error", summary=str(exc) or "HAT check timed out"
+                    )
+                ]
 
     @app.get("/health", response_model=Health)
     async def health():
@@ -111,6 +173,8 @@ def create_app(config=None, store=None):
 
     @app.post("/execute", response_model=ArmStatus, status_code=202)
     async def execute(command: ArmCommand):
+        if cfg.get("profile") == "diagnostics":
+            raise HTTPException(409, "Motion disabled in diagnostics profile")
         async with lock:
             if state["error"]:
                 raise HTTPException(503, state["error"])

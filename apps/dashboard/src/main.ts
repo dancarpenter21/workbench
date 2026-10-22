@@ -2,6 +2,7 @@ import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
 import { record } from "./audio";
 import "./style.css";
+import { mountDiagnostics } from "./diagnostics";
 
 type Status = components["schemas"]["WorkbenchStatus"];
 const api = createClient<paths>({ baseUrl: "/api" });
@@ -9,7 +10,11 @@ const root = document.querySelector<HTMLDivElement>("#app")!;
 root.innerHTML = `
   <header><a href="/" class="wordmark"><span class="mark">W</span> WORKBENCH</a>
     <span id="connection" class="badge">Connecting…</span></header>
-  <main>
+  <nav class="view-navigation" aria-label="Workbench views">
+    <button id="workbench-tab" class="secondary" aria-pressed="true">Workbench</button>
+    <button id="diagnostics-tab" class="secondary" aria-pressed="false">Diagnostics</button>
+  </nav>
+  <main id="workbench-view">
     <div class="intro"><p class="eyebrow">ROBOTIC ASSISTANT / 01</p>
       <h1>A little help<br>at the bench.</h1>
       <p>Choose a tool. Your assistant will bring it to the delivery tray.</p></div>
@@ -36,7 +41,7 @@ root.innerHTML = `
       </div>
     </section>
     <footer><span>LOCAL PROCESSING</span><div id="services">Checking applications…</div></footer>
-  </main>`;
+  </main><main id="diagnostics-view" hidden></main>`;
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id)! as T;
@@ -49,6 +54,17 @@ const terminal = new Set([
   "stopped",
   "status",
 ]);
+const diagnosticsView = el("diagnostics-view");
+mountDiagnostics(diagnosticsView);
+let selectedView = false;
+function showView(diagnostics: boolean) {
+  diagnosticsView.hidden = !diagnostics;
+  el("workbench-view").hidden = diagnostics;
+  button("diagnostics-tab").setAttribute("aria-pressed", String(diagnostics));
+  button("workbench-tab").setAttribute("aria-pressed", String(!diagnostics));
+}
+button("diagnostics-tab").onclick = () => { selectedView = true; showView(true); };
+button("workbench-tab").onclick = () => { selectedView = true; showView(false); };
 let connected = false;
 let latest: Status | null = null;
 let submitting = false;
@@ -66,13 +82,14 @@ function failure(error: unknown) {
 function updateControls() {
   const active = !!latest?.operation && !terminal.has(latest.operation.state);
   button("submit").disabled =
-    !connected || active || submitting || !!latest?.recovery_required;
+    !connected || active || submitting || !!latest?.recovery_required || latest?.retrieval_enabled === false;
   button("reset").disabled = active;
   button("record").disabled = microphoneBusy;
 }
 
 function render(status: Status) {
   latest = status;
+  if (!selectedView && status.profile === "diagnostics") showView(true);
   el("mode").textContent = status.mode === "mock" ? "SIMULATED" : "LIVE CAMERA";
   button("reset").hidden = status.mode !== "mock";
   el("voice-note").textContent =
@@ -212,6 +229,7 @@ camera.onerror = () => {
     "Camera unavailable — check the vision application.";
 };
 setInterval(() => {
+  if (el("workbench-view").hidden) return;
   camera.src = `/api/coordinator/camera/preview?t=${Date.now()}`;
 }, 1000);
 

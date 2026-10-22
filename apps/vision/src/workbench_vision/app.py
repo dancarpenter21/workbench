@@ -1,14 +1,17 @@
 import asyncio
 import html
 import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import timedelta
 
 from fastapi import HTTPException, Response
 from workbench_common import ROOT, app_base, settings
-from workbench_contracts import Health, MockScene, Observation, Observations, now
+from workbench_contracts import Diagnostic, Health, MockScene, Observation, Observations, now
 
 from .capture import open_capture
+
+RECONNECT_INTERVAL_SECONDS = 2
 
 
 class Camera:
@@ -25,20 +28,31 @@ class Camera:
         )
         self.error = "Camera starting"
         self.references = {}
-        vision = cfg["workbench"]["vision"]
-        labels = {"empty", *(t["id"] for t in cfg["workbench"]["tools"])}
+        self.frame_at = None
+        self.frame_size = None
+        self.frame_rate = 0.0
+        self.previous_frame_time = None
+        self.recognition_error = ""
+        try:
+            self.load_references()
+        except (ValueError, OSError) as exc:
+            self.recognition_error = str(exc)
+        self.thread = threading.Thread(target=self.run_forever, daemon=True)
+        self.thread.start()
+
+    def load_references(self):
+        vision = self.cfg["workbench"]["vision"]
+        labels = {"empty", *(t["id"] for t in self.cfg["workbench"]["tools"])}
         for region in vision["regions"]:
             paths = vision["references"].get(region, {})
             if set(paths) != labels:
                 raise ValueError(f"Region {region} needs reference images for {sorted(labels)}")
             self.references[region] = {}
             for label, path in paths.items():
-                image = cv2.imread(str(ROOT / path))
+                image = self.cv.imread(str(ROOT / path))
                 if image is None:
                     raise ValueError(f"Cannot read reference: {path}")
-                self.references[region][label] = cv2.resize(image, (64, 64)).astype("float32")
-        self.thread = threading.Thread(target=self.run, daemon=True)
-        self.thread.start()
+                self.references[region][label] = self.cv.resize(image, (64, 64)).astype("float32")
 
     def classify(self, crop, region):
         import numpy as np
@@ -63,54 +77,76 @@ class Camera:
             self.jpeg = None
             self.observations.camera_ok = False
 
+    def recognize(self, frame):
+        labels = {}
+        for region, (x, y, w, h) in self.cfg["workbench"]["vision"]["regions"].items():
+            if min(x, y) < 0 or min(w, h) <= 0 or y + h > frame.shape[0] or x + w > frame.shape[1]:
+                raise ValueError(f"Region {region} lies outside camera frame")
+            labels[region] = self.classify(frame[y : y + h, x : x + w], region)
+        observations = []
+        for tool in self.cfg["workbench"]["tools"]:
+            tid = tool["id"]
+            source, score = labels[tid]
+            tray, tray_score = labels["tray"]
+            if tray == tid and source == "empty":
+                location, confidence = "tray", min(score, tray_score)
+            elif source == tid and tray != tid:
+                location, confidence = "source", score
+            elif source == "empty" and tray != "uncertain":
+                location, confidence = "missing", score
+            else:
+                location, confidence = "uncertain", 0
+            observations.append(Observation(tool_id=tid, location=location, confidence=confidence))
+        return Observations(
+            captured_at=now(),
+            tools=observations,
+            tray_clear=labels["tray"][0] == "empty",
+            camera_ok=True,
+        )
+
+    def run_forever(self):
+        while not self.stop.is_set():
+            self.run()
+            self.stop.wait(RECONNECT_INTERVAL_SECONDS)
+
     def run(self):
         camera = self.cfg["camera"]
         cap = None
         try:
             cap = open_capture(camera, self.cv)
+            failures = 0
             while not self.stop.is_set():
                 try:
                     frame = cap.read()
-                    labels = {}
-                    for region, (x, y, w, h) in self.cfg["workbench"]["vision"]["regions"].items():
-                        if (
-                            min(x, y) < 0
-                            or min(w, h) <= 0
-                            or y + h > frame.shape[0]
-                            or x + w > frame.shape[1]
-                        ):
-                            raise ValueError(f"Region {region} lies outside camera frame")
-                        labels[region] = self.classify(frame[y : y + h, x : x + w], region)
-                    observations = []
-                    for tool in self.cfg["workbench"]["tools"]:
-                        tid = tool["id"]
-                        source, score = labels[tid]
-                        tray, tray_score = labels["tray"]
-                        if tray == tid and source == "empty":
-                            location, confidence = "tray", min(score, tray_score)
-                        elif source == tid and tray != tid:
-                            location, confidence = "source", score
-                        elif source == "empty" and tray != "uncertain":
-                            location, confidence = "missing", score
-                        else:
-                            location, confidence = "uncertain", 0
-                        observations.append(
-                            Observation(tool_id=tid, location=location, confidence=confidence)
-                        )
+                    failures = 0
+                    observations = None
+                    recognition_error = getattr(self, "recognition_error", "")
+                    if not recognition_error:
+                        try:
+                            observations = self.recognize(frame)
+                        except Exception as exc:
+                            recognition_error = str(exc)
                     ok, jpeg = self.cv.imencode(".jpg", frame)
                     if not ok:
                         raise ValueError("Camera encoding failed")
                     with self.lock:
                         self.jpeg = jpeg.tobytes()
-                        self.observations = Observations(
-                            captured_at=now(),
-                            tools=observations,
-                            tray_clear=labels["tray"][0] == "empty",
-                            camera_ok=True,
+                        self.frame_at = now()
+                        self.frame_size = (frame.shape[1], frame.shape[0])
+                        tick = time.monotonic()
+                        previous = getattr(self, "previous_frame_time", None)
+                        self.frame_rate = 1 / (tick - previous) if previous else 0.0
+                        self.previous_frame_time = tick
+                        self.recognition_error = recognition_error
+                        self.observations = observations or Observations(
+                            captured_at=self.frame_at, tools=[], tray_clear=False, camera_ok=False
                         )
                         self.error = ""
                 except Exception as exc:
                     self.record_error(exc)
+                    failures += 1
+                    if failures >= 3:
+                        break
                 self.stop.wait(camera["interval_seconds"])
         except Exception as exc:
             self.record_error(exc)
@@ -149,9 +185,55 @@ def create_app(config=None):
 
     app = app_base("vision", lifespan)
 
+    @app.get("/diagnostics", response_model=list[Diagnostic])
+    async def diagnostics():
+        if cfg["mode"] == "mock":
+            return [
+                Diagnostic(
+                    component="camera",
+                    status="ok",
+                    summary="Simulated camera",
+                    measurements={"simulated": True, "frame_age_seconds": 0.0},
+                )
+            ]
+        camera = state["camera"]
+        if not camera:
+            return [
+                Diagnostic(
+                    component="camera",
+                    status="error",
+                    summary=state["error"] or "Camera not initialized",
+                )
+            ]
+        with camera.lock:
+            age = (now() - camera.frame_at).total_seconds() if camera.frame_at else None
+            fresh = age is not None and age <= cfg["observation_max_age_seconds"]
+            return [
+                Diagnostic(
+                    component="camera",
+                    status="ok" if fresh and not camera.error else "error",
+                    summary=camera.error or ("Live frames available" if fresh else "Frames stale"),
+                    measurements={
+                        "backend": cfg["camera"].get("backend", "opencv"),
+                        "frame_age_seconds": age,
+                        "last_frame_at": camera.frame_at.isoformat() if camera.frame_at else None,
+                        "width": camera.frame_size[0] if camera.frame_size else None,
+                        "height": camera.frame_size[1] if camera.frame_size else None,
+                        "capture_fps": camera.frame_rate,
+                    },
+                ),
+                Diagnostic(
+                    component="recognition",
+                    status="warning" if camera.recognition_error else "ok",
+                    summary=camera.recognition_error or "Reference classifier configured",
+                ),
+            ]
+
     @app.get("/health", response_model=Health)
     async def health():
-        error = state["error"] or (state["camera"].error if state["camera"] else "")
+        error = state["error"] or (
+            (state["camera"].error or state["camera"].recognition_error) if state["camera"] else ""
+        )
         return Health(service="vision", mode=cfg["mode"], ready=not error, detail=error)
 
     @app.get("/observations", response_model=Observations)
@@ -188,7 +270,12 @@ def create_app(config=None):
         camera = state["camera"]
         if camera:
             with camera.lock:
-                if camera.jpeg and camera.observations.camera_ok:
+                if (
+                    camera.jpeg
+                    and camera.frame_at
+                    and (now() - camera.frame_at).total_seconds()
+                    <= cfg["observation_max_age_seconds"]
+                ):
                     return Response(
                         camera.jpeg, media_type="image/jpeg", headers={"Cache-Control": "no-store"}
                     )

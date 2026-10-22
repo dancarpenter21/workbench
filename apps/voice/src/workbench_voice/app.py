@@ -7,7 +7,18 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 from workbench_common import ROOT, app_base, settings
-from workbench_contracts import WAV_REQUEST_BODY, Health, Transcript
+from workbench_common.diagnostics import model_check
+from workbench_contracts import (
+    WAV_REQUEST_BODY,
+    Diagnostic,
+    Health,
+    MicrophoneDevice,
+    MicrophoneResult,
+    MicrophoneTest,
+    Transcript,
+)
+
+from .microphone import Microphone, devices
 
 MAX_BYTES = 4_000_000
 
@@ -44,10 +55,11 @@ def create_app(config=None):
     cfg = config or settings()
     state = {"model": None, "error": ""}
     lock = asyncio.Lock()
+    microphone = Microphone(mock=cfg["mode"] == "mock")
 
     @asynccontextmanager
     async def lifespan(app):
-        if cfg["mode"] == "hardware":
+        if cfg["mode"] == "hardware" and cfg.get("profile") != "diagnostics":
             try:
                 from faster_whisper import WhisperModel
 
@@ -64,13 +76,69 @@ def create_app(config=None):
             except Exception as exc:
                 state["error"] = str(exc)
         yield
+        await microphone.close()
 
     app = app_base("voice", lifespan)
+
+    @app.get("/diagnostics", response_model=list[Diagnostic])
+    async def diagnostics():
+        checks = [
+            model_check(
+                "voice",
+                cfg,
+                "faster_whisper",
+                cfg["speech"]["model_path"],
+                state["model"] is not None,
+            )
+        ]
+        try:
+            found = await devices(cfg["mode"] == "mock")
+            checks.append(
+                Diagnostic(
+                    component="microphone",
+                    status="ok" if found else "unavailable",
+                    summary="Pi capture devices available"
+                    if found
+                    else "No Pi capture devices found",
+                    measurements={
+                        "device_count": len(found),
+                        "recording": microphone.lock.locked(),
+                        "simulated": cfg["mode"] == "mock",
+                    },
+                )
+            )
+        except (OSError, RuntimeError, TimeoutError) as exc:
+            checks.append(
+                Diagnostic(
+                    component="microphone",
+                    status="error",
+                    summary=str(exc) or "Device enumeration timed out",
+                )
+            )
+        return checks
+
+    @app.get("/diagnostics/microphone/devices", response_model=list[MicrophoneDevice])
+    async def microphone_devices():
+        try:
+            return await devices(cfg["mode"] == "mock")
+        except (OSError, RuntimeError, TimeoutError) as exc:
+            raise HTTPException(503, str(exc) or "Device enumeration timed out") from exc
+
+    @app.post("/diagnostics/microphone/test", response_model=MicrophoneResult)
+    async def microphone_test(value: MicrophoneTest, request: Request):
+        try:
+            return await microphone.test(request, value.device_id)
+        except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
+            raise HTTPException(503, str(exc) or "Microphone capture timed out") from exc
 
     @app.get("/health", response_model=Health)
     async def health():
         return Health(
-            service="voice", mode=cfg["mode"], ready=not state["error"], detail=state["error"]
+            service="voice",
+            mode=cfg["mode"],
+            ready=not state["error"] and cfg.get("profile") != "diagnostics",
+            detail=state["error"]
+            or ("Model loading skipped" if cfg.get("profile") == "diagnostics" else ""),
         )
 
     @app.post("/transcribe", response_model=Transcript, openapi_extra=WAV_REQUEST_BODY)

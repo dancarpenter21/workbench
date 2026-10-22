@@ -35,7 +35,13 @@ class Picamera2Capture:
                 "and make its system packages visible to the vision Python environment"
             ) from exc
 
-        self.device = Picamera2(camera_num=camera["device"])
+        try:
+            self.device = Picamera2(camera_num=camera["device"])
+        except Exception as exc:
+            raise RuntimeError(
+                f"Camera could not open: {exc} Check camera connection and permissions; "
+                "close other camera applications. Retrying automatically."
+            ) from exc
         self.pending = None
         try:
             config = self.device.create_video_configuration(

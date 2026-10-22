@@ -8,7 +8,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
@@ -23,6 +23,9 @@ def settings() -> dict:
     data["mode"] = os.environ.get("WORKBENCH_MODE", data["mode"])
     if data["mode"] not in {"mock", "hardware"}:
         raise ValueError("WORKBENCH_MODE must be mock or hardware")
+    data["profile"] = os.environ.get("WORKBENCH_PROFILE", data.get("profile", "workbench"))
+    if data["profile"] not in {"workbench", "diagnostics"}:
+        raise ValueError("WORKBENCH_PROFILE must be workbench or diagnostics")
     bench = Path(os.environ.get("WORKBENCH_CALIBRATION", ROOT / "config/workbench/default.json"))
     data["workbench"] = json.loads(bench.read_text())
     return data
@@ -56,20 +59,37 @@ def app_base(name: str, lifespan=None) -> FastAPI:
     async def validation_error(request, exc):
         return JSONResponse({"code": "invalid_request", "message": str(exc)}, status_code=422)
 
-    @app.middleware("http")
-    async def correlation(request: Request, call_next):
-        response = await call_next(request)
-        operation_id = request.headers.get("x-operation-id", "-")
-        logging.getLogger(name).info(
-            "operation=%s %s %s %s",
-            operation_id,
-            request.method,
-            request.url.path,
-            response.status_code,
-        )
-        return response
+    app.add_middleware(CorrelationLog, service=name)
 
     return app
+
+
+class CorrelationLog:
+    """Pure ASGI logging preserves disconnect delivery for cancellable device requests."""
+
+    def __init__(self, app, service):
+        self.app = app
+        self.logger = logging.getLogger(service)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        operation_id = (
+            dict(scope.get("headers", [])).get(b"x-operation-id", b"-").decode(errors="replace")
+        )
+
+        async def log_response(message):
+            if message["type"] == "http.response.start":
+                self.logger.info(
+                    "operation=%s %s %s %s",
+                    operation_id,
+                    scope["method"],
+                    scope["path"],
+                    message["status"],
+                )
+            await send(message)
+
+        await self.app(scope, receive, log_response)
 
 
 class Store:

@@ -114,6 +114,8 @@ class Operation(Contract):
 
 class WorkbenchStatus(Contract):
     mode: str
+    profile: str = "workbench"
+    retrieval_enabled: bool = True
     operation: Operation | None
     recovery_required: bool
     message: str = ""
@@ -121,3 +123,39 @@ class WorkbenchStatus(Contract):
 
 class Recovery(Contract):
     acknowledged: Literal[True]
+
+
+class Diagnostic(Contract):
+    component: str
+    status: Literal["ok", "warning", "error", "unavailable"]
+    checked_at: datetime = Field(default_factory=now)
+    summary: str
+    measurements: dict[str, str | float | bool | None] = Field(default_factory=dict)
+
+
+class DiagnosticsReport(Contract):
+    checked_at: datetime = Field(default_factory=now)
+    mode: str
+    profile: str
+    retrieval_enabled: bool
+    checks: list[Diagnostic]
+
+
+class MicrophoneDevice(Contract):
+    id: str
+    name: str
+
+
+class MicrophoneTest(Contract):
+    device_id: str = Field(min_length=1, max_length=100)
+
+
+class MicrophoneResult(Contract):
+    device_id: str
+    duration_seconds: float
+    sample_rate: int
+    peak: float
+    rms: float
+    clipped: bool
+    wav_base64: str
+    simulated: bool = False

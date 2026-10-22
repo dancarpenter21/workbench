@@ -90,6 +90,20 @@ Confirm stable PWM at the table during real motor loading. A wire-gauge choice b
 does not establish reliable signaling over 4–6 feet. Keep camera CSI wiring short and
 local to the overhead Pi.
 
+### Check the Servo HAT without moving the arm
+
+Use the [standalone HAT diagnostic](../apps/arm-controller/README.md#waveshare-hat-diagnostic-no-servo-motion)
+to check I2C availability, PCA9685-compatible registers and optional write/read/restore
+communication before servo commissioning:
+
+```sh
+uv sync --locked --extra pwm
+uv run --no-sync python -m workbench_arm_controller.hat_check
+```
+
+A missing HAT or disabled bus returns a clear failure. Passing register checks does
+not verify servo power, output signals or mechanical operation.
+
 ### Software status and calibration
 
 The Pi profile is `config/development/pi.json`: `camera.backend` selects `picamera2`,

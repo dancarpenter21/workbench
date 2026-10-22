@@ -44,6 +44,17 @@ Rehearsal results and complete record files cannot qualify hardware. Actual sign
 timing, joint limits, paths/payload, completion sensing, physical stop/recovery and Pi
 service/device behavior still require the installed bench.
 
+## Pi diagnostics dashboard
+
+For live camera preview, Pi USB microphone recording/playback, read-only HAT checks,
+and host/service/model status, use the [diagnostics setup guide](docs/diagnostics.md).
+The explicit diagnostics profile enables hardware inputs while rejecting arm motion
+and skipping model loading. It supports a browser on another computer on the LAN.
+
+```sh
+uv run --no-sync python scripts/dev.py --profile diagnostics --dashboard-host 0.0.0.0
+```
+
 ## Quick start
 
 Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22.12+ and npm.
@@ -116,9 +127,11 @@ pickup still need bench validation.
 
 ## Development and verification
 
-Latest recorded local verification (2026-09-15): **181 Python tests passed**, with
-Ruff lint/format and documentation checks passing. See the [verification record](PLAN.md#latest-local-verification--2026-09-15)
-for scope and commands. Pi/device operation and physical acceptance remain unperformed.
+Latest local verification (2026-10-21): **223 Python tests and 4 browser tests passed**,
+with Ruff lint/format, contract generation, and the dashboard build passing. On the
+installed Pi, live camera preview, USB microphone capture/playback/cancellation, and
+read-only HAT communication were verified through the diagnostics dashboard. See the
+[diagnostics guide](docs/diagnostics.md). Physical arm acceptance remains unperformed.
 
 ```sh
 uv run pytest -q
