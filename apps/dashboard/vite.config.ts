@@ -4,6 +4,7 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    allowedHosts: ["pi1-home-ddc-crew"],
     proxy: {
       "/api": {
         target:
