@@ -13,9 +13,9 @@ test("retrieve, reset, stop and recover from the dashboard", async ({
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await expect(page.locator("#connection")).toHaveText("CONNECTED");
-  await expect(page.locator("#mode")).toHaveText("SIMULATED");
-  await page.getByRole("button", { name: "Pliers", exact: true }).click();
+  await expect(page.locator("#connection")).toContainText("Servo HAT");
+  await expect(page.locator("#camera-note")).toContainText("Simulated scene");
+  await page.locator("#request").fill("Grab me the pliers");
   await page.getByRole("button", { name: "Retrieve tool" }).click();
   await expect(page.locator("#operation-state")).toHaveText("COMPLETED", {
     timeout: 15_000,

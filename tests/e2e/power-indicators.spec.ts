@@ -8,7 +8,7 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
         simulated: false, healthy: state !== "fault" && !state.startsWith("recovered"),
         reading_healthy: state !== "fault",
         fault: state === "fault" || state.startsWith("recovered") ? "Stale INA219 readings (earlier interruption)" : "",
-        sampled_at: new Date().toISOString(), age_seconds: state === "stale" ? 1 : 0.01,
+        sampled_at: new Date().toISOString(), age_seconds: state === "stale" ? 2 : 0.01,
         bus_v: (state === "energized" || state === "recovered_powered") ? 5 : 0.004, shunt_mv: -0.06,
         current_a: null, scale_verified: false, power_state: (state === "energized" || state === "recovered_powered") ? "energized" : state === "unknown" ? "unknown" : "off",
         off_bounds: state === "unknown" ? null : {
@@ -31,27 +31,28 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
       (window as any).EventSource = FixtureEvents;
     }, { state });
     await page.goto("/");
-    const badge = page.locator("#power-indicator");
-    const label = state === "off" || state === "recovered_off" ? "Powered down" : state === "energized" ? "Powered" : state === "recovered_powered" ? "Reset required" : state === "fault" || state === "stale" ? "Sensor fault" : "Power unknown";
+    const badge = page.locator("#servo-power");
+    const label = state === "off" || state === "recovered_off" ? "Powered down" : state === "energized" || state === "recovered_powered" ? "Powered" : "Power unknown";
     await expect(badge).toContainText(label);
     if (state.startsWith("recovered")) {
-      await expect(badge).toHaveAttribute("data-state", state === "recovered_off" ? "off" : "paused");
-      await expect(page.locator("#workbench-current .current-fault")).toBeEmpty();
-      await page.locator("#workbench-current summary").click();
-      await expect(page.locator("#workbench-current .current-recovery")).toContainText("previous monitoring interruption");
+      await expect(badge).toHaveAttribute("data-state", state === "recovered_off" ? "off" : "ok");
+      await expect(page.locator("#header-current .current-fault")).toBeEmpty();
+      await page.locator("#header-current summary").click();
+      await expect(page.locator("#header-current .current-recovery")).toContainText("previous monitoring interruption");
       if (state === "recovered_off") await page.screenshot({ path: "test-results/powered-off-normal.png" });
     }
     if (state === "off") {
-      await expect(page.locator("#workbench-current .current-label")).toHaveText("Powered down");
-      await expect(page.locator("#workbench-current .current-raw")).toContainText("-0.06 mV");
-      await page.locator("#workbench-current summary").click();
-      await expect(page.locator("#workbench-current .current-baseline")).toContainText("0.120 mV");
-      await expect(page.locator("#workbench-current .current-scale")).toContainText("UNVERIFIED");
+      await expect(page.locator("#servo-power .power-label")).toHaveText("Powered down");
+      await expect(page.locator("#header-current .current-raw")).toContainText("-0.06 mV");
+      await page.locator("#header-current summary").click();
+      await expect(page.locator("#header-current .current-baseline")).toContainText("0.120 mV");
+      await expect(page.locator("#header-current .current-scale")).toContainText("UNVERIFIED");
       await page.screenshot({ path: "test-results/workbench-current-off-800.png" });
+      await page.locator("#header-current summary").click();
       await page.locator("#jog-tab").click();
       await expect(badge).toContainText("Powered down");
       await page.evaluate(() => { (window as any).__pauseCurrent = true; });
-      await expect(badge).toContainText("Sensor fault");
+      await expect(badge).toContainText("Power unknown");
     }
   });
 }

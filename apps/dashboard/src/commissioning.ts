@@ -1,6 +1,5 @@
 import type { components } from "@workbench/contracts";
 import { mountCurrentScale } from "./current-scale";
-import { renderCurrent } from "./current";
 
 type Status = components["schemas"]["CommissionStatus"];
 type Draft = components["schemas"]["CommissionDraft"];
@@ -12,7 +11,6 @@ const label = (id: string) => id === "base" ? "Base" : id === "claw" ? "Claw" : 
 
 export function mountCommissioning(root: HTMLElement) {
   root.innerHTML = `
-    <div id="trial-current" aria-label="Claw current monitor"></div>
     <div id="trial-joints" class="manual-joints" aria-label="Choose joint"></div>
     <p id="trial-message" role="status"></p>
     <div id="trial-motion" hidden>
@@ -99,7 +97,7 @@ export function mountCommissioning(root: HTMLElement) {
     el("joints").append(b);
   }
   function render() {
-    renderCurrent(el("current"), status?.claw_current); scales.update(status);
+    scales.update(status);
     const ready = !!token && status?.stage === "ready" && status.claw_current?.healthy === true;
     const awaiting = !!token && status?.stage === "awaiting_feedback";
     const idle = !!status?.available && !status.reserved && status.claw_current?.healthy === true;

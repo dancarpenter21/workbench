@@ -1,8 +1,7 @@
 import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
 import { record } from "./audio";
-import { renderNeutral } from "./neutral";
-import { renderCurrent, renderPowerIndicator } from "./current";
+import { CURRENT_DISPLAY_GRACE_SECONDS, renderCurrent, renderHatPresence, renderServoPower } from "./current";
 import "./style.css";
 import { mountDiagnostics } from "./diagnostics";
 import { mountCommissioning } from "./commissioning";
@@ -13,26 +12,23 @@ const api = createClient<paths>({ baseUrl: "/api" });
 const root = document.querySelector<HTMLDivElement>("#app")!;
 root.innerHTML = `
   <header><a href="/" class="wordmark"><span class="mark">W</span> WORKBENCH</a>
-    <div class="header-status"><span id="power-indicator" class="power-indicator" role="status">… Current</span><span id="connection" class="badge" data-state="waiting">Connecting…</span>
-      <button id="stop" class="danger">■ Stop arm</button></div></header>
+    <span id="servo-power" class="device-pill" role="status" aria-label="Servo power"></span>
+    <div id="header-current" aria-label="Claw current monitor"></div>
+    <div class="header-status"><span id="connection" class="device-pill" aria-label="Servo HAT status" data-state="waiting">Servo HAT · checking</span></div></header>
   <nav class="view-navigation" aria-label="Workbench views">
     <button id="workbench-tab" class="secondary" aria-pressed="true">⌂ Workbench</button>
     <button id="pulse-tab" class="secondary" aria-pressed="false">↔ Pulse test</button>
     <button id="jog-tab" class="secondary" aria-pressed="false">✥ Jog</button>
     <button id="diagnostics-tab" aria-label="Diagnostics" class="secondary" aria-pressed="false">⚙ Diagnostics</button>
   </nav>
-  <div id="shared-recovery"></div>
-  <div id="neutral-reference" hidden></div>
   <main id="workbench-view">
-    <div id="tools-view">
-    <div id="workbench-current" aria-label="Claw supply monitoring"></div>
-    <section class="workspace">
-      <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><span id="mode" class="badge">—</span></div>
+    <div class="workbench-layout">
+      <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><span id="camera-status" role="status" title="Preview delivery rate and time since the last received frame">Connecting…</span><button id="stop" class="danger">■ Stop arm</button></div>
         <img id="camera" alt="Overhead view of the workbench" />
-        <p id="camera-note" class="caption">Connecting to camera…</p>
-        <div id="tools" class="tools"></div>
+        <p id="camera-note" class="caption" role="status">Connecting to camera…</p>
       </div>
-      <div class="command-panel"><p class="eyebrow">YOUR NEXT TOOL</p><h2>What do you need?</h2>
+      <div class="tab-content">
+      <div id="tools-view" class="command-panel"><p class="eyebrow">YOUR NEXT TOOL</p><h2>What do you need?</h2>
         <form id="request-form"><label for="request">Request a tool</label>
           <textarea id="request" rows="2" maxlength="1000" placeholder="Grab me the crescent wrench" required></textarea>
           <div class="actions"><button id="submit" type="submit">Retrieve tool <span>↗</span></button>
@@ -47,12 +43,19 @@ root.innerHTML = `
           <label class="ack"><input type="checkbox" id="ack" /> I have checked the arm and cleared the workbench.</label>
           <button id="recover" class="secondary" disabled>Recover</button></div>
       </div>
-    </section>
-    </div>
     <section id="commissioning-panel" class="manual-panel"></section>
     <section id="manual-panel" class="manual-panel"></section>
+    <section id="diagnostics-view" hidden></section>
+      </div>
+    </div>
     <footer><span>LOCAL PROCESSING</span><div id="services">Checking applications…</div></footer>
-  </main><main id="diagnostics-view" hidden></main>`;
+  </main>
+  <div id="shared-recovery"></div>`;
+
+const headerObserver = new ResizeObserver(([entry]) => {
+  document.documentElement.style.setProperty("--header-height", `${entry.target.getBoundingClientRect().height}px`);
+});
+headerObserver.observe(document.querySelector("header")!);
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) =>
   document.getElementById(id)! as T;
@@ -75,7 +78,6 @@ function showView(view: View) {
   manual.setVisible(view === "jog");
   commissioning.setVisible(view === "pulse");
   diagnosticsView.hidden = view !== "diagnostics";
-  el("workbench-view").hidden = view === "diagnostics";
   el("tools-view").hidden = view !== "workbench";
   el("commissioning-panel").hidden = view !== "pulse";
   el("manual-panel").hidden = view !== "jog";
@@ -118,7 +120,6 @@ function render(status: Status) {
   manual.updateWorkbench(status);
   commissioning.updateWorkbench(status);
   if (!selectedView && status.profile === "diagnostics") showView("diagnostics");
-  el("mode").textContent = status.mode === "mock" ? "SIMULATED" : "HARDWARE";
   button("reset").hidden = status.mode !== "mock";
   el("voice-note").textContent =
     status.mode === "mock"
@@ -237,50 +238,96 @@ button("record").onclick = async () => {
 };
 
 function refreshCurrent() {
-  const source = connected ? latest?.claw_current : null;
   const elapsed = (performance.now() - currentReceivedAt) / 1000;
+  // Keep the last reading through a brief transport interruption; never extend its age.
+  const source = connected || elapsed < CURRENT_DISPLAY_GRACE_SECONDS ? latest?.claw_current : null;
   const sample = source ? { ...source, age_seconds: (source.age_seconds ?? 0.3) + elapsed } : null;
-  renderCurrent(el("workbench-current"), sample);
-  renderPowerIndicator(el("power-indicator"), sample);
-  renderNeutral(el("neutral-reference"), connected ? latest?.neutral_evidence : null, sample);
+  renderCurrent(el("header-current"), sample);
+  renderServoPower(el("servo-power"), sample);
+  renderHatPresence(el("connection"), connected ? latest?.servo_hat : null, elapsed, connected);
 }
 refreshCurrent();
 setInterval(refreshCurrent, 100);
 
-const events = new EventSource("/api/coordinator/events");
-events.onmessage = (event) => {
-  connected = true;
-  el("connection").textContent = "CONNECTED";
-  el("connection").dataset.state = "ok";
-  render(JSON.parse(event.data) as Status);
-};
-events.onerror = () => {
+let events: EventSource | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let lastEventAt = performance.now();
+
+function reconnectEvents() {
+  const previous = events;
+  events = null;
+  previous?.close?.();
   manual.updateWorkbench(null);
   commissioning.updateWorkbench(null);
   connected = false;
   refreshCurrent();
-  el("connection").textContent = "RECONNECTING";
-  el("connection").dataset.state = "error";
   updateControls();
-};
+  if (reconnectTimer === null) {
+    reconnectTimer = setTimeout(() => { reconnectTimer = null; connectEvents(); }, 1000);
+  }
+}
+function connectEvents() {
+  const source = new EventSource("/api/coordinator/events");
+  events = source;
+  lastEventAt = performance.now();
+  source.onmessage = event => {
+    if (events !== source) return;
+    let status: Status;
+    try { status = JSON.parse(event.data) as Status; }
+    catch { reconnectEvents(); return; }
+    lastEventAt = performance.now();
+    connected = true;
+    render(status);
+  };
+  source.onerror = () => { if (events === source) reconnectEvents(); };
+}
+connectEvents();
+setInterval(() => {
+  if (events && performance.now() - lastEventAt >= 3000) reconnectEvents();
+}, 1000);
 
 const camera = el<HTMLImageElement>("camera");
+let cameraPending = false;
+let cameraRequestedAt = 0;
+let cameraFailed = false;
+let lastFrameAt: number | null = null;
+let frameTimes: number[] = [];
+function renderCameraStatus() {
+  const now = performance.now();
+  frameTimes = frameTimes.filter(time => now - time < 10_000);
+  const age = lastFrameAt === null ? null : (now - lastFrameAt) / 1000;
+  const state = cameraFailed ? "Unavailable" : age === null ? "Connecting" : age >= 3 ? "Stale" : "Live";
+  const fps = state === "Live" && frameTimes.length > 1
+    ? ((frameTimes.length - 1) * 1000 / (frameTimes.at(-1)! - frameTimes[0])).toFixed(1)
+    : "0.0";
+  el("camera-status").textContent = `${state} · ${fps} preview fps${age === null ? "" : ` · ${age.toFixed(1)}s ago`}`;
+}
 camera.onload = () => {
-  el("camera-note").textContent =
-    latest?.mode === "mock"
-      ? "Simulated scene · reset after each delivery"
-      : "Fixed overhead view · keep the workspace clear";
+  cameraPending = false;
+  cameraFailed = false;
+  lastFrameAt = performance.now();
+  frameTimes.push(lastFrameAt);
+  renderCameraStatus();
+  el("camera-note").hidden = latest?.mode !== "mock";
+  el("camera-note").textContent = "Simulated scene · reset after each delivery";
 };
 camera.onerror = () => {
+  cameraPending = false;
+  cameraFailed = true;
+  renderCameraStatus();
+  el("camera-note").hidden = false;
   el("camera-note").textContent =
     "Camera unavailable — check the vision application.";
 };
 function refreshCamera() {
-  if (el("workbench-view").hidden || el("tools-view").hidden) return;
+  if (cameraPending && performance.now() - cameraRequestedAt < 5000) return;
+  cameraPending = true;
+  cameraRequestedAt = performance.now();
   camera.src = `/api/coordinator/camera/preview?t=${Date.now()}`;
 }
 refreshCamera();
 setInterval(refreshCamera, 1000);
+setInterval(renderCameraStatus, 250);
 
 async function refreshServices() {
   try {
@@ -294,19 +341,7 @@ async function refreshServices() {
         return span;
       }),
     );
-    const { data: tools } = await api.GET("/coordinator/tools");
-    el("tools").replaceChildren(
-      ...(tools ?? []).map((tool) => {
-        const chip = document.createElement("button");
-        chip.className = "tool";
-        chip.textContent = tool.name;
-        chip.onclick = () => {
-          el<HTMLTextAreaElement>("request").value =
-            `Grab me the ${tool.aliases[0]}`;
-        };
-        return chip;
-      }),
-    );
+
   } catch {
     el("services").textContent = "Applications unreachable";
   }

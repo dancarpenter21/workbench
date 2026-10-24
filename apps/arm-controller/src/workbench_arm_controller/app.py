@@ -48,6 +48,7 @@ from workbench_arm_controller.claw_current import ClawCurrentMonitor
 from workbench_arm_controller.commissioning_live import LiveCommissioning
 from workbench_arm_controller.current_scale import CurrentScaleRecords
 from workbench_arm_controller.driver import SerialArm
+from workbench_arm_controller.hat_presence import HatPresence
 from workbench_arm_controller.manual import ManualControl
 from workbench_arm_controller.neutral_reference import NeutralReference
 from workbench_arm_controller.pca9685 import AUTOMATION_UNAVAILABLE
@@ -58,6 +59,7 @@ def create_app(config=None, store=None):
     state = {"store": store, "driver": None, "task": None, "error": ""}
     lock = asyncio.Lock()
     monitor = ClawCurrentMonitor(cfg)
+    hat_presence = HatPresence(cfg, monitor)
     scales = CurrentScaleRecords(monitor)
     manual = ManualControl(cfg, monitor=monitor)
     commissioning = LiveCommissioning(cfg, monitor=monitor)
@@ -85,6 +87,7 @@ def create_app(config=None, store=None):
             busy=busy() or commissioning.reserved, recovery=current().recovery_required
         )
         snapshot.neutral_evidence = neutral_snapshot()
+        snapshot.servo_hat = hat_presence.status()
         return snapshot
 
     async def manual_io(function, *args):
@@ -161,6 +164,7 @@ def create_app(config=None, store=None):
             async with lock:
                 try:
                     await manual_io(monitor_tick)
+                    await manual_io(hat_presence.poll)
                     await manual_io(manual.tick)
                     await manual_io(commissioning.tick)
                 except Exception as exc:
@@ -214,6 +218,7 @@ def create_app(config=None, store=None):
             monitor.attach(state["store"])
             scales.attach(state["store"])
             await manual_io(monitor_tick)
+            await manual_io(hat_presence.poll)
             status = current()
             if status.state == "moving" or state["store"].get("manual_active", False):
                 status.state, status.recovery_required = "fault", True

@@ -1,4 +1,3 @@
-import { renderCurrent } from "./current";
 import type { components } from "@workbench/contracts";
 
 type ManualStatus = components["schemas"]["ManualStatus"];
@@ -36,10 +35,9 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       <button id="manual-plus" class="secondary" disabled>+ Hold</button></div>
     <p id="manual-help" class="caption">Click this panel to focus. Select 1–6 or Up/Down; hold Space + Left/Right to jog. Hold Shift for precision. Escape stops the arm.</p>
     <p class="caption">Commanded pulses only · physical position unknown. Stop retains the last PWM target; verify the arm is stationary.</p>
-    <div id="manual-current" aria-label="Claw current monitor"></div><p id="manual-error" role="alert"></p>`;
+    <p id="manual-error" role="alert"></p>`;
   root.tabIndex = 0;
   root.setAttribute("aria-labelledby", "manual-title");
-  root.insertBefore(root.querySelector("#manual-current")!, root.querySelector("#manual-message"));
   const guide = document.createElement("details");
   guide.className = "panel-guide";
   guide.innerHTML = "<summary>ⓘ Controls & safety guide</summary>";
@@ -151,7 +149,6 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
   function render() {
     const active = token !== null;
     const anotherOwner = !!status?.active && !active;
-    renderCurrent(el("manual-current"), status?.claw_current);
     el("manual-mode").textContent = status?.simulated ? "SIMULATED" : "PULSE CONTROL";
     el("manual-message").textContent = active ? "Manual control enabled · hold enable and direction to jog."
       : anotherOwner ? "Another session owns manual control."

@@ -116,6 +116,7 @@ def create_app(config=None, store=None, client=None):
                 else ""
             ),
             claw_current=(state["manual"].claw_current if state["manual"] else None),
+            servo_hat=(state["manual"].servo_hat if state["manual"] else None),
             neutral_evidence=(state["manual"].neutral_evidence if state["manual"] else None),
             manual=state["manual"],
             commissioning=state["commissioning"],

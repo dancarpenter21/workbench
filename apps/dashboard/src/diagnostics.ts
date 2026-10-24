@@ -1,4 +1,3 @@
-import { renderNeutral } from "./neutral";
 import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
 
@@ -17,11 +16,6 @@ export function mountDiagnostics(root: HTMLElement) {
       <p id="diagnostic-note" role="status">Checking devices…</p>
     </div>
     <div class="workspace">
-      <section class="camera-panel"><div class="panel-heading"><h2>Pi camera</h2>
-        <span id="diagnostic-camera-mode" class="badge">INPUT</span></div>
-        <img id="diagnostic-camera" alt="Pi camera diagnostic preview" />
-        <p id="diagnostic-camera-note" class="caption">Waiting for a frame…</p>
-      </section>
       <section class="command-panel"><p class="eyebrow">AUDIO INPUT</p><h2>Pi USB microphone</h2>
         <p>Record five seconds from the microphone attached to the Pi, then listen here.</p>
         <label for="diagnostic-device">Capture device</label>
@@ -34,7 +28,6 @@ export function mountDiagnostics(root: HTMLElement) {
         <audio id="diagnostic-audio" controls hidden></audio>
       </section>
     </div>
-    <div id="diagnostic-neutral" hidden></div>
     <div id="diagnostic-checks" class="diagnostic-grid" aria-live="polite"></div>`;
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!;
   const refreshButton = el<HTMLButtonElement>("diagnostic-refresh");
@@ -42,15 +35,11 @@ export function mountDiagnostics(root: HTMLElement) {
   const recordButton = el<HTMLButtonElement>("diagnostic-record");
   const device = el<HTMLSelectElement>("diagnostic-device");
   const audio = el<HTMLAudioElement>("diagnostic-audio");
-  const image = el<HTMLImageElement>("diagnostic-camera");
   let report: Report | null = null;
   let busy = false;
   let devicesBusy = false;
   let capture: AbortController | null = null;
   let audioUrl: string | null = null;
-  let imagePending = false;
-  let imageRequestedAt = 0;
-  let frameLoadedAt = 0;
   const checks = new Map<string, { check: Check; stale: boolean }>();
   const labels: Record<string, string> = {
     pi: "Raspberry Pi", camera: "Camera capture", recognition: "Tool recognition",
@@ -118,17 +107,14 @@ export function mountDiagnostics(root: HTMLElement) {
       const { data, error } = await api.GET("/coordinator/diagnostics", { signal: AbortSignal.timeout(10000) });
       if (error || !data) throw new Error("Diagnostics unavailable");
       report = data;
-      renderNeutral(el("diagnostic-neutral"), data.neutral_evidence, undefined, true);
       for (const value of checks.values()) value.stale = true;
       for (const check of data.checks) checks.set(check.component, { check, stale: false });
       el("diagnostic-mode").textContent = data.mode === "mock" ? "SIMULATED" : "PI HARDWARE";
-      el("diagnostic-camera-mode").textContent = data.mode === "mock" ? "SIMULATED" : "LIVE INPUT";
       el("diagnostic-note").textContent = data.retrieval_enabled
         ? "Updated every five seconds. Hardware checks do not establish motion readiness."
         : "Diagnostics profile · arm motion and retrieval disabled · models not loaded.";
       downloadButton.disabled = false;
     } catch {
-      renderNeutral(el("diagnostic-neutral"), report?.neutral_evidence ? { ...report.neutral_evidence, state: "fault", detail: "Diagnostic snapshot is stale" } : null, undefined, true);
       for (const value of checks.values()) value.stale = true;
       el("diagnostic-note").textContent = "Connection lost. Retained readings are stale; retrying automatically.";
     } finally {
@@ -183,29 +169,8 @@ export function mountDiagnostics(root: HTMLElement) {
       el("diagnostic-cancel").hidden = true;
     }
   };
-  image.onload = () => {
-    imagePending = false;
-    frameLoadedAt = Date.now();
-    image.hidden = false;
-    el("diagnostic-camera-note").textContent = `Latest preview ${new Date(frameLoadedAt).toLocaleTimeString()}`;
-  };
-  image.onerror = () => { imagePending = false; image.hidden = true; };
-  function preview() {
-    if (root.hidden) return;
-    const fresh = frameLoadedAt && Date.now() - frameLoadedAt < 3000 && !image.hidden;
-    el("diagnostic-camera-note").textContent = fresh
-      ? `Latest preview ${new Date(frameLoadedAt).toLocaleTimeString()}`
-      : "Camera unavailable or stale — inspect the camera capture status.";
-    if (!fresh) image.hidden = true;
-    if (!imagePending || Date.now() - imageRequestedAt > 5000) {
-      imageRequestedAt = Date.now();
-      imagePending = true;
-      image.src = `/api/coordinator/camera/preview?t=${Date.now()}`;
-    }
-  }
   window.addEventListener("pagehide", () => { capture?.abort(); if (audioUrl) URL.revokeObjectURL(audioUrl); });
   void refresh();
   void refreshDevices();
   setInterval(() => { if (!root.hidden) { void refresh(); void refreshDevices(); } }, 5000);
-  setInterval(preview, 1000);
 }

@@ -186,7 +186,18 @@ class ManualJoint(Contract):
     commanded_us: float | None = None
 
 
+class PeripheralStatus(Contract):
+    state: Literal["detected", "error", "unknown"] = "unknown"
+    simulated: bool = False
+    i2c_bus: int | None = None
+    address: int
+    checked_at: datetime | None = None
+    age_seconds: float | None = None
+    detail: str = ""
+
+
 class ManualStatus(Contract):
+    servo_hat: PeripheralStatus | None = None
     neutral_evidence: NeutralEvidence | None = None
     claw_current: ClawCurrentStatus | None = None
     simulated: bool
@@ -496,6 +507,7 @@ class CommissionExport(Contract):
 
 
 class WorkbenchStatus(Contract):
+    servo_hat: PeripheralStatus | None = None
     neutral_evidence: NeutralEvidence | None = None
     claw_current: ClawCurrentStatus | None = None
     mode: str

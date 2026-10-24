@@ -2491,6 +2491,7 @@ export interface components {
         };
         /** ManualStatus */
         ManualStatus: {
+            servo_hat?: components["schemas"]["PeripheralStatus"] | null;
             neutral_evidence?: components["schemas"]["NeutralEvidence"] | null;
             claw_current?: components["schemas"]["ClawCurrentStatus"] | null;
             /** Simulated */
@@ -2626,6 +2627,33 @@ export interface components {
             /** Evidence */
             evidence: string;
         };
+        /** PeripheralStatus */
+        PeripheralStatus: {
+            /**
+             * State
+             * @default unknown
+             * @enum {string}
+             */
+            state: "detected" | "error" | "unknown";
+            /**
+             * Simulated
+             * @default false
+             */
+            simulated: boolean;
+            /** I2C Bus */
+            i2c_bus?: number | null;
+            /** Address */
+            address: number;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Age Seconds */
+            age_seconds?: number | null;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+        };
         /** Recovery */
         Recovery: {
             /**
@@ -2707,6 +2735,7 @@ export interface components {
         };
         /** WorkbenchStatus */
         WorkbenchStatus: {
+            servo_hat?: components["schemas"]["PeripheralStatus"] | null;
             neutral_evidence?: components["schemas"]["NeutralEvidence"] | null;
             claw_current?: components["schemas"]["ClawCurrentStatus"] | null;
             /** Mode */

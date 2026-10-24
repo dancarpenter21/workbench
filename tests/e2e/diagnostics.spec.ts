@@ -5,8 +5,10 @@ test("diagnostics show devices, play Pi test audio, and export a report", async 
   await page.getByRole("button", { name: "Diagnostics", exact: true }).click();
   await expect(page.locator("#diagnostic-mode")).toHaveText("SIMULATED");
   await expect(page.getByRole("heading", { name: "Servo HAT", exact: true })).toBeVisible();
-  await expect(page.locator("#diagnostic-camera")).toBeVisible();
-  await expect.poll(() => page.locator("#diagnostic-camera").evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
+  await expect(page.locator("#diagnostic-camera")).toHaveCount(0);
+  await expect(page.locator("#camera")).toBeVisible();
+  await expect(page.locator("#camera-status")).toContainText("Live");
+  await expect.poll(() => page.locator("#camera").evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(0);
   await page.getByRole("button", { name: "Test microphone" }).click();
   await expect(page.locator("#diagnostic-audio-note")).toContainText("SIMULATED", { timeout: 10000 });
   const audio = page.locator("#diagnostic-audio");
@@ -46,4 +48,22 @@ test("cancelling a microphone test releases Pi capture through the proxy", async
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.locator("#diagnostic-audio-note")).toContainText("cancelled");
   await expect.poll(recording, { timeout: 2000 }).toBe(false);
+});
+
+test("shared camera reports failures, stale frames and recovery", async ({ page }) => {
+  await page.goto("/");
+  const status = page.locator("#camera-status");
+  await expect(status).toContainText("Live");
+  await expect(status).toContainText("1.0 preview fps", { timeout: 10000 });
+  await page.route("**/api/coordinator/camera/preview?*", route => route.abort());
+  await expect(status).toContainText("Unavailable");
+  await page.unroute("**/api/coordinator/camera/preview?*");
+  await expect(status).toContainText("Live");
+  await page.route("**/api/coordinator/camera/preview?*", async route => {
+    await new Promise(resolve => setTimeout(resolve, 4000));
+    await route.continue();
+  });
+  await expect(status).toContainText("Stale", { timeout: 10000 });
+  await page.unroute("**/api/coordinator/camera/preview?*");
+  await expect(status).toContainText("Live", { timeout: 10000 });
 });

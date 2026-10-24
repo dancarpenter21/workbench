@@ -42,3 +42,9 @@ healthy reading with claw supply at most 0.5 V. No movement is retried automatic
 Physical use still requires the workbench profile, hardware mode, PCA9685 backend and
 its commissioning gate. Channel mapping is base 5, joints 2–5 on 4–1, and claw 0.
 Simulated readings and results remain labelled and are not physical acceptance.
+
+The shared header reports Servo HAT presence from cached read-only PCA9685 register
+checks and the ammeter's live readings on every tab. Green means detected/fresh;
+red means a device/read check failed; yellow means checking, unavailable or stale.
+Servo power off is a normal state when readings are fresh. HAT detection establishes
+register communication only, not servo power, position or motion readiness.

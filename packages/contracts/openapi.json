@@ -8468,6 +8468,16 @@
       },
       "ManualStatus": {
         "properties": {
+          "servo_hat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PeripheralStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "neutral_evidence": {
             "anyOf": [
               {
@@ -8753,6 +8763,74 @@
         ],
         "title": "OffCurrentBounds"
       },
+      "PeripheralStatus": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "detected",
+              "error",
+              "unknown"
+            ],
+            "title": "State",
+            "default": "unknown"
+          },
+          "simulated": {
+            "type": "boolean",
+            "title": "Simulated",
+            "default": false
+          },
+          "i2c_bus": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "I2C Bus"
+          },
+          "address": {
+            "type": "integer",
+            "title": "Address"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "age_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Seconds"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "address"
+        ],
+        "title": "PeripheralStatus"
+      },
       "Recovery": {
         "properties": {
           "acknowledged": {
@@ -8947,6 +9025,16 @@
       },
       "WorkbenchStatus": {
         "properties": {
+          "servo_hat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PeripheralStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "neutral_evidence": {
             "anyOf": [
               {
