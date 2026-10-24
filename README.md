@@ -1,5 +1,32 @@
 # Robotic Workbench
 
+## Start the arm workbench
+
+From the repository root, run:
+
+```sh
+WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
+  uv run --no-sync python scripts/dev.py --mode hardware --profile workbench --dashboard-host 0.0.0.0
+```
+
+Open **http://127.0.0.1:5173** on the Pi or **http://<pi-address>:5173** on the LAN.
+This is the normal working mode: **Initialization**, **Jog**, camera and Diagnostics.
+Stop it with **Ctrl+C**. If another stack is running, stop that launcher first.
+
+For **Jog**, also load your completed joint configuration:
+
+```sh
+WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
+WORKBENCH_MANUAL_CONFIG="$PWD/config/workbench/manual.local.json" \
+  uv run --no-sync python scripts/dev.py --mode hardware --profile workbench --dashboard-host 0.0.0.0
+```
+
+**First time only:** follow [environment setup](#prepare-the-environment-once) and
+[local configuration setup](#enable-initialization-for-this-bench) below. The Jog
+command additionally needs your measured `manual.local.json`.
+
+## About the project
+
 An on-premises assistant for retrieving tools: “Grab me the crescent wrench” becomes
 a validated pickup sequence and delivery to a tray. Vision, voice, language interpretation,
 coordination, arm control and the dashboard are separate applications in one monorepo.
@@ -28,9 +55,9 @@ The Pi foundations now provide:
 - [Camera setup commands](apps/vision/README.md#camera-setup-without-the-service) for raw
   captures, region overlays, reference collection and validation before starting vision.
 - Six-channel pulse validation, an offline pose checker and low-level PCA9685 output.
-- [Manual joint controls](docs/manual-controls.md) in the Workbench tab, with keyboard,
-  browser Xbox controller and on-screen jogging, simulated by default. Base is channel 5
-  through claw on channel 0; physical control requires its own commissioning configuration.
+- [Manual joint controls](docs/manual-controls.md) in the **Jog** tab, with keyboard,
+  browser Xbox controller and on-screen jogging. Base is channel 5 through claw on
+  channel 0; physical control uses the measured manual-control configuration.
 - A hardware profile at `config/development/pi.json`.
 - An [arm-control design and durable offline rehearsal](docs/arm-control.md) covering
   startup, bounded commands, independent simulated completion evidence, stop and recovery.
@@ -48,47 +75,124 @@ Rehearsal results and complete record files cannot qualify hardware. Actual sign
 timing, joint limits, paths/payload, completion sensing, physical stop/recovery and Pi
 service/device behavior still require the installed bench.
 
-## Pi diagnostics dashboard
+## Start the Pi workbench
 
-For live camera preview, Pi USB microphone recording/playback, read-only HAT checks,
-and host/service/model status, use the [diagnostics setup guide](docs/diagnostics.md).
-The explicit diagnostics profile enables hardware inputs while rejecting arm motion
-and skipping model loading. It supports a browser on another computer on the LAN.
+Use the **hardware workbench profile** for normal operation. It provides the live
+camera, **Initialization** commissioning checklist and pulse controls, **Jog** controls,
+and **Diagnostics** in one dashboard. Run these commands from the repository root.
+
+### Prepare the environment once
+
+Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22.12+ and npm.
+On this Pi, expose the Raspberry Pi OS Picamera2/libcamera packages to the project
+environment and install the camera and PCA9685 dependencies:
+
+If npm is not on your PATH, load this Pi's nvm installation first:
+
+```sh
+. "$HOME/.nvm/nvm.sh"
+nvm use 26
+```
+
+```sh
+uv venv --allow-existing --system-site-packages --python /usr/bin/python3 .venv
+uv sync --locked --extra vision --extra pwm
+npm ci
+```
+
+Speech and assistant models are optional for joint initialization and jogging. Their
+missing dependencies or model files are reported without switching to simulation.
+See the individual [voice](apps/voice/README.md) and
+[assistant](apps/assistant/README.md) guides to enable those features.
+
+### Enable Initialization for this bench
+
+Create a local runtime configuration with pulse commissioning enabled. This preserves
+an existing local runtime configuration and leaves the tracked Pi defaults unchanged:
+
+```sh
+uv run --no-sync python - <<'PYCONFIG'
+import json
+from pathlib import Path
+
+path = Path(".runtime/hardware/workbench-config.json")
+source = path if path.exists() else Path("config/development/pi.json")
+config = json.loads(source.read_text())
+config["mode"] = "hardware"
+config["profile"] = "workbench"
+config["arm"]["commissioning_enabled"] = True
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps(config, indent=2) + "\n")
+PYCONFIG
+```
+
+### Launch the hardware workbench
+
+```sh
+WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
+  uv run --no-sync python scripts/dev.py \
+  --mode hardware --profile workbench --dashboard-host 0.0.0.0
+```
+
+Open **http://127.0.0.1:5173** on the Pi, or **http://<pi-address>:5173** from another
+computer on the trusted LAN. To use another dashboard port, add `--dashboard-port 5174`.
+Stop an existing launcher with Ctrl+C before starting another stack on the same ports.
+
+In **Initialization**, select a joint, move it, confirm OK, and capture its minimum
+and maximum pulses. The first move commands all six joints to 1500 μs. Step buttons
+support ±1, ±10, ±20 and ±40 μs; the checklist records the remaining commissioning
+reviews. The shared ammeter stays active during movement and powered holding.
+See [Initialization](docs/joint-trials.md) for the full workflow.
+
+### Use Jog with the measured joint configuration
+
+Once the six joints' bounds, starting pulses, directions and maximum rates are
+recorded, put them in `config/workbench/manual.local.json`, using
+[`manual.example.json`](config/workbench/manual.example.json) as the template.
+Set its `enabled` and `commissioned` flags to `true` and include the evidence reference.
+The example contains empty measurements; copying it alone does not enable Jog.
+
+Launch with that configuration as well:
+
+```sh
+WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
+WORKBENCH_MANUAL_CONFIG="$PWD/config/workbench/manual.local.json" \
+  uv run --no-sync python scripts/dev.py \
+  --mode hardware --profile workbench --dashboard-host 0.0.0.0
+```
+
+Open **Jog**, prepare outputs with servo power disconnected and the arm supported,
+then apply power using the reviewed starting arrangement, confirm ready and enable
+manual control. Use the on-screen controls, keyboard, or Xbox controller. Browser
+gamepad input requires localhost or HTTPS; use an SSH port forward for a remote
+controller session. See [manual controls](docs/manual-controls.md).
+
+**Stop arm** blocks further operations until recovery is acknowledged. In Initialization,
+**Stop — hold position** retains the last target; **Not OK** attempts PWM shutdown.
+Logs and durable state live under `.runtime/hardware/`. Ctrl+C stops the launcher.
+PCA9685 automated tool retrieval remains disabled; Initialization and Jog operate
+independently of it.
+
+### Optional troubleshooting and simulation
+
+The normal workbench already includes a Diagnostics tab. Use the separate
+[diagnostics profile](docs/diagnostics.md) only when you specifically want hardware
+inputs with motion disabled and speech/assistant model loading skipped:
 
 ```sh
 uv run --no-sync python scripts/dev.py --profile diagnostics --dashboard-host 0.0.0.0
 ```
 
-## Quick start
-
-Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22.12+ and npm.
+For the simulated retrieval demo instead:
 
 ```sh
-uv sync --locked
-npm ci
-npm run dev
+npm run dev:mock
 ```
 
-Open **http://127.0.0.1:5173**. All five backend services start against Pi hardware.
-Missing models, uncommissioned joints and unavailable devices report their actual errors;
-they do not fall back to simulation. Manual control requires reviewed joint limits and
-commissioning evidence; starting the app does not enable servo motion.
-
-For the simulated retrieval demo, launch `npm run dev:mock` instead.
-Enter “Grab me the crescent wrench” or choose a tool chip, then select **Retrieve tool**.
-After delivery, use **Reset mock scene** to put the simulated tools back and empty the tray.
-
-**Speak** records locally; click again to finish. Review the transcription before submitting.
-Mock voice always returns “Grab me the screwdriver” and mock interpretation uses a small
-deterministic command parser. No microphone audio is sent to a cloud service.
-
-**Stop arm** blocks further operations until you inspect the bench and acknowledge recovery.
-For the legacy RoArm backend, software stop requests a hold. The disabled PCA9685 backend
-cannot issue a hold or confirm a physical stop; maintain an accessible physical cutoff.
-Press Ctrl+C in the launcher terminal to stop the applications. Logs and durable operation
-state live under `.runtime/mock/` or `.runtime/hardware/`.
-
-If port 5173 is occupied, use `npm run dev -- --dashboard-port 5174`.
+Enter “Grab me the crescent wrench” and select **Retrieve tool**. After delivery,
+**Reset mock scene** restores the simulated tools and empties the tray. **Speak**
+records locally; click again to finish and review the transcript. Mock voice returns
+“Grab me the screwdriver.” No microphone audio is sent to a cloud service.
 
 ## Applications
 
@@ -98,7 +202,7 @@ If port 5173 is occupied, use `npm run dev -- --dashboard-port 5174`.
 | [Vision](apps/vision/README.md) | Camera capture, known-tool detection and tray checks | 8101 |
 | [Voice](apps/voice/README.md) | Local WAV transcription | 8102 |
 | [Assistant](apps/assistant/README.md) | Converts natural language to structured intents | 8103 |
-| [Arm controller](apps/arm-controller/README.md) | Recorded paths, legacy RoArm feedback and offline PWM rehearsal | 8104 |
+| [Arm controller](apps/arm-controller/README.md) | Hardware status, PCA9685 initialization/jogging and legacy RoArm paths | 8104 |
 | [Dashboard](apps/dashboard/README.md) | Camera preview, commands, progress and operator controls | 5173 |
 
 Shared [contracts](packages/contracts/README.md) define the Python API models and generated
@@ -110,7 +214,8 @@ behavior. Backends expose interactive API documentation at their `/docs` routes.
 application with its documented uvicorn command, or launch just backends with:
 
 ```sh
-uv run python scripts/dev.py --backend-only
+WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
+  uv run --no-sync python scripts/dev.py --mode hardware --profile workbench --backend-only
 ```
 
 ## Configuration and hardware
@@ -137,8 +242,8 @@ pickup still need bench validation.
 
 ## Development and verification
 
-Latest local verification (2026-10-22): **237 Python tests and 8 browser tests passed**,
-with Ruff lint/format, contract generation, and the dashboard build passing. On the
+Local verification includes the Python service tests, mock browser workflows, Ruff
+lint/format, generated contracts, and the dashboard build. On the
 installed Pi, live camera preview, USB microphone capture/playback/cancellation, and
 read-only HAT communication were verified through the diagnostics dashboard. See the
 [diagnostics guide](docs/diagnostics.md). Physical arm acceptance remains unperformed.
@@ -173,10 +278,11 @@ Run one process/worker per application on a trusted local computer. Distributed 
 authentication, general clutter recognition, direct handoffs and autonomous grasp learning
 are outside this first version.
 
-The Workbench tab also provides [guided joint commissioning](docs/joint-trials.md):
-power-off preparation of one servo, discrete 10 μs trial steps, persistent
-observations, and disabled configuration export. Physical trials have a separate
-`arm.commissioning_enabled` gate, off by default.
+The **Initialization** tab provides [guided joint commissioning](docs/joint-trials.md):
+persistent pulse bounds, explicit moves up to 40 μs, and a commissioning checklist.
+The startup recipe above enables its `arm.commissioning_enabled` gate in the local
+runtime configuration. [Shared hardware status](docs/hardware-status.md) keeps sensor
+health, servo power and latched motion interlocks consistent across all tabs.
 
 ## Universal claw-testing rule
 
