@@ -327,6 +327,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/arm-controller/commissioning/bounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Commissioning Bounds */
+        get: operations["arm_controller_commissioning_bounds_commissioning_bounds_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/arm-controller/commissioning/current-scale": {
         parameters: {
             query?: never;
@@ -917,6 +934,23 @@ export interface paths {
         };
         /** Tools */
         get: operations["coordinator_tools_tools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/commissioning/bounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Commissioning Bounds */
+        get: operations["coordinator_commissioning_bounds_commissioning_bounds_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1880,6 +1914,21 @@ export interface components {
             /** Attempt Id */
             attempt_id: string;
         };
+        /** CommissionBounds */
+        CommissionBounds: {
+            /**
+             * Domain
+             * @enum {string}
+             */
+            domain: "physical" | "simulated";
+            /** Assembly Id */
+            assembly_id: string;
+            setup: components["schemas"]["CommissionSetup"];
+            /** Joints */
+            joints: {
+                [key: string]: components["schemas"]["CommissionJointBounds"];
+            };
+        };
         /** CommissionCommand */
         CommissionCommand: {
             /** Token */
@@ -2086,12 +2135,21 @@ export interface components {
             /** Selected Attempt Id */
             selected_attempt_id?: string | null;
         };
+        /** CommissionJointBounds */
+        CommissionJointBounds: {
+            minimum?: components["schemas"]["CommissionPulseBound"] | null;
+            maximum?: components["schemas"]["CommissionPulseBound"] | null;
+        };
         /** CommissionMark */
         CommissionMark: {
             /** Token */
             token: string;
             /** Sequence */
             sequence: number;
+            /** Joint Id */
+            joint_id?: string | null;
+            /** Command Id */
+            command_id?: string | null;
             /**
              * Kind
              * @enum {string}
@@ -2165,6 +2223,27 @@ export interface components {
             power_off_supported_isolated?: true | null;
             /** Power Off And Supported */
             power_off_and_supported?: true | null;
+        };
+        /** CommissionPulseBound */
+        CommissionPulseBound: {
+            /** Requested Us */
+            requested_us: number;
+            /** Encoded Us */
+            encoded_us: number;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Trial Id */
+            trial_id: string;
+            /** Command Id */
+            command_id: string;
         };
         /** CommissionReady */
         CommissionReady: {
@@ -2255,6 +2334,16 @@ export interface components {
         };
         /** CommissionStatus */
         CommissionStatus: {
+            /**
+             * Max Move Us
+             * @default 10
+             */
+            max_move_us: number;
+            /**
+             * Capture Ready
+             * @default false
+             */
+            capture_ready: boolean;
             /**
              * Trial Type
              * @default isolated
@@ -3812,6 +3901,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArmStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_bounds_commissioning_bounds_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionBounds"];
                 };
             };
             /** @description Bad Request */
@@ -6052,6 +6197,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Tool"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_commissioning_bounds_commissioning_bounds_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionBounds"];
                 };
             };
             /** @description Bad Request */

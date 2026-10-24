@@ -601,3 +601,12 @@ header #servo-power[data-pill-state="off"] { background: #f3f8fc; border-color: 
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, .9fr) auto;
 }
+
+/* Pulse bounds stay readable beside the camera on the bench display. */
+.pulse-joints small { font-size: 9px; font-weight: 400; white-space: nowrap; }
+.pulse-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin: 8px 0; }
+.pulse-steps button { padding: 7px 4px; font-variant-numeric: tabular-nums; }
+#commissioning-panel .pulse-capture { margin: 8px 0; }
+#trial-window-panel { border-top: 1px solid #d4e5f3; margin: 8px 0; padding-top: 6px; }
+#commissioning-panel .pulse-help { font-size: 11px; line-height: 1.45; color: #526475; }
+#trial-message:empty, #trial-error:empty { display: none; }

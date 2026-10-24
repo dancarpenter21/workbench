@@ -1,50 +1,57 @@
-# Position testing in Pulse test
+# Joint pulse bounds in Pulse test
 
-Choose a joint, enter a **Position (μs)**, and press **Move**. There are no Start or
-Prepare screens. The first Move in each new session initializes all six servos to the
-operator-established neutral request of **1500 μs**, then applies the requested small
-move. Merely opening the tab or restarting the app never moves the arm.
+Choose a joint and use **Move** or a **±1, ±10, ±20, ±40 μs** button. Each step
+button commands its full change immediately. The first move in each session initializes
+all six servos to the established neutral request of **1500 μs**, then applies the
+selected joint's requested change. Opening the tab never moves the arm. Other joints
+hold their last command.
 
-Observe the arm and press **OK** or **Not OK**. OK records the position and allows
-another move. Not OK records the result, attempts PWM shutdown and ends motion;
-cut physical servo power and support the arm. PWM shutdown can release loads.
-**Stop** retains the last target. Support the arm, disconnect servo power and confirm
-**Finish** before another session. Reopening an interrupted session requires finish;
-it does not reset to neutral or replay movement automatically.
+Observe the arm and press **OK** or **Not OK** after every move. After OK, use
+**Set minimum** or **Set maximum** to capture the current tested pulse without moving.
+Recapturing explicitly replaces that endpoint; minimum must be below maximum. The
+joint selectors show the latest saved bounds, or **Not set**. These results persist
+across sessions and restarts, separately for physical/simulated domains and hardware
+setup/assembly identity. The active current-scale verification supplies assembly identity;
+without one, the identity is “Assembly not named.” Physical setup changes select a
+separate set; mock results never establish physical limits.
 
-Each explicit move remains limited to 10 μs, at least 250 ms apart, inside the active
-trial range (initially 1450–1550 μs). A large request is rejected rather than split
-into automatic steps. All six servos hold while the selected joint is tested.
-The six-neutral initialization is an explicit user-commanded startup action, not an
-assertion that measured joint positions have settled. The neutral request uses the
-operator-established safe neutral procedure for this bench.
+The initial exploration range is **1450–1550 μs**. Near an edge, check clearance,
+acknowledge it, then use **Extend lower/upper range by 50 μs**. Extending causes no
+movement and does not change saved bounds. Exploration stays within 500–2500 μs and
+resets each session. Every move is limited to **40 μs**, at least **250 ms** apart;
+requests are never split into automatic steps. Isolated trials through the existing
+API retain their 10 μs limit. Pulse commands are not measured angles. PWM resolution
+is approximately 4.88 μs, so a 1 μs change may produce the same output.
 
-**Setup & history** contains optional names, saved records, range edits, current-scale
-verification, recorded OK/Not OK results and export. Records are created automatically
-without requiring labels. Current-scale verification's assembly identity is reused
-when configured. Simple feedback records direction as unknown rather than inferring
-it from pulse changes. It does not qualify travel limits, combined paths, rates,
-physical position or automatic retrieval. Existing detailed records/APIs remain
-readable; automatic retrieval stays disabled.
+**Not OK** records the result, attempts PWM shutdown and ends motion; cut physical
+servo power and support the arm. PWM shutdown can release loads. **Stop — hold
+position** retains the last target. Support the arm, disconnect servo power and confirm
+**Finish** before another session. Blur, disconnect or restart never resumes motion;
+finish interrupted sessions before starting again.
 
-The claw's INA219 at 0x41 is read before any output initialization and throughout all
-six neutral writes, movement and powered holding, including stopped sessions without
+There are no operator forms, record selectors, history or export controls in this tab.
+Trial evidence and telemetry remain available through the existing commissioning APIs.
+Current-scale verification is under **Diagnostics**. Direction remains unknown unless
+recorded separately. Captured bounds do not automatically configure Jog, qualify combined
+paths/rates, or enable automatic retrieval.
+
+The claw INA219 at **0x41** is read before any output initialization and throughout
+all neutral writes, movement and powered holding, including stopped sessions without
 a browser. Missing, stale, invalid or failed readings abort testing and attempt PWM
-shutdown. Cut physical servo power. With a verified scale, abs(current) >= 2.5 A trips
-the monitor; otherwise amperes and the cutoff remain explicitly unverified. Polling
-and PWM shutdown are not a physical current limiter.
+shutdown. Cut physical servo power. With an externally verified shunt resistance,
+**abs(current) >= 2.5 A** trips the monitor. Otherwise raw shunt readings remain visible,
+and amperes and cutoff remain explicitly unverified. Polling and PWM shutdown are not
+a physical current limiter.
 
-Neutral initialization never clears a sensor fault. After an inspected fault, finish
-any interrupted session, disconnect servo power, and use **Reset sensor fault** under
-Setup & history. This requires an explicit power-off/support acknowledgment and a fresh
-healthy reading with claw supply at most 0.5 V. No movement is retried automatically.
+Neutral initialization never clears a sensor fault. After inspection, finish any
+interrupted session, disconnect power and use the visible **Reset sensor fault** control.
+Reset requires the power-off/support acknowledgment and a fresh healthy reading with
+claw supply at most 0.5 V. No movement is retried automatically.
 
-Physical use still requires the workbench profile, hardware mode, PCA9685 backend and
-its commissioning gate. Channel mapping is base 5, joints 2–5 on 4–1, and claw 0.
-Simulated readings and results remain labelled and are not physical acceptance.
+Physical use requires the workbench profile, hardware mode, PCA9685 backend and its
+commissioning gate. Channel mapping is base 5, joints 2–5 on 4–1, and claw 0.
+Follow the established safe-neutral procedure and continuous supervision. Simulated
+results do not satisfy physical acceptance.
 
-The shared header reports Servo HAT presence from cached read-only PCA9685 register
-checks and the ammeter's live readings on every tab. Green means detected/fresh;
-red means a device/read check failed; yellow means checking, unavailable or stale.
-Servo power off is a normal state when readings are fresh. HAT detection establishes
-register communication only, not servo power, position or motion readiness.
+The shared header shows HAT presence and live raw ammeter readings on every tab.
+HAT detection establishes register communication, not servo power or position.

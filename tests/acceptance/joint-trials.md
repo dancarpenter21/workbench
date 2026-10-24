@@ -2,14 +2,15 @@
 
 Run physical checks only with an operator at the bench and continuous claw INA219
 monitoring. Software tests use fake devices or mock mode and do not satisfy physical
-acceptance. Preserve actual setup, observations and failures in the exported record
+acceptance. Preserve actual setup, observations and failures in internal API records
 and associated bench notes. Read [Pulse test](../../docs/joint-trials.md) first.
 
 1. Secure/support the assembly, clear the established neutral path, arrange immediate
    physical power cutoff and verify fresh raw INA219 readings. Verify current scale
    and cutoff are explicitly unverified unless externally verified for this setup.
 2. Open Pulse test. Verify opening the tab sends no motion. Select a joint and enter
-   a small position request. Verify there are no Start/Prepare forms or required names.
+   a small pulse request. Verify no operator, history or export forms are present.
+   Current-scale verification must remain accessible in Diagnostics.
 3. Press Move. Verify all six outputs are initialized at the established 1500 μs
    neutral request, with current checks before and throughout output writes, followed
    by the selected joint's requested change. This is not measured position feedback.
@@ -26,7 +27,15 @@ and associated bench notes. Read [Pulse test](../../docs/joint-trials.md) first.
    storage failures with injected software fixtures, not deliberate physical overcurrent.
    Verify shutdown attempts, latched faults and no automatic movement retry. Explicit
    sensor reset requires healthy readings, disconnected power and acknowledgment.
-8. Inspect saved/reloaded history and export: OK/Not OK results persist, simulated and
-   physical evidence remain distinct, current logs remain available and manual/automatic
-   retrieval flags remain disabled. Simple position acceptance does not qualify paths,
-   limits, rates, grasping or autonomous retrieval.
+8. After a safe OK response, capture minimum/maximum without movement. Verify ordering,
+   explicit replacement, all six summaries and persistence through Finish/reload/new
+   sessions. A new move blocks capture until OK. Captures from a different joint or
+   stale command must be rejected by injected API tests.
+9. Near a range edge, confirm clearance and extend by 50 μs. Verify no movement or
+   saved-bound change occurs. New sessions reset to 1450–1550 μs. Verify larger-step
+   behavior (up to 40 μs), 250 ms spacing and the absolute 500–2500 μs envelope using
+   mock/injected tests before supervised physical use; do not explore unknown physical
+   travel merely to reach the software envelope.
+10. Inspect internal API records: OK/Not OK evidence and current logs remain available;
+    simulated and physical results stay separate, and Jog/automatic retrieval remain
+    gated. Captured bounds do not qualify paths, rates, grasping or autonomous retrieval.

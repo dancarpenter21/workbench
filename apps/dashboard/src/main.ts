@@ -69,7 +69,7 @@ const terminal = new Set([
   "status",
 ]);
 const diagnosticsView = el("diagnostics-view");
-mountDiagnostics(diagnosticsView);
+const diagnostics = mountDiagnostics(diagnosticsView);
 const commissioning = mountCommissioning(el("commissioning-panel"));
 const manual = mountManual(el("manual-panel"), () => button("stop").click());
 let selectedView = false;
@@ -119,6 +119,7 @@ function render(status: Status) {
   refreshCurrent();
   manual.updateWorkbench(status);
   commissioning.updateWorkbench(status);
+  diagnostics.updateWorkbench(status);
   if (!selectedView && status.profile === "diagnostics") showView("diagnostics");
   button("reset").hidden = status.mode !== "mock";
   el("voice-note").textContent =
@@ -259,6 +260,7 @@ function reconnectEvents() {
   previous?.close?.();
   manual.updateWorkbench(null);
   commissioning.updateWorkbench(null);
+  diagnostics.updateWorkbench(null);
   connected = false;
   refreshCurrent();
   updateControls();

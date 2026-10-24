@@ -14,6 +14,7 @@ from workbench_contracts import (
     ArmStatus,
     CommissionAcquire,
     CommissionAttemptSelect,
+    CommissionBounds,
     CommissionCommand,
     CommissionCreate,
     CommissionDraft,
@@ -314,6 +315,10 @@ def create_app(config=None, store=None, client=None):
                 simulated=cfg["mode"] == "mock", message="Arm controller unavailable"
             )
         return state["manual"]
+
+    @app.get("/commissioning/bounds", response_model=CommissionBounds)
+    async def commissioning_bounds():
+        return await manual_call("bounds", prefix="commissioning")
 
     @app.get("/commissioning/current-scale", response_model=CurrentScaleState)
     async def current_scale_status():

@@ -1,5 +1,6 @@
 import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
+import { mountCurrentScale } from "./current-scale";
 
 type Report = components["schemas"]["DiagnosticsReport"];
 type Check = components["schemas"]["Diagnostic"];
@@ -28,7 +29,9 @@ export function mountDiagnostics(root: HTMLElement) {
         <audio id="diagnostic-audio" controls hidden></audio>
       </section>
     </div>
-    <div id="diagnostic-checks" class="diagnostic-grid" aria-live="polite"></div>`;
+    <div id="diagnostic-checks" class="diagnostic-grid" aria-live="polite"></div>
+    <section id="diagnostic-current-scale" class="diagnostic-card"></section>`;
+  const scales = mountCurrentScale(root.querySelector<HTMLElement>("#diagnostic-current-scale")!);
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!;
   const refreshButton = el<HTMLButtonElement>("diagnostic-refresh");
   const downloadButton = el<HTMLButtonElement>("diagnostic-download");
@@ -173,4 +176,9 @@ export function mountDiagnostics(root: HTMLElement) {
   void refresh();
   void refreshDevices();
   setInterval(() => { if (!root.hidden) { void refresh(); void refreshDevices(); } }, 5000);
+  return {
+    updateWorkbench(value: components["schemas"]["WorkbenchStatus"] | null) {
+      scales.update(value?.commissioning ?? null);
+    },
+  };
 }

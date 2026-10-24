@@ -3,17 +3,21 @@
 import json
 import math
 import time
+from hashlib import sha256
 from uuid import uuid4
 
 from fastapi import HTTPException
 from workbench_contracts import (
     CommissionAttempt,
+    CommissionBounds,
     CommissionDraft,
     CommissionEvent,
     CommissionExport,
     CommissionFeedbackRecord,
     CommissionJoint,
+    CommissionJointBounds,
     CommissionObservation,
+    CommissionPulseBound,
     CommissionSession,
     CommissionSetup,
     CommissionStatus,
@@ -125,6 +129,37 @@ class LiveCommissioning:
             i2c_address=None if self.simulated else self.config["arm"].get("i2c_address", 0x40),
         )
 
+    def bounds_context(self):
+        assembly = getattr(self.monitor, "active_assembly_id", None) or "Assembly not named"
+        if self.trial:
+            assembly = self.read(self.trial["draft_id"]).assembly_id
+        return CommissionBounds(
+            domain=self.domain,
+            assembly_id=assembly,
+            setup=self.setup(),
+            joints={name: CommissionJointBounds() for name in JOINT_ORDER},
+        )
+
+    def bounds_key(self, context):
+        identity = json.dumps(
+            [context.assembly_id, context.setup.model_dump(mode="json")], sort_keys=True
+        )
+        return self.prefix + "bounds:" + sha256(identity.encode()).hexdigest()
+
+    def bounds(self):
+        context = self.bounds_context()
+        saved = self.store.get(self.bounds_key(context))
+        return CommissionBounds.model_validate(saved) if saved else context
+
+    @property
+    def max_move_us(self):
+        return 40 if not self.trial or self.trial.get("trial_type") == "all_holding" else 10
+
+    def confirmed_target(self):
+        if not self.trial or self.trial["stage"] != "ready":
+            return None
+        return self.trial.get("confirmed_commands", {}).get(self.trial["joint_id"])
+
     def check_setup(self, draft):
         if draft.setup != self.setup() and not (self.simulated and draft.setup is None):
             raise HTTPException(
@@ -214,13 +249,19 @@ class LiveCommissioning:
             .get((self.trial or {}).get("joint_id"), [1450, 1550])
         )
         return CommissionStatus(
+            max_move_us=self.max_move_us,
+            capture_ready=self.confirmed_target() is not None,
             claw_current=self.monitor.status(),
             available=self.available,
             simulated=self.simulated,
             reserved=self.reserved,
-            **(self.trial or {}),
+            **{
+                key: value
+                for key, value in (self.trial or {}).items()
+                if key != "confirmed_commands"
+            },
             message=(
-                f"Trial settings: 1500 us initial, {window[0]}–{window[1]} us selected window, at most 10 us per step. "
+                f"Trial settings: 1500 us initial, {window[0]}–{window[1]} us selected window, at most {self.max_move_us} us per move. "
                 "Physical position unknown."
                 if self.available
                 else "Commissioning disabled: select PCA9685 and enable arm.commissioning_enabled."
@@ -477,13 +518,15 @@ class LiveCommissioning:
         if (
             not math.isfinite(target)
             or not low <= target <= high
-            or abs(target - self.trial["requested_us"]) > 10
+            or abs(target - self.trial["requested_us"]) > self.max_move_us
         ):
             raise HTTPException(
-                422, "Target must be inside trial window and within 10 us of current request"
+                422,
+                f"Target must be inside trial window and within {self.max_move_us} us of current request",
             )
         try:
             self.monitor.require()
+            self.trial.setdefault("confirmed_commands", {}).pop(joint, None)
             pending = dict(
                 issued_at=now().isoformat(),
                 command_id=str(uuid4()),
@@ -556,6 +599,7 @@ class LiveCommissioning:
             self.trial["pending_command"] = None
             if request.outcome == "settled_clear":
                 self.monitor.require()
+                self.trial.setdefault("confirmed_commands", {})[request.joint_id] = dict(pending)
                 self.trial["stage"] = "ready"
             elif request.outcome == "uncertain":
                 self.event(
@@ -588,8 +632,38 @@ class LiveCommissioning:
 
     def mark(self, request):
         self.authenticate(request, "ready")
+        self.monitor.require()
         if request.expected_requested_us != self.trial["requested_us"]:
             raise HTTPException(409, "Requested target changed; observe again before marking")
+        bounds = None
+        if self.trial.get("trial_type") == "all_holding" and request.kind != "initial":
+            confirmed = self.confirmed_target()
+            if (
+                not confirmed
+                or confirmed["requested_us"] != request.expected_requested_us
+                or request.joint_id != self.trial["joint_id"]
+                or request.command_id != confirmed["command_id"]
+            ):
+                raise HTTPException(409, "Confirm this joint's current command with OK first")
+            bounds = self.bounds()
+            endpoints = bounds.joints[self.trial["joint_id"]]
+            setattr(
+                endpoints,
+                request.kind,
+                CommissionPulseBound(
+                    requested_us=confirmed["requested_us"],
+                    encoded_us=confirmed["encoded_us"],
+                    observed_at=now(),
+                    trial_id=self.trial["trial_id"],
+                    command_id=confirmed["command_id"],
+                ),
+            )
+            if (
+                endpoints.minimum
+                and endpoints.maximum
+                and endpoints.minimum.requested_us >= endpoints.maximum.requested_us
+            ):
+                raise HTTPException(422, "Saved minimum must be below maximum")
         draft = self.read(self.trial["draft_id"])
         joint = self.joint(draft)
         joint.observations[request.kind] = CommissionObservation(
@@ -617,6 +691,11 @@ class LiveCommissioning:
                 }
             ),
         )
+        if bounds:
+            try:
+                self.store.put(self.bounds_key(bounds), bounds.model_dump(mode="json"))
+            except Exception as exc:
+                self.fault(exc)
         return self.status()
 
     def stop(self, reason="Operator stopped trial; last PWM target retained"):

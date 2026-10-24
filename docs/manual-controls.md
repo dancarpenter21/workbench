@@ -176,11 +176,12 @@ for unverified-scale labels, verified-shunt configuration, and physical acceptan
 
 ## Typed pulse testing before limits are commissioned
 
-Use the **Pulse test** tab to test typed pulse widths
-without falsely declaring travel limits commissioned. Select **All servos holding**
-for six-channel preparation and one selected joint per explicit step. See
-[joint trials](joint-trials.md) for the power-off workflow, trial windows, current
-interlock and exported evidence. Existing manual jogging keeps its commissioning gate.
+Use the **Pulse test** tab to find and save minimum/maximum pulse commands. It
+initializes all six outputs at 1500 μs on the first explicit move, then changes one
+selected joint at a time by up to 40 μs with OK/Not OK feedback after each move. See
+[joint trials](joint-trials.md) for range extensions, persistent bounds, the power-off
+workflow and current interlock. Capturing bounds does not enable manual jogging or
+automatic retrieval; existing commissioning gates remain in place.
 
 ## Supervised 30-minute neutral hold
 

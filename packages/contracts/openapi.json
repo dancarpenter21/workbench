@@ -1177,6 +1177,64 @@
         }
       }
     },
+    "/arm-controller/commissioning/bounds": {
+      "get": {
+        "summary": "Commissioning Bounds",
+        "operationId": "arm_controller_commissioning_bounds_commissioning_bounds_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionBounds"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/arm-controller/commissioning/current-scale": {
       "get": {
         "summary": "Current Scale Status",
@@ -3648,6 +3706,64 @@
                   },
                   "type": "array",
                   "title": "Response Tools Tools Get"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coordinator/commissioning/bounds": {
+      "get": {
+        "summary": "Commissioning Bounds",
+        "operationId": "coordinator_commissioning_bounds_commissioning_bounds_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionBounds"
                 }
               }
             }
@@ -7058,6 +7174,41 @@
         ],
         "title": "CommissionAttemptSelect"
       },
+      "CommissionBounds": {
+        "properties": {
+          "domain": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "simulated"
+            ],
+            "title": "Domain"
+          },
+          "assembly_id": {
+            "type": "string",
+            "title": "Assembly Id"
+          },
+          "setup": {
+            "$ref": "#/components/schemas/CommissionSetup"
+          },
+          "joints": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CommissionJointBounds"
+            },
+            "type": "object",
+            "title": "Joints"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "domain",
+          "assembly_id",
+          "setup",
+          "joints"
+        ],
+        "title": "CommissionBounds"
+      },
       "CommissionCommand": {
         "properties": {
           "token": {
@@ -7545,6 +7696,33 @@
         ],
         "title": "CommissionJoint"
       },
+      "CommissionJointBounds": {
+        "properties": {
+          "minimum": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CommissionPulseBound"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CommissionPulseBound"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CommissionJointBounds"
+      },
       "CommissionMark": {
         "properties": {
           "token": {
@@ -7555,6 +7733,28 @@
             "type": "integer",
             "minimum": 0.0,
             "title": "Sequence"
+          },
+          "joint_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joint Id"
+          },
+          "command_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command Id"
           },
           "kind": {
             "type": "string",
@@ -7739,6 +7939,46 @@
         ],
         "title": "CommissionPrepare"
       },
+      "CommissionPulseBound": {
+        "properties": {
+          "requested_us": {
+            "type": "number",
+            "title": "Requested Us"
+          },
+          "encoded_us": {
+            "type": "number",
+            "title": "Encoded Us"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "default": ""
+          },
+          "trial_id": {
+            "type": "string",
+            "title": "Trial Id"
+          },
+          "command_id": {
+            "type": "string",
+            "title": "Command Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "requested_us",
+          "encoded_us",
+          "observed_at",
+          "trial_id",
+          "command_id"
+        ],
+        "title": "CommissionPulseBound"
+      },
       "CommissionReady": {
         "properties": {
           "token": {
@@ -7898,6 +8138,16 @@
       },
       "CommissionStatus": {
         "properties": {
+          "max_move_us": {
+            "type": "integer",
+            "title": "Max Move Us",
+            "default": 10
+          },
+          "capture_ready": {
+            "type": "boolean",
+            "title": "Capture Ready",
+            "default": false
+          },
           "trial_type": {
             "type": "string",
             "enum": [

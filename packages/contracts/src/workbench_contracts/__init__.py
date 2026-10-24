@@ -328,6 +328,23 @@ class CommissionSetup(Contract):
     position_feedback: Literal[False] = False
 
 
+class CommissionPulseBound(CommissionObservation):
+    trial_id: str
+    command_id: str
+
+
+class CommissionJointBounds(Contract):
+    minimum: CommissionPulseBound | None = None
+    maximum: CommissionPulseBound | None = None
+
+
+class CommissionBounds(Contract):
+    domain: Literal["physical", "simulated"]
+    assembly_id: str
+    setup: CommissionSetup
+    joints: dict[str, CommissionJointBounds]
+
+
 class CommissionDraft(Contract):
     schema_version: Literal[1] = 1
     id: str
@@ -351,6 +368,8 @@ class CommissionPendingCommand(Contract):
 
 
 class CommissionStatus(Contract):
+    max_move_us: int = 10
+    capture_ready: bool = False
     trial_type: Literal["isolated", "all_holding"] = "isolated"
     targets: dict[str, float] = Field(default_factory=dict)
     encoded_targets: dict[str, float] = Field(default_factory=dict)
@@ -440,6 +459,8 @@ class CommissionWindow(CommissionSelect):
 
 
 class CommissionMark(CommissionCommand):
+    joint_id: str | None = None
+    command_id: str | None = None
     kind: Literal["initial", "minimum", "maximum"]
     expected_requested_us: float
     settled_and_clear: Literal[True]

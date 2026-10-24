@@ -11,6 +11,7 @@ from workbench_contracts import (
     ArmStatus,
     CommissionAcquire,
     CommissionAttemptSelect,
+    CommissionBounds,
     CommissionCommand,
     CommissionCreate,
     CommissionDraft,
@@ -388,6 +389,11 @@ def create_app(config=None, store=None):
                     status.state, status.recovery_required = "fault", True
                     status.message = f"{exc}. {await stop_driver()}"
                     await save(status)
+
+    @app.get("/commissioning/bounds", response_model=CommissionBounds)
+    async def commissioning_bounds():
+        async with lock:
+            return commissioning.bounds()
 
     @app.get("/commissioning/current-scale", response_model=CurrentScaleState)
     async def current_scale_status():
