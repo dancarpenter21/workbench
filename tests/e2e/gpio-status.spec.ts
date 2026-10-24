@@ -18,7 +18,7 @@ for (const state of ["detected", "hat_missing", "hat_stale", "ammeter_missing", 
           (window as any).__deviceEvents = this;
           setInterval(() => {
             if (!(window as any).__deviceDisconnected) this.onmessage?.({ data: JSON.stringify({
-              mode: "hardware", profile: "workbench", retrieval_enabled: false, operation: null,
+              mode: "hardware", commissioning_ready: true, retrieval_enabled: false, operation: null,
               recovery_required: false, message: "", servo_hat: hat, claw_current: sample,
               manual: null, commissioning: null,
             }) });

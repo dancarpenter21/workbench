@@ -23,7 +23,7 @@ test("a silent status stream is replaced without restoring motion ownership", as
         (window as any).__statusAttempts = ++attempts;
         if (attempts === 1) return; // Open connection, but no messages or error events.
         this.timer = setInterval(() => this.onmessage?.({ data: JSON.stringify({
-          mode: "mock", profile: "workbench", retrieval_enabled: true, operation: null,
+          mode: "mock", commissioning_ready: true, retrieval_enabled: true, operation: null,
           recovery_required: false, message: "", manual: null, commissioning: null,
           servo_hat: { state: "detected", simulated: true, address: 64, age_seconds: 0.01 },
           claw_current: { simulated: true, reading_healthy: true, healthy: true, fault: "",

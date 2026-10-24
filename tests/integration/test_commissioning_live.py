@@ -125,11 +125,8 @@ def test_observed_record_and_disabled_export(trial):
     export = control.export(draft_id)
     assert export.record.joints[0].state == "observed"
     assert export.record.domain == "simulated"
-    assert not export.manual_config["enabled"]
-    assert not export.manual_config["commissioned"]
-    assert export.manual_config["channels"]["base"]["max_rate_us_per_second"] is None
-    assert export.manual_config["channels"]["base"]["min_us"] == 1490
-    assert export.manual_config["channels"]["claw"]["min_us"] is None
+    assert export.record.joints[0].attempts[-1].observations["minimum"].requested_us == 1490
+    assert export.record.joints[-1].observations == {}
     actions = [e.action for e in export.record.history]
     assert actions.index("prepare_intent") < actions.index("prepare_result")
     assert actions.index("step_intent") < actions.index("step_result")
@@ -211,7 +208,7 @@ def test_expiry_restart_reservation_and_stale_finish(trial):
 def test_hardware_gate_domain_and_fault_latching(tmp_path):
     cfg = settings()
     cfg.update(mode="hardware", manual={})
-    cfg["arm"].update(backend="pca9685", commissioning_enabled=False)
+    cfg["arm"].update(backend="pca9685")
     store = Store("trial", tmp_path)
     outputs = []
 
@@ -239,12 +236,7 @@ def test_hardware_gate_domain_and_fault_latching(tmp_path):
     control = LiveCommissioning(cfg, output_factory=Output, monitor=monitor)
     control.attach(store)
     draft = control.create(CommissionCreate(assembly_id="Physical arm", observer="Operator"))
-    with pytest.raises(HTTPException):
-        control.acquire(CommissionAcquire(draft_id=draft.id, joint_id="claw"))
-    cfg["arm"]["commissioning_enabled"] = True
-    monitor = ClawCurrentMonitor(cfg, bus_factory=lambda _: SensorBus(voltage=2))
-    control = LiveCommissioning(cfg, output_factory=Output, monitor=monitor)
-    control.attach(store)
+    assert control.available
     assert not outputs
     control.acquire(CommissionAcquire(draft_id=draft.id, joint_id="claw"))
     ready(control)
@@ -340,7 +332,7 @@ async def test_api_reservation_excludes_manual_retrieval_and_recovery(stack):
     assert response.status_code == 200, response.text
     assert not response.json()["reserved"]
     response = await bus.get(url + "/commissioning/drafts/" + draft["id"] + "/export")
-    assert response.json()["manual_config"]["enabled"] is False
+    assert response.json()["record"]["id"] == draft["id"]
 
 
 @pytest.mark.asyncio

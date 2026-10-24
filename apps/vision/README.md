@@ -77,7 +77,7 @@ uv run --no-sync python -m workbench_vision.setup overlay \
   --output .runtime/camera-setup/regions.png
 ```
 
-`capture` opens the **real camera**, even when the selected settings profile says
+`capture` opens the **real camera**, even when the selected settings say
 `mode: mock`. It needs no reference images or arm calibration. Inspect `frame.png` for
 color, framing and focus, and `regions.png` for region placement. The default five
 warm-up frames can be changed with `--discard-frames` (0–60); this does not establish

@@ -23,7 +23,7 @@ for (const state of ["off", "noise", "voltage", "on", "fault", "stale", "missing
         onmessage: ((event: { data: string }) => void) | null = null;
         constructor() {
           setInterval(() => this.onmessage?.({ data: JSON.stringify({
-            mode: "mock", profile: "workbench", retrieval_enabled: true, operation: null,
+            mode: "mock", commissioning_ready: true, retrieval_enabled: true, operation: null,
             recovery_required: false, message: "", manual: null, commissioning: body,
             claw_current: body.claw_current,
           }) }), 75);

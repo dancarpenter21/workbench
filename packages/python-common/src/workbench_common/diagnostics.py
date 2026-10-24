@@ -45,13 +45,7 @@ def model_check(component, cfg, module, path, loaded):
     return Diagnostic(
         component=component,
         status="ok" if loaded else "warning",
-        summary="Model loaded"
-        if loaded
-        else (
-            "Model loading skipped in diagnostics profile"
-            if cfg.get("profile") == "diagnostics"
-            else "Model not loaded"
-        ),
+        summary="Model loaded" if loaded else "Model not loaded",
         measurements={
             "dependency_available": available,
             "model_path": path,

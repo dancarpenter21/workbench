@@ -12,7 +12,7 @@ for (const state of ["not_neutral", "within_reference", "outside_reference", "fa
         onerror: (() => void) | null = null;
         constructor() {
           setInterval(() => this.onmessage?.({ data: JSON.stringify({
-            mode: "hardware", profile: "workbench", retrieval_enabled: false, operation: null,
+            mode: "hardware", commissioning_ready: true, retrieval_enabled: false, operation: null,
             recovery_required: false, message: "", manual: null, commissioning: null,
             neutral_evidence: evidence,
             claw_current: { simulated: false, healthy: state !== "fault", fault: state === "fault" ? "Sensor failed" : "",
@@ -23,7 +23,7 @@ for (const state of ["not_neutral", "within_reference", "outside_reference", "fa
       (window as any).EventSource = FixtureEvents;
     }, { evidence, state });
     await page.route("**/api/coordinator/diagnostics", route => route.fulfill({ json: {
-      mode: "hardware", profile: "workbench", retrieval_enabled: false, checked_at: new Date().toISOString(),
+      mode: "hardware", commissioning_ready: true, retrieval_enabled: false, checked_at: new Date().toISOString(),
       neutral_evidence: evidence,
       checks: [{ component: "neutral_reference", status: "ok", checked_at: new Date().toISOString(),
         summary: "Neutral hold reference", measurements: { bus_min_v: 4.956, sample_count: 17192, scale_verified: false } }],

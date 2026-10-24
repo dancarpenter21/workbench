@@ -2,53 +2,25 @@
 
 ## Start the arm workbench
 
-**First launch?** Complete [first-run initialization](#first-run-initialization) below
-before using these commands. If `.runtime/hardware/workbench-config.json` does not
-exist, the local launch configuration has not been created yet. Startup stops rather
-than creating settings or assuming the arm is commissioned.
-
-For an already configured bench, run from the repository root:
+Install dependencies once (`uv sync --locked --extra vision --extra pwm` and `npm ci`), then run:
 
 ```sh
-WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
-  uv run --no-sync python scripts/dev.py --mode hardware --profile workbench --dashboard-host 0.0.0.0
+npm start
 ```
 
-Open **http://127.0.0.1:5173** on the Pi or **http://<pi-address>:5173** on the LAN.
-This is the normal working mode: **Initialization**, **Jog**, camera and Diagnostics.
-Stop it with **Ctrl+C**. If another stack is running, stop that launcher first.
+Open **http://127.0.0.1:5173** on the Pi or **http://<pi-address>:5173** on your LAN. The command starts all backend services and the dashboard. On first use, the dashboard opens **Initialization**. Save valid minimum and maximum pulse limits for all six joints; the dashboard then opens **Workbench** on later visits and **Jog** becomes available. Jog still requires manual power preparation and acknowledgment. PCA9685 automatic retrieval remains disabled.
 
-For **Jog**, also load your completed joint configuration:
+Use `npm run dev:mock` for a simulated stack. Press Ctrl+C or run `npm run stop` to stop. The stop command shuts down this checkout's hardware/mock services and dashboard, including orphaned processes, and force-kills any that do not exit. Logs and commissioning records live under `.runtime/hardware/` for hardware and `.runtime/mock/` for simulation. Existing `.runtime/hardware/workbench-config.json` settings are loaded automatically when present; otherwise the Pi defaults apply.
 
-```sh
-WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
-WORKBENCH_MANUAL_CONFIG="$PWD/config/workbench/manual.local.json" \
-  uv run --no-sync python scripts/dev.py --mode hardware --profile workbench --dashboard-host 0.0.0.0
-```
+Startup preserves the installed Python dependencies with `uv run --no-sync`; rerun
+the installation command above after dependency changes. If `WORKBENCH_CONFIG` still
+points to a deleted `.runtime/hardware/workbench-config.json`, startup reports the
+fallback to the mode's defaults. Other missing custom configuration paths remain errors.
 
-## First-run initialization
-
-Follow these steps in order. **Creating a launch configuration and commissioning the
-physical arm are separate steps.** A config file's existence is not proof that
-initialization is complete.
-
-1. **Prepare the environment:** follow [environment setup](#prepare-the-environment-once).
-2. **Create the local launch configuration:** follow [Enable Initialization for this
-   bench](#enable-initialization-for-this-bench). This explicitly enables the
-   Initialization controls; it does not enable Jog or automatic retrieval.
-3. **Launch the workbench** with the first command above. Open **Initialization** and
-   complete its commissioning checklist: hardware/support/cutoff checks, externally
-   verified current scale, six joint pulse bounds, safe starting pulses, directions,
-   tested rates, stop/recovery checks and reviewed Jog configuration. The first move
-   commands all six joints to 1500 μs; review that starting arrangement before moving.
-4. **Configure and enable Jog:** follow [Use Jog with the measured joint
-   configuration](#use-jog-with-the-measured-joint-configuration), then use the Jog
-   launch command above. Copying the example without filling in measurements is
-   not sufficient.
-
-Progress is visible in **Initialization → Checklist**. Sensor readings remain required
-throughout powered tests. See the [Initialization guide](docs/joint-trials.md) for the
-full procedure. PCA9685 automatic tool retrieval remains disabled.
+`npm run stop` also writes and verifies full-off on every PCA9685 channel after the
+processes exit, including when the stack is already stopped. This releases the arm;
+it can fall under its own weight. A running mock-only stack never accesses physical
+I2C. PWM shutdown failures return an error instructing physical servo-power cutoff.
 
 ## About the project
 
@@ -82,8 +54,8 @@ The Pi foundations now provide:
 - Six-channel pulse validation, an offline pose checker and low-level PCA9685 output.
 - [Manual joint controls](docs/manual-controls.md) in the **Jog** tab, with keyboard,
   browser Xbox controller and on-screen jogging. Base is channel 5 through claw on
-  channel 0; physical control uses the measured manual-control configuration.
-- A hardware profile at `config/development/pi.json`.
+  channel 0; physical control uses saved commissioning limits.
+- Pi hardware defaults at `config/development/pi.json`.
 - An [arm-control design and durable offline rehearsal](docs/arm-control.md) covering
   startup, bounded commands, independent simulated completion evidence, stop and recovery.
 - [Commissioning notebooks and trial snapshots](docs/commissioning.md) for measured
@@ -100,24 +72,9 @@ Rehearsal results and complete record files cannot qualify hardware. Actual sign
 timing, joint limits, paths/payload, completion sensing, physical stop/recovery and Pi
 service/device behavior still require the installed bench.
 
-## Start the Pi workbench
+## Pi setup
 
-Use the **hardware workbench profile** for normal operation. It provides the live
-camera, **Initialization** commissioning checklist and pulse controls, **Jog** controls,
-and **Diagnostics** in one dashboard. Run these commands from the repository root.
-
-### Prepare the environment once
-
-Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22.12+ and npm.
-On this Pi, expose the Raspberry Pi OS Picamera2/libcamera packages to the project
-environment and install the camera and PCA9685 dependencies:
-
-If npm is not on your PATH, load this Pi's nvm installation first:
-
-```sh
-. "$HOME/.nvm/nvm.sh"
-nvm use 26
-```
+Requirements: Python 3.11+, uv, Node.js 22.12+, and npm. On this Pi, install camera and PCA9685 dependencies with:
 
 ```sh
 uv venv --allow-existing --system-site-packages --python /usr/bin/python3 .venv
@@ -125,104 +82,7 @@ uv sync --locked --extra vision --extra pwm
 npm ci
 ```
 
-Speech and assistant models are optional for joint initialization and jogging. Their
-missing dependencies or model files are reported without switching to simulation.
-See the individual [voice](apps/voice/README.md) and
-[assistant](apps/assistant/README.md) guides to enable those features.
-
-### Enable Initialization for this bench
-
-**Required before the first hardware launch:** create the local runtime configuration
-with pulse commissioning enabled. If startup reported that `workbench-config.json`
-is missing, this is the step to follow. This preserves
-an existing local runtime configuration and leaves the tracked Pi defaults unchanged:
-
-```sh
-uv run --no-sync python - <<'PYCONFIG'
-import json
-from pathlib import Path
-
-path = Path(".runtime/hardware/workbench-config.json")
-source = path if path.exists() else Path("config/development/pi.json")
-config = json.loads(source.read_text())
-config["mode"] = "hardware"
-config["profile"] = "workbench"
-config["arm"]["commissioning_enabled"] = True
-path.parent.mkdir(parents=True, exist_ok=True)
-path.write_text(json.dumps(config, indent=2) + "\n")
-PYCONFIG
-```
-
-This step creates the launch profile only. Continue with the **Initialization**
-checklist after starting the app; do not treat file creation as completed commissioning.
-
-### Launch the hardware workbench
-
-```sh
-WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
-  uv run --no-sync python scripts/dev.py \
-  --mode hardware --profile workbench --dashboard-host 0.0.0.0
-```
-
-Open **http://127.0.0.1:5173** on the Pi, or **http://<pi-address>:5173** from another
-computer on the trusted LAN. To use another dashboard port, add `--dashboard-port 5174`.
-Stop an existing launcher with Ctrl+C before starting another stack on the same ports.
-
-In **Initialization**, select a joint, move it, confirm OK, and capture its minimum
-and maximum pulses. The first move commands all six joints to 1500 μs. Step buttons
-support ±1, ±10, ±20 and ±40 μs; the checklist records the remaining commissioning
-reviews. The shared ammeter stays active during movement and powered holding.
-See [Initialization](docs/joint-trials.md) for the full workflow.
-
-### Use Jog with the measured joint configuration
-
-Once the six joints' bounds, starting pulses, directions and maximum rates are
-recorded, put them in `config/workbench/manual.local.json`, using
-[`manual.example.json`](config/workbench/manual.example.json) as the template.
-Set its `enabled` and `commissioned` flags to `true` and include the evidence reference.
-The example contains empty measurements; copying it alone does not enable Jog.
-
-Launch with that configuration as well:
-
-```sh
-WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
-WORKBENCH_MANUAL_CONFIG="$PWD/config/workbench/manual.local.json" \
-  uv run --no-sync python scripts/dev.py \
-  --mode hardware --profile workbench --dashboard-host 0.0.0.0
-```
-
-Open **Jog**, prepare outputs with servo power disconnected and the arm supported,
-then apply power using the reviewed starting arrangement, confirm ready and enable
-manual control. Use the on-screen controls, keyboard, or Xbox controller. Browser
-gamepad input requires localhost or HTTPS; use an SSH port forward for a remote
-controller session. See [manual controls](docs/manual-controls.md).
-
-**Stop arm** blocks further operations until recovery is acknowledged. In Initialization,
-**Stop — hold position** retains the last target; **Not OK** attempts PWM shutdown.
-Logs and durable state live under `.runtime/hardware/`. Ctrl+C stops the launcher.
-PCA9685 automated tool retrieval remains disabled; Initialization and Jog operate
-independently of it.
-
-### Optional troubleshooting and simulation
-
-The normal workbench already includes a Diagnostics tab. Use the separate
-[diagnostics profile](docs/diagnostics.md) only when you specifically want hardware
-inputs with motion disabled and speech/assistant model loading skipped:
-
-```sh
-uv run --no-sync python scripts/dev.py --profile diagnostics --dashboard-host 0.0.0.0
-```
-
-For the simulated retrieval demo instead:
-
-```sh
-npm run dev:mock
-```
-
-Enter “Grab me the crescent wrench” and select **Retrieve tool**. After delivery,
-**Reset mock scene** restores the simulated tools and empties the tray. **Speak**
-records locally; click again to finish and review the transcript. Mock voice returns
-“Grab me the screwdriver.” No microphone audio is sent to a cloud service.
+Follow the [Initialization guide](docs/joint-trials.md) before physical motion. The first commissioning move commands all six joints to 1500 μs. Confirm that starting arrangement is safe and keep the claw INA219 monitor connected throughout powered testing. Missing speech and assistant models are reported in Diagnostics; they do not prevent Initialization.
 
 ## Applications
 
@@ -244,8 +104,7 @@ behavior. Backends expose interactive API documentation at their `/docs` routes.
 application with its documented uvicorn command, or launch just backends with:
 
 ```sh
-WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
-  uv run --no-sync python scripts/dev.py --mode hardware --profile workbench --backend-only
+uv run python scripts/dev.py --backend-only
 ```
 
 ## Configuration and hardware
@@ -258,7 +117,6 @@ calibration. All applications load these files at startup. Environment overrides
 | --- | --- |
 | `WORKBENCH_CONFIG` | Absolute path to runtime settings JSON |
 | `WORKBENCH_CALIBRATION` | Absolute path to tool/bench calibration JSON |
-| `WORKBENCH_MANUAL_CONFIG` | Absolute path to separately commissioned manual-control JSON |
 | `WORKBENCH_MODE` | `mock` or `hardware` for independently launched applications |
 | `WORKBENCH_STATE_DIR` | Durable state/log directory |
 | `WORKBENCH_ROOT` | Repository root when launching from an unusual environment |
@@ -308,10 +166,9 @@ Run one process/worker per application on a trusted local computer. Distributed 
 authentication, general clutter recognition, direct handoffs and autonomous grasp learning
 are outside this first version.
 
-The **Initialization** tab provides [guided joint commissioning](docs/joint-trials.md):
-persistent pulse bounds, explicit moves up to 40 μs, and a commissioning checklist.
-The startup recipe above enables its `arm.commissioning_enabled` gate in the local
-runtime configuration. [Shared hardware status](docs/hardware-status.md) keeps sensor
+The **Initialization** tab provides [direct joint values](docs/joint-trials.md):
+six rows with pulse, minimum, maximum, Move, and Save limits.
+[Shared hardware status](docs/hardware-status.md) keeps sensor
 health, servo power and latched motion interlocks consistent across all tabs.
 
 ## Universal claw-testing rule

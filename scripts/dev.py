@@ -35,31 +35,39 @@ def load_launch_config(path):
         ) from exc
 
 
+def resolve_launch_config(mode):
+    default = ROOT / (
+        "config/development/default.json" if mode == "mock" else "config/development/pi.json"
+    )
+    local = ROOT / ".runtime/hardware/workbench-config.json"
+    override = os.environ.get("WORKBENCH_CONFIG")
+    if override:
+        path = Path(override)
+        if path.resolve() != local.resolve() or path.exists():
+            return path
+        print(f"Local configuration missing: {path}; using {default}", flush=True)
+        return default
+    return local if mode == "hardware" and local.exists() else default
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["mock", "hardware"], default="hardware")
-    parser.add_argument("--profile", choices=["workbench", "diagnostics"], default="workbench")
-    parser.add_argument("--dashboard-host", default="127.0.0.1")
+    parser.add_argument("--dashboard-host", default="0.0.0.0")
     parser.add_argument("--backend-only", action="store_true")
     parser.add_argument("--dashboard-port", type=int, default=5173)
     args = parser.parse_args()
-    if args.profile == "diagnostics":
-        args.mode = "hardware"
+    config_path = str(resolve_launch_config(args.mode))
     env = {
         **os.environ,
         "WORKBENCH_ROOT": str(ROOT),
         "WORKBENCH_MODE": args.mode,
-        "WORKBENCH_PROFILE": args.profile,
+        "WORKBENCH_CONFIG": config_path,
         "WORKBENCH_STATE_DIR": os.environ.get(
-            "WORKBENCH_STATE_DIR",
-            str(
-                ROOT / ".runtime" / ("diagnostics" if args.profile == "diagnostics" else args.mode)
-            ),
+            "WORKBENCH_STATE_DIR", str(ROOT / ".runtime" / args.mode)
         ),
     }
-    if args.mode == "hardware":
-        env.setdefault("WORKBENCH_CONFIG", str(ROOT / "config/development/pi.json"))
-    cfg = load_launch_config(env.get("WORKBENCH_CONFIG", ROOT / "config/development/default.json"))
+    cfg = load_launch_config(config_path)
     ports = [urlparse(cfg["services"][name]).port for name in MODULES]
     if not args.backend_only:
         ports.append(args.dashboard_port)
@@ -154,6 +162,18 @@ def main():
                     start_new_session=True,
                 )
             )
+            dashboard_url = f"http://127.0.0.1:{args.dashboard_port}"
+            deadline = time.monotonic() + 30
+            while True:
+                if any(child.poll() is not None for child in children):
+                    raise RuntimeError(f"An application exited; inspect logs in {runtime}")
+                try:
+                    with urllib.request.urlopen(dashboard_url, timeout=0.5):
+                        break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError(f"Dashboard startup timed out: {dashboard_url}")
+                    time.sleep(0.1)
         print(f"Workbench running in {args.mode} mode. Logs: {runtime}", flush=True)
         print("API: " + cfg["services"]["coordinator"] + "/docs", flush=True)
         if not args.backend_only:

@@ -16,9 +16,6 @@ WATCHDOG_SECONDS = 0.3
 
 def mock_configuration():
     return {
-        "enabled": True,
-        "commissioned": True,
-        "evidence": "Simulated only",
         "channels": {
             name: {
                 "channel": 5 - index,
@@ -58,17 +55,13 @@ class ManualControl:
         self.joints = []
         self.plan = None
         try:
-            if config.get("profile") == "diagnostics":
-                raise ValueError("Motion disabled in diagnostics profile")
             if not self.simulated and config["arm"].get("backend") != "pca9685":
                 raise ValueError("Manual control requires the PCA9685 backend")
             manual = mock_configuration() if self.simulated else config.get("manual", {})
             if not isinstance(manual, dict):
                 raise ValueError("Manual configuration must be a JSON object")
-            if manual.get("enabled") is not True or manual.get("commissioned") is not True:
-                raise ValueError("Manual hardware control disabled: commissioning required")
-            if not isinstance(manual.get("evidence"), str) or not manual["evidence"].strip():
-                raise ValueError("Manual commissioning evidence reference required")
+            if not self.simulated and not manual.get("bounds_context"):
+                raise ValueError("Save limits for all six joints in Initialization")
             channels = manual["channels"]
             if set(channels) != set(JOINT_ORDER):
                 raise ValueError(
@@ -83,10 +76,8 @@ class ManualControl:
                 rate = data["max_rate_us_per_second"]
                 if isinstance(rate, bool) or not math.isfinite(rate) or not 0 < rate <= 1000:
                     raise ValueError("Measured manual pulse rate must be in (0, 1000] us/s")
-                if not all(
-                    isinstance(data[k], str) and data[k].strip() for k in ("label", "direction")
-                ):
-                    raise ValueError("Joint label and observed direction required")
+                if not isinstance(data["label"], str) or not data["label"].strip():
+                    raise ValueError("Joint label required")
                 self.targets[name] = data["initial_us"]
                 self.joints.append(
                     ManualJoint(
@@ -116,6 +107,31 @@ class ManualControl:
             self.error = f"Manual control unavailable: {exc}"
             self.joints = []
             self.targets = {}
+
+    def use_bounds(self, bounds):
+        """Refresh Jog limits only while no output is prepared or owned."""
+        if self.simulated or self.prepared or self.token or self.output:
+            return
+        channels = {}
+        for index, name in enumerate(JOINT_ORDER):
+            joint = bounds.joints.get(name)
+            if not joint or not joint.minimum or not joint.maximum:
+                channels = {}
+                break
+            channels[name] = {
+                "channel": 5 - index,
+                "label": "Base" if index == 0 else "Claw" if index == 5 else f"Joint {index + 1}",
+                "min_us": joint.minimum.requested_us,
+                "max_us": joint.maximum.requested_us,
+                "initial_us": 1500,
+                "max_rate_us_per_second": 100,
+                "direction": "Increasing pulse width",
+            }
+        calibration = {"bounds_context": bounds.model_dump(mode="json"), "channels": channels}
+        if self.config.get("manual") == calibration:
+            return
+        self.config["manual"] = calibration
+        self.__init__(self.config, clock=self.clock, monitor=self.monitor)
 
     def status(self, *, busy=False, recovery=False):
         message = self.error or self.message

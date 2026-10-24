@@ -115,14 +115,20 @@ def test_attempt_selection_preserves_prior_review_and_requires_revision(trial):
         draft_id,
         CommissionAttemptSelect(revision=draft.revision, joint_id="base", attempt_id=attempt.id),
     )
-    assert control.export(draft_id).manual_config["channels"]["base"]["min_us"] == 1490
+    assert (
+        control.export(draft_id).record.joints[0].attempts[-1].observations["minimum"].requested_us
+        == 1490
+    )
     control.acquire(CommissionAcquire(draft_id=draft_id, joint_id="base"))
     finish(control)
     joint = control.read(draft_id).joints[0]
     assert len(joint.attempts) == 2
     assert joint.selected_attempt_id == attempt.id
     assert joint.attempts[0].observations == attempt.observations
-    assert control.export(draft_id).manual_config["channels"]["base"]["min_us"] == 1490
+    assert (
+        control.export(draft_id).record.joints[0].attempts[0].observations["minimum"].requested_us
+        == 1490
+    )
     with pytest.raises(HTTPException):
         control.select_attempt(
             draft_id,

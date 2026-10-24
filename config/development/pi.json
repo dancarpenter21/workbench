@@ -28,7 +28,6 @@
     "context_size": 2048
   },
   "arm": {
-    "commissioning_enabled": false,
     "claw_current": {
       "scale_verified": false,
       "shunt_ohms": null,

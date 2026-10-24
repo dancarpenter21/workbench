@@ -61,10 +61,12 @@ async def test_report_partial_failure_and_recovery(stack):
     assert checks["camera"]["status"] == "ok"
 
 
-async def test_diagnostics_profile_blocks_requests_and_skips_models(tmp_path, monkeypatch):
+async def test_uncommissioned_hardware_blocks_requests_and_reports_missing_models(
+    tmp_path, monkeypatch
+):
     cfg = settings()
-    cfg.update(mode="hardware", profile="diagnostics")
-    cfg["arm"]["backend"] = "roarm"  # Even an alternate driver must not initialize.
+    cfg.update(mode="hardware")
+    cfg["arm"]["backend"] = "pca9685"
     monkeypatch.setitem(sys.modules, "llama_cpp", None)
     monkeypatch.setitem(sys.modules, "faster_whisper", None)
     driver = MagicMock(side_effect=AssertionError("Driver initialized"))
@@ -92,7 +94,7 @@ async def test_diagnostics_profile_blocks_requests_and_skips_models(tmp_path, mo
                 "/execute",
                 json={"tool_id": "pliers", "operation_id": "12345678-1234-1234-1234-123456789abc"},
             )
-            assert response.status_code == 409
+            assert response.status_code == 503
         for app in apps[2:]:
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app), base_url="http://test"
@@ -185,7 +187,7 @@ async def test_hat_diagnostics_reuses_cached_presence(tmp_path, monkeypatch):
     from workbench_contracts import PeripheralStatus
 
     cfg = settings()
-    cfg.update(mode="mock", profile="workbench")
+    cfg.update(mode="mock")
     calls = []
 
     class CachedHat:
@@ -226,7 +228,7 @@ async def test_camera_preview_without_references(monkeypatch):
     np = pytest.importorskip("numpy")
     pytest.importorskip("cv2")
     cfg = settings()
-    cfg.update(mode="hardware", profile="diagnostics")
+    cfg.update(mode="hardware")
     cfg["camera"]["interval_seconds"] = 0.01
     capture = MagicMock()
     capture.read.return_value = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -276,7 +278,7 @@ async def test_hat_failure_is_reported_without_hiding_status(tmp_path, monkeypat
     from workbench_contracts import PeripheralStatus
 
     cfg = settings()
-    cfg.update(mode="mock", profile="diagnostics")
+    cfg.update(mode="mock")
 
     class FailedHat:
         def __init__(self, *args):

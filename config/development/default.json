@@ -13,8 +13,7 @@
   "camera": {"device": 0, "width": 640, "height": 480, "interval_seconds": 0.25, "backend": "opencv"},
   "speech": {"model_path": "models/whisper", "device": "cpu", "compute_type": "int8"},
   "llm": {"model_path": "models/assistant.gguf", "gpu_layers": 0, "context_size": 2048},
-  "arm": {"commissioning_enabled": false,
-    "claw_current": {
+  "arm": {"claw_current": {
       "scale_verified": false,
       "shunt_ohms": null,
       "verification_evidence": ""

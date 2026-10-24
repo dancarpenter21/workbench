@@ -602,28 +602,19 @@ header #servo-power[data-pill-state="off"] { background: #f3f8fc; border-color: 
   grid-template-columns: minmax(0, 1fr) minmax(0, .9fr) auto;
 }
 
-/* Pulse bounds stay readable beside the camera on the bench display. */
-.pulse-joints small { font-size: 9px; font-weight: 400; white-space: nowrap; }
-.pulse-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin: 8px 0; }
-.pulse-steps button { padding: 7px 4px; font-variant-numeric: tabular-nums; }
-#commissioning-panel .pulse-capture { margin: 8px 0; }
-#trial-window-panel { border-top: 1px solid #d4e5f3; margin: 8px 0; padding-top: 6px; }
-#commissioning-panel .pulse-help { font-size: 11px; line-height: 1.45; color: #526475; }
-#trial-message:empty, #trial-error:empty { display: none; }
-
-#trial-checklist-link { font-size: 11px; color: #075ca3; }
-#initialization-checklist { border-top: 1px solid #d4e5f3; margin-top: 16px; padding-top: 4px; scroll-margin-top: calc(var(--header-height, 58px) + 70px); }
-#initialization-checklist > p { font-size: 12px; }
-.commissioning-checklist-item { padding: 10px 0; border-bottom: 1px solid #e0eaf3; }
-.commissioning-checklist-item .ack { align-items: start; flex-wrap: wrap; font-weight: 600; }
-.commissioning-checklist-item p { margin: 5px 0 0 28px; font-size: 12px; color: #526475; }
-.checklist-source { font-size: 10px; font-weight: 400; color: #61798d; }
-.checklist-link { display: inline; min-height: 0; padding: 0; border-radius: 0; background: none; color: #075ca3; text-decoration: underline; font-weight: 400; font-size: inherit; }
-.checklist-link:hover { background: none; color: #034a80; }
-
 .current-interlock:empty { display: none; }
 .current-interlock { flex-basis: 100%; color: #8a5900; font-size: 10px; font-weight: 600; }
 #diagnostic-hardware .current-status { display: flex; flex-wrap: wrap; width: 100%; }
 #diagnostic-hardware .current-main, #diagnostic-hardware .current-raw { display: flex; flex-wrap: wrap; gap: 6px; }
 #diagnostic-hardware .current-reading { white-space: nowrap; }
 #diagnostic-hardware [data-state="warning"] { border-color: #ddb355; }
+
+.init-values { margin: 8px 0; }
+.init-row { display: grid; grid-template-columns: 46px repeat(3, minmax(0, 1fr)) 52px; gap: 6px; align-items: center; margin: 5px 0; }
+.init-row label, .init-head { font-size: 12px; }
+.init-row input { width: 100%; min-width: 0; padding: 8px 4px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.init-row button { padding: 9px 5px; font-size: 12px; }
+#init-error { color: #a12b23; font-size: 12px; }
+
+.init-row input, .init-row button { height: 32px; min-height: 32px; padding: 5px 4px; }
+#init-save { min-height: 32px; padding: 7px 12px; }

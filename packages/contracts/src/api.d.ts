@@ -372,7 +372,26 @@ export interface paths {
         /** Commissioning Bounds */
         get: operations["arm_controller_commissioning_bounds_commissioning_bounds_get"];
         put?: never;
-        post?: never;
+        /** Commissioning Save Bounds */
+        post: operations["arm_controller_commissioning_save_bounds_commissioning_bounds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/arm-controller/commissioning/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Commissioning Readiness */
+        get: operations["arm_controller_commissioning_readiness_commissioning_ready_get"];
+        put?: never;
+        /** Commissioning Ready */
+        post: operations["arm_controller_commissioning_ready_commissioning_ready_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -586,23 +605,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/arm-controller/commissioning/ready": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Commissioning Ready */
-        post: operations["arm_controller_commissioning_ready_commissioning_ready_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/arm-controller/commissioning/heartbeat": {
         parameters: {
             query?: never;
@@ -631,6 +633,23 @@ export interface paths {
         put?: never;
         /** Commissioning Step */
         post: operations["arm_controller_commissioning_step_commissioning_step_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/arm-controller/commissioning/position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Position */
+        post: operations["arm_controller_commissioning_position_commissioning_position_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -716,6 +735,23 @@ export interface paths {
         put?: never;
         /** Commissioning Stop */
         post: operations["arm_controller_commissioning_stop_commissioning_stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/arm-controller/commissioning/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Resume */
+        post: operations["arm_controller_commissioning_resume_commissioning_resume_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1022,7 +1058,8 @@ export interface paths {
         /** Commissioning Bounds */
         get: operations["coordinator_commissioning_bounds_commissioning_bounds_get"];
         put?: never;
-        post?: never;
+        /** Commissioning Save Bounds */
+        post: operations["coordinator_commissioning_save_bounds_commissioning_bounds_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1202,6 +1239,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/coordinator/commissioning/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Resume */
+        post: operations["coordinator_commissioning_resume_commissioning_resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/coordinator/commissioning/reset-current": {
         parameters: {
             query?: never;
@@ -1298,6 +1352,23 @@ export interface paths {
         put?: never;
         /** Commissioning Post Step */
         post: operations["coordinator_commissioning_post_step_commissioning_step_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/commissioning/position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Position */
+        post: operations["coordinator_commissioning_position_commissioning_position_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1815,11 +1886,6 @@ export interface components {
             /** Mode */
             mode: string;
             /**
-             * Profile
-             * @default workbench
-             */
-            profile: string;
-            /**
              * Checked At
              * Format: date-time
              */
@@ -2026,6 +2092,16 @@ export interface components {
                 [key: string]: components["schemas"]["CommissionJointBounds"];
             };
         };
+        /** CommissionBoundsUpdate */
+        CommissionBoundsUpdate: {
+            /** Assembly Id */
+            assembly_id: string;
+            setup: components["schemas"]["CommissionSetup"];
+            /** Joints */
+            joints: {
+                [key: string]: components["schemas"]["CommissionLimitValues"];
+            };
+        };
         /** CommissionChecklist */
         CommissionChecklist: {
             /** Context Key */
@@ -2133,10 +2209,6 @@ export interface components {
                 [key: string]: unknown;
             }[];
             record: components["schemas"]["CommissionDraft"];
-            /** Manual Config */
-            manual_config: {
-                [key: string]: unknown;
-            };
         };
         /** CommissionFeedback */
         CommissionFeedback: {
@@ -2260,6 +2332,13 @@ export interface components {
             minimum?: components["schemas"]["CommissionPulseBound"] | null;
             maximum?: components["schemas"]["CommissionPulseBound"] | null;
         };
+        /** CommissionLimitValues */
+        CommissionLimitValues: {
+            /** Minimum Us */
+            minimum_us?: number | null;
+            /** Maximum Us */
+            maximum_us?: number | null;
+        };
         /** CommissionMark */
         CommissionMark: {
             /** Token */
@@ -2327,11 +2406,10 @@ export interface components {
         };
         /** CommissionPowerOffReset */
         CommissionPowerOffReset: {
-            /**
-             * Power Off And Supported
-             * @constant
-             */
-            power_off_and_supported: true;
+            /** Power Off And Supported */
+            power_off_and_supported?: true | null;
+            /** Fault Reviewed */
+            fault_reviewed?: true | null;
         };
         /** CommissionPrepare */
         CommissionPrepare: {
@@ -2360,10 +2438,21 @@ export interface components {
              * @default
              */
             notes: string;
+            /**
+             * Source
+             * @default observed
+             * @enum {string}
+             */
+            source: "observed" | "manual";
             /** Trial Id */
             trial_id: string;
             /** Command Id */
             command_id: string;
+        };
+        /** CommissionReadiness */
+        CommissionReadiness: {
+            /** Ready */
+            ready: boolean;
         };
         /** CommissionReady */
         CommissionReady: {
@@ -2454,6 +2543,13 @@ export interface components {
         };
         /** CommissionStatus */
         CommissionStatus: {
+            /** Capture Command Id */
+            capture_command_id?: string | null;
+            /**
+             * Can Resume Powered
+             * @default false
+             */
+            can_resume_powered: boolean;
             /**
              * Max Move Us
              * @default 10
@@ -2545,6 +2641,11 @@ export interface components {
             joint_id: string;
             /** Pulse Us */
             pulse_us: number;
+            /**
+             * Assume Ok
+             * @default false
+             */
+            assume_ok: boolean;
         };
         /** CommissionWindow */
         CommissionWindow: {
@@ -2899,8 +3000,6 @@ export interface components {
             checked_at?: string;
             /** Mode */
             mode: string;
-            /** Profile */
-            profile: string;
             /** Retrieval Enabled */
             retrieval_enabled: boolean;
             /** Checks */
@@ -2951,11 +3050,8 @@ export interface components {
             claw_current?: components["schemas"]["ClawCurrentStatus"] | null;
             /** Mode */
             mode: string;
-            /**
-             * Profile
-             * @default workbench
-             */
-            profile: string;
+            /** Commissioning Ready */
+            commissioning_ready?: boolean | null;
             /**
              * Retrieval Enabled
              * @default true
@@ -4291,6 +4387,182 @@ export interface operations {
             };
         };
     };
+    arm_controller_commissioning_save_bounds_commissioning_bounds_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionBoundsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionBounds"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_readiness_commissioning_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionReadiness"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_ready_commissioning_ready_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionReady"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     arm_controller_current_scale_status_commissioning_current_scale_get: {
         parameters: {
             query?: never;
@@ -5179,66 +5451,6 @@ export interface operations {
             };
         };
     };
-    arm_controller_commissioning_ready_commissioning_ready_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CommissionReady"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CommissionStatus"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Unprocessable Content */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Service Unavailable */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     arm_controller_commissioning_heartbeat_commissioning_heartbeat_post: {
         parameters: {
             query?: never;
@@ -5309,6 +5521,66 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CommissionStep"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_position_commissioning_position_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionTarget"];
             };
         };
         responses: {
@@ -5619,6 +5891,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommissionStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_resume_commissioning_resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionStop"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionSession"];
                 };
             };
             /** @description Bad Request */
@@ -6759,6 +7091,66 @@ export interface operations {
             };
         };
     };
+    coordinator_commissioning_save_bounds_commissioning_bounds_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionBoundsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionBounds"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     coordinator_current_scale_status_commissioning_current_scale_get: {
         parameters: {
             query?: never;
@@ -7523,6 +7915,66 @@ export interface operations {
             };
         };
     };
+    coordinator_commissioning_resume_commissioning_resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionStop"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionSession"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     coordinator_commissioning_reset_current_commissioning_reset_current_post: {
         parameters: {
             query?: never;
@@ -7833,6 +8285,66 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CommissionStep"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_commissioning_position_commissioning_position_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionTarget"];
             };
         };
         responses: {

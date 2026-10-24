@@ -49,7 +49,6 @@ class HardwareStatus:
         )
         return ArmHardwareStatus(
             mode=self.config["mode"],
-            profile=self.config.get("profile", "workbench"),
             claw_current=sample,
             servo_hat=hat,
             neutral_evidence=evidence,

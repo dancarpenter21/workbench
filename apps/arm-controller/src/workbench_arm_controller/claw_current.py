@@ -177,13 +177,20 @@ class ClawCurrentMonitor:
             raise RuntimeError(self.fault)
 
     def prepare(self):
-        """Explicit power-off preparation is the only way to clear a fault."""
+        """Clear a fault as part of disconnected-power output preparation."""
+        self._clear_fault(require_power_off=True)
+
+    def reset_fault(self):
+        """Explicit operator reset with a fresh valid sample; never commands output."""
+        self._clear_fault(require_power_off=False)
+
+    def _clear_fault(self, *, require_power_off):
         if self.config_error or not self.poll(force=True):
             raise RuntimeError(self.fault)
         if self.last is None or self.clock() - self.last >= 0.3:
             raise RuntimeError(self.fault or "INA219 unavailable")
         check_current(self.sample)
-        if not self.simulated and self.sample["bus_v"] > 0.5:
+        if require_power_off and not self.simulated and self.sample["bus_v"] > 0.5:
             raise RuntimeError("Claw supply present; disconnect ALL servo power before preparation")
         # A failed poll (including logging) must not be cleared with an older sample.
         if self.sampled_at is None or self.last < self.clock() - 0.3:

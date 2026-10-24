@@ -208,7 +208,6 @@ class Diagnostic(Contract):
 
 class ArmHardwareStatus(Contract):
     mode: str
-    profile: str = "workbench"
     checked_at: datetime = Field(default_factory=now)
     claw_current: ClawCurrentStatus
     servo_hat: PeripheralStatus
@@ -349,6 +348,7 @@ class CommissionSetup(Contract):
 
 
 class CommissionPulseBound(CommissionObservation):
+    source: Literal["observed", "manual"] = "observed"
     trial_id: str
     command_id: str
 
@@ -365,6 +365,26 @@ class CommissionBounds(Contract):
     joints: dict[str, CommissionJointBounds]
 
 
+class CommissionLimitValues(Contract):
+    minimum_us: float | None = Field(default=None, ge=500, le=1500)
+    maximum_us: float | None = Field(default=None, ge=1500, le=2500)
+
+    @model_validator(mode="after")
+    def ordered(self):
+        if self.minimum_us is None and self.maximum_us is None:
+            raise ValueError("Provide at least one limit")
+        if self.minimum_us is not None and self.maximum_us is not None:
+            if self.minimum_us >= self.maximum_us:
+                raise ValueError("Minimum must be below maximum")
+        return self
+
+
+class CommissionBoundsUpdate(Contract):
+    assembly_id: str
+    setup: CommissionSetup
+    joints: dict[str, CommissionLimitValues]
+
+
 CommissionChecklistStep = Literal[
     "hardware", "startup", "directions", "speeds", "recovery", "configuration"
 ]
@@ -374,6 +394,10 @@ class CommissionChecklist(Contract):
     context_key: str
     completed: dict[CommissionChecklistStep, bool] = Field(default_factory=dict)
     updated_at: datetime | None = None
+
+
+class CommissionReadiness(Contract):
+    ready: bool
 
 
 class CommissionChecklistUpdate(Contract):
@@ -405,6 +429,8 @@ class CommissionPendingCommand(Contract):
 
 
 class CommissionStatus(Contract):
+    capture_command_id: str | None = None
+    can_resume_powered: bool = False
     max_move_us: int = 10
     capture_ready: bool = False
     trial_type: Literal["isolated", "all_holding"] = "isolated"
@@ -458,7 +484,15 @@ class CommissionCommand(Contract):
 
 
 class CommissionPowerOffReset(Contract):
-    power_off_and_supported: Literal[True]
+    # Accept older clients while allowing explicit reset without cycling servo power.
+    power_off_and_supported: Literal[True] | None = None
+    fault_reviewed: Literal[True] | None = None
+
+    @model_validator(mode="after")
+    def require_reset_acknowledgment(self):
+        if not (self.fault_reviewed or self.power_off_and_supported):
+            raise ValueError("Explicit operator fault acknowledgment required")
+        return self
 
 
 class CommissionPrepare(CommissionCommand):
@@ -483,6 +517,7 @@ class CommissionStep(CommissionCommand):
 class CommissionTarget(CommissionCommand):
     joint_id: str
     pulse_us: float = Field(ge=500, le=2500, allow_inf_nan=False)
+    assume_ok: bool = False
 
 
 class CommissionSelect(CommissionCommand):
@@ -561,7 +596,6 @@ class CommissionExport(Contract):
     schema_version: Literal[2] = 2
     telemetry: list[dict] = Field(default_factory=list)
     record: CommissionDraft
-    manual_config: dict
 
 
 class WorkbenchStatus(Contract):
@@ -570,7 +604,7 @@ class WorkbenchStatus(Contract):
     neutral_evidence: NeutralEvidence | None = None
     claw_current: ClawCurrentStatus | None = None
     mode: str
-    profile: str = "workbench"
+    commissioning_ready: bool | None = None
     retrieval_enabled: bool = True
     operation: Operation | None
     recovery_required: bool
@@ -588,7 +622,6 @@ class DiagnosticsReport(Contract):
     neutral_evidence: NeutralEvidence | None = None
     checked_at: datetime = Field(default_factory=now)
     mode: str
-    profile: str
     retrieval_enabled: bool
     checks: list[Diagnostic]
 

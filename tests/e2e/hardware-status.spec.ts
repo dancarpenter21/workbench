@@ -26,7 +26,7 @@ for (const state of ["off", "energized", "latched_off", "latched_on", "error", "
           setInterval(() => {
             if ((window as any).__pauseHardware) return;
             this.onmessage?.({ data: JSON.stringify({
-              mode: "mock", profile: "workbench", retrieval_enabled: false,
+              mode: "mock", commissioning_ready: true, retrieval_enabled: false,
               operation: null, recovery_required: latched, message: "", manual: null, commissioning: null,
               claw_current: sample,
               servo_hat: { simulated: true, state: "detected", age_seconds: 0.01, address: 64, detail: "Simulated cached HAT" },
@@ -53,7 +53,7 @@ for (const state of ["off", "energized", "latched_off", "latched_on", "error", "
     }
     await expect(page.locator("#diagnostic-servo-power .power-label")).toHaveText(power);
     await expect(page.locator("#diagnostic-live-hat")).toHaveAttribute("data-state", "ok");
-    await expect(page.locator("#diagnostic-note")).toContainText("Workbench profile");
+    await expect(page.locator("#diagnostic-note")).toContainText("SIMULATED");
     await expect(page.locator("#diagnostic-note")).not.toContainText("Diagnostics profile");
     if (["off", "energized", "latched_off", "latched_on", "unknown"].includes(state)) {
       await expect(page.locator("#diagnostic-sensor-state")).toHaveText("Sensor responding");

@@ -28,8 +28,7 @@ flowchart LR
 reference matching and API output do not depend on how frames were captured. Hardware
 libraries are optional and are loaded only by the selected backend.
 
-`arm.backend` selects `roarm` or `pca9685`. The default runtime profile retains the legacy
-RoArm backend; the Pi profile selects Picamera2 and PCA9685 while defaulting to mock mode.
+`arm.backend` selects `roarm` or `pca9685`. The Pi defaults select Picamera2 and PCA9685 hardware; explicit mock mode is available for tests and simulation.
 The PCA9685 hardware service reports unavailable and rejects execution and recovery
 before opening hardware. Its standalone module provides pulse validation/dry runs and a
 low-level output boundary, not an automatic retrieval implementation. No API contract has

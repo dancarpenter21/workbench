@@ -9,7 +9,7 @@ test("ammeter text is consistent and signed readings do not move its icon", asyn
       timer: ReturnType<typeof setInterval>;
       constructor() {
         this.timer = setInterval(() => this.onmessage?.({ data: JSON.stringify({
-          mode: "mock", profile: "workbench", retrieval_enabled: true, operation: null,
+          mode: "mock", commissioning_ready: true, retrieval_enabled: true, operation: null,
           recovery_required: false, message: "", manual: null, commissioning: null,
           claw_current: { simulated: true, reading_healthy: true, healthy: true, fault: "",
             age_seconds: 0.01, scale_verified: true, power_state: "energized",

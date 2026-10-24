@@ -27,7 +27,7 @@ from workbench_contracts import (
 
 from .claw_current import ClawCurrentMonitor
 from .manual import JOINT_ORDER
-from .servo_trial import SingleServoOutput, encode_pulse
+from .servo_trial import TICK_US, SingleServoOutput, encode_pulse
 
 
 class LiveCommissioning:
@@ -42,13 +42,7 @@ class LiveCommissioning:
         self.factory = output_factory
         self.simulated = config["mode"] == "mock"
         self.domain = "simulated" if self.simulated else "physical"
-        self.available = config.get("profile", "workbench") == "workbench" and (
-            self.simulated
-            or (
-                config["arm"].get("backend") == "pca9685"
-                and config["arm"].get("commissioning_enabled") is True
-            )
-        )
+        self.available = self.simulated or config["arm"].get("backend") == "pca9685"
         self.prefix = "commissioning:" + self.domain + ":"
         self.trial = None
         self.token = None
@@ -87,6 +81,7 @@ class LiveCommissioning:
             self.save(draft)
             self.trial.update(
                 stage="awaiting_power_off",
+                resume_stage=None,
                 requested_us=None,
                 encoded_us=None,
                 targets={},
@@ -151,6 +146,47 @@ class LiveCommissioning:
         context = self.bounds_context()
         saved = self.store.get(self.bounds_key(context))
         return CommissionBounds.model_validate(saved) if saved else context
+
+    def set_bounds(self, request):
+        context = self.bounds_context()
+        if request.assembly_id != context.assembly_id or request.setup != context.setup:
+            raise HTTPException(409, "Arm setup changed; reload the values before saving")
+        if not request.joints or not set(request.joints) <= set(JOINT_ORDER):
+            raise HTTPException(422, "Provide limits for at least one known joint")
+        context = self.bounds()
+        edit_id = str(uuid4())
+        for name, limits in request.joints.items():
+            endpoints = context.joints[name]
+            low = (
+                limits.minimum_us
+                if limits.minimum_us is not None
+                else (endpoints.minimum.requested_us if endpoints.minimum else 500)
+            )
+            high = (
+                limits.maximum_us
+                if limits.maximum_us is not None
+                else (endpoints.maximum.requested_us if endpoints.maximum else 2500)
+            )
+            if low >= high:
+                raise HTTPException(422, f"{name}: minimum must be below maximum")
+            if math.ceil(low / TICK_US) > math.floor(high / TICK_US):
+                raise HTTPException(422, f"{name}: limits must contain a representable PWM pulse")
+            for kind, value in (("minimum", limits.minimum_us), ("maximum", limits.maximum_us)):
+                if value is not None:
+                    setattr(
+                        endpoints,
+                        kind,
+                        CommissionPulseBound(
+                            requested_us=value,
+                            encoded_us=encode_pulse(value, low, high)[1],
+                            observed_at=now(),
+                            trial_id="",
+                            command_id=edit_id,
+                            source="manual",
+                        ),
+                    )
+        self.store.put(self.bounds_key(context), context.model_dump(mode="json"))
+        return context
 
     def checklist(self):
         key = self.bounds_key(self.bounds_context()) + ":checklist"
@@ -270,6 +306,10 @@ class LiveCommissioning:
             .get((self.trial or {}).get("joint_id"), [1450, 1550])
         )
         return CommissionStatus(
+            capture_command_id=(self.confirmed_target() or {}).get("command_id"),
+            can_resume_powered=(self.trial or {}).get("resume_stage")
+            in ("ready", "awaiting_feedback")
+            and self.monitor.status().healthy,
             max_move_us=self.max_move_us,
             capture_ready=self.confirmed_target() is not None,
             claw_current=self.monitor.status(),
@@ -279,13 +319,13 @@ class LiveCommissioning:
             **{
                 key: value
                 for key, value in (self.trial or {}).items()
-                if key != "confirmed_commands"
+                if key not in ("confirmed_commands", "resume_stage")
             },
             message=(
                 f"Trial settings: 1500 us initial, {window[0]}–{window[1]} us selected window, at most {self.max_move_us} us per move. "
                 "Physical position unknown."
                 if self.available
-                else "Commissioning disabled: select PCA9685 and enable arm.commissioning_enabled."
+                else "Commissioning requires the PCA9685 backend."
             ),
         )
 
@@ -357,6 +397,20 @@ class LiveCommissioning:
             self.monitor.require()
 
         check_current()
+        if self.reserved:
+            if self.token or self.trial["stage"] != "awaiting_power_off":
+                raise HTTPException(409, "Arm is busy; stop the current session first")
+            self.event(
+                "superseded",
+                "Operator requested fresh neutral initialization after an interrupted session; "
+                "previous physical position and observations remain unverified",
+            )
+            if self.output:
+                self.output.close()
+                self.output = None
+            self.trial = None
+            self.persist()
+            check_current()
         self.acquire(request.model_copy(update={"trial_type": "all_holding"}))
         try:
             self.event(
@@ -416,6 +470,7 @@ class LiveCommissioning:
             exc = RuntimeError(f"{exc}; PWM shutdown failed: {shutdown}; CUT SERVO POWER")
         self.trial.update(
             stage="awaiting_power_off",
+            resume_stage=None,
             requested_us=None,
             encoded_us=None,
             targets={},
@@ -523,7 +578,12 @@ class LiveCommissioning:
         self.authenticate(request, "ready")
         if request.joint_id != self.trial["joint_id"]:
             raise HTTPException(409, "Select the requested joint first")
-        return self.apply_target(request.pulse_us)
+        return self.apply_target(request.pulse_us, assume_ok=request.assume_ok)
+
+    def position(self, request):
+        """Explore pulses independently of saved Jog limits, with current monitoring."""
+        self.select(request)
+        return self.apply_target(request.pulse_us, assume_ok=True, direct_limits=(500, 2500))
 
     def step(self, request):
         self.authenticate(request, "ready")
@@ -531,19 +591,26 @@ class LiveCommissioning:
             raise HTTPException(422, "Step direction must be -1 or 1")
         return self.apply_target(self.trial["requested_us"] + request.direction * 10)
 
-    def apply_target(self, target):
+    def apply_target(self, target, *, assume_ok=False, direct_limits=None):
         if self.clock() - self.last_step < 0.25:
             raise HTTPException(429, "Wait at least 250 ms between steps")
         joint = self.trial["joint_id"]
         low, high = self.trial.get("windows", {}).get(joint, [1450, 1550])
+        if direct_limits is not None:
+            low, high = direct_limits
         if (
             not math.isfinite(target)
             or not low <= target <= high
-            or abs(target - self.trial["requested_us"]) > self.max_move_us
+            or (
+                direct_limits is None
+                and abs(target - self.trial["requested_us"]) > self.max_move_us
+            )
         ):
             raise HTTPException(
                 422,
-                f"Target must be inside trial window and within {self.max_move_us} us of current request",
+                f"Target must be inside {low}–{high} us"
+                if direct_limits is not None
+                else f"Target must be inside trial window and within {self.max_move_us} us of current request",
             )
         try:
             self.monitor.require()
@@ -573,13 +640,26 @@ class LiveCommissioning:
             self.trial.setdefault("encoded_targets", {})[joint] = actual
             self.persist()
             self.event("step_result", json.dumps({**pending, "physical_position": "unmeasured"}))
+            if assume_ok and self.trial.get("trial_type") == "all_holding":
+                self.monitor.require()
+                self.event(
+                    "assumed_ok",
+                    json.dumps({**pending, "physical_observation": "not recorded"}),
+                )
+                self.trial.setdefault("confirmed_commands", {})[joint] = dict(pending)
+                self.trial.update(stage="ready", pending_command=None)
+                self.persist()
         except Exception as exc:
             self.fault(exc)
         return self.status()
 
     def feedback(self, request):
-        self.authenticate(request, "awaiting_feedback")
+        self.authenticate(request)
         pending = self.trial.get("pending_command") or {}
+        if self.trial["stage"] == "ready" and request.outcome == "unsafe":
+            pending = self.confirmed_target() or {}
+        elif self.trial["stage"] != "awaiting_feedback":
+            raise HTTPException(409, "No movement awaiting feedback")
         if (
             request.command_id != pending.get("command_id")
             or request.joint_id != pending.get("joint_id")
@@ -721,6 +801,12 @@ class LiveCommissioning:
 
     def stop(self, reason="Operator stopped trial; last PWM target retained"):
         if self.trial and self.trial["stage"] != "awaiting_power_off":
+            self.trial["resume_stage"] = (
+                self.trial["stage"]
+                if self.trial.get("trial_type") == "all_holding"
+                and self.trial["stage"] in ("ready", "awaiting_feedback")
+                else None
+            )
             self.token = None
             self.trial["stage"] = "awaiting_power_off"
             self.persist()
@@ -730,6 +816,30 @@ class LiveCommissioning:
     def stop_trial(self, request):
         self.match_trial(request.trial_id)
         return self.stop()
+
+    def resume(self, request):
+        """Explicitly reacquire retained targets without rewriting PWM or neutral."""
+        self.match_trial(request.trial_id)
+        stage = self.trial.get("resume_stage")
+        if self.trial["stage"] != "awaiting_power_off" or stage not in (
+            "ready",
+            "awaiting_feedback",
+        ):
+            raise HTTPException(409, "Output state unknown; powered resume unavailable")
+        self.check_setup(self.read(self.trial["draft_id"]))
+        try:
+            if not self.monitor.poll(force=True):
+                raise RuntimeError(self.monitor.fault)
+            self.monitor.require()
+        except Exception as exc:
+            self.fault(exc)
+        self.event("resume", "Operator resumed powered trial; existing PWM targets retained")
+        self.trial.update(stage=stage, resume_stage=None)
+        self.token = str(uuid4())
+        self.sequence = -1
+        self.deadline = self.clock() + 0.3
+        self.persist()
+        return CommissionSession(token=self.token, status=self.status())
 
     def match_trial(self, trial_id):
         if not self.trial or self.trial["trial_id"] != trial_id:
@@ -793,37 +903,9 @@ class LiveCommissioning:
 
     def export(self, draft_id):
         draft = self.read(draft_id)
-        channels = {}
-        for joint in draft.joints:
-            selected = next((a for a in joint.attempts if a.id == joint.selected_attempt_id), None)
-            observations = (
-                selected.observations
-                if selected
-                else (joint.observations if not joint.attempts else {})
-            )
-            channels[joint.id] = dict(
-                channel=joint.channel,
-                label=joint.id,
-                direction=selected.direction if selected else joint.direction,
-                max_rate_us_per_second=None,
-                **{
-                    key: (observations[mark].requested_us if mark in observations else None)
-                    for key, mark in [
-                        ("min_us", "minimum"),
-                        ("max_us", "maximum"),
-                        ("initial_us", "initial"),
-                    ]
-                },
-            )
         return CommissionExport(
             record=draft,
             telemetry=self.store.journal(self.prefix + "samples:" + draft.id),
-            manual_config=dict(
-                enabled=False,
-                commissioned=False,
-                evidence=f"{self.domain} draft {draft.id} revision {draft.revision}; individual observations only",
-                channels=channels,
-            ),
         )
 
     def close(self):

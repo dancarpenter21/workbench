@@ -21,7 +21,8 @@ root.innerHTML = `
     <button id="jog-tab" class="secondary" aria-pressed="false">✥ Jog</button>
     <button id="diagnostics-tab" aria-label="Diagnostics" class="secondary" aria-pressed="false">⚙ Diagnostics</button>
   </nav>
-  <main id="workbench-view">
+  <p id="startup-status" role="status">Checking commissioning…</p>
+  <main id="workbench-view" hidden>
     <div class="workbench-layout">
       <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><span id="camera-status" role="status" title="Preview delivery rate and time since the last received frame">Connecting…</span><button id="stop" class="danger">■ Stop arm</button></div>
         <img id="camera" alt="Overhead view of the workbench" />
@@ -80,6 +81,7 @@ function showView(view: View) {
   diagnosticsView.hidden = view !== "diagnostics";
   el("tools-view").hidden = view !== "workbench";
   el("commissioning-panel").hidden = view !== "pulse";
+  el("shared-recovery").hidden = view === "pulse";
   el("manual-panel").hidden = view !== "jog";
   for (const name of ["workbench", "pulse", "jog", "diagnostics"] as const) {
     button(`${name}-tab`).setAttribute("aria-pressed", String(name === view));
@@ -120,7 +122,14 @@ function render(status: Status) {
   manual.updateWorkbench(status);
   commissioning.updateWorkbench(status);
   diagnostics.updateWorkbench(status);
-  if (!selectedView && status.profile === "diagnostics") showView("diagnostics");
+  if (!selectedView) {
+    showView(status.commissioning_ready === true ? "workbench" : "pulse");
+    if (status.commissioning_ready !== null && status.commissioning_ready !== undefined) {
+      selectedView = true;
+    }
+  }
+  el("startup-status").hidden = true;
+  el("workbench-view").hidden = false;
   button("reset").hidden = status.mode !== "mock";
   el("voice-note").textContent =
     status.mode === "mock"

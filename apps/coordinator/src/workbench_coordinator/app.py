@@ -16,6 +16,7 @@ from workbench_contracts import (
     CommissionAcquire,
     CommissionAttemptSelect,
     CommissionBounds,
+    CommissionBoundsUpdate,
     CommissionChecklist,
     CommissionChecklistUpdate,
     CommissionCommand,
@@ -28,6 +29,7 @@ from workbench_contracts import (
     CommissionMark,
     CommissionPowerOffReset,
     CommissionPrepare,
+    CommissionReadiness,
     CommissionReady,
     CommissionSelect,
     CommissionSession,
@@ -87,6 +89,7 @@ def create_app(config=None, store=None, client=None):
         "task": None,
         "manual": None,
         "commissioning": None,
+        "commissioning_ready": None,
         "hardware": None,
     }
     gate = asyncio.Lock()
@@ -106,16 +109,14 @@ def create_app(config=None, store=None, client=None):
         return await save(operation)
 
     def retrieval_enabled():
-        return cfg.get("profile") != "diagnostics" and not (
-            cfg["mode"] == "hardware" and cfg["arm"].get("backend") == "pca9685"
-        )
+        return not (cfg["mode"] == "hardware" and cfg["arm"].get("backend") == "pca9685")
 
     def snapshot():
         hardware = state["hardware"]
         return WorkbenchStatus(
             hardware=hardware,
             mode=cfg["mode"],
-            profile=cfg.get("profile", "workbench"),
+            commissioning_ready=state["commissioning_ready"],
             retrieval_enabled=retrieval_enabled()
             and not bool(state["manual"] and state["manual"].active)
             and not bool(state["commissioning"] and state["commissioning"].reserved),
@@ -235,7 +236,6 @@ def create_app(config=None, store=None, client=None):
             hardware=hardware,
             neutral_evidence=(hardware.neutral_evidence if hardware else None),
             mode=cfg["mode"],
-            profile=cfg.get("profile", "workbench"),
             retrieval_enabled=retrieval_enabled(),
             checks=[
                 host,
@@ -322,7 +322,7 @@ def create_app(config=None, store=None, client=None):
         hardware = ArmHardwareStatus.model_validate(
             (await call("arm-controller", "GET", "/hardware/status", timeout=1)).json()
         )
-        if hardware.mode != cfg["mode"] or hardware.profile != cfg.get("profile", "workbench"):
+        if hardware.mode != cfg["mode"]:
             raise ValueError("Arm hardware identity or mode mismatch")
         return hardware
 
@@ -334,6 +334,13 @@ def create_app(config=None, store=None, client=None):
             raise HTTPException(503, "Arm hardware status unavailable") from exc
 
     async def refresh_manual():
+        try:
+            readiness = CommissionReadiness.model_validate(
+                await manual_call("ready", prefix="commissioning")
+            )
+            state["commissioning_ready"] = readiness.ready
+        except (HTTPException, ValueError):
+            state["commissioning_ready"] = None
         try:
             state["commissioning"] = CommissionStatus.model_validate(
                 await manual_call("status", prefix="commissioning")
@@ -376,6 +383,11 @@ def create_app(config=None, store=None, client=None):
     @app.get("/commissioning/bounds", response_model=CommissionBounds)
     async def commissioning_bounds():
         return await manual_call("bounds", prefix="commissioning")
+
+    @app.post("/commissioning/bounds", response_model=CommissionBounds)
+    async def commissioning_save_bounds(value: CommissionBoundsUpdate):
+        async with gate:
+            return await manual_call("bounds", value, prefix="commissioning")
 
     @app.get("/commissioning/current-scale", response_model=CurrentScaleState)
     async def current_scale_status():
@@ -440,6 +452,11 @@ def create_app(config=None, store=None, client=None):
         async with gate:
             return await manual_call("initialize", value, prefix="commissioning")
 
+    @app.post("/commissioning/resume", response_model=CommissionSession)
+    async def commissioning_resume(value: CommissionStop):
+        async with gate:
+            return await manual_call("resume", value, prefix="commissioning")
+
     @app.post("/commissioning/reset-current", response_model=CommissionStatus)
     async def commissioning_reset_current(value: CommissionPowerOffReset):
         async with gate:
@@ -476,6 +493,11 @@ def create_app(config=None, store=None, client=None):
         async with gate:
             result = await manual_call("step", value, prefix="commissioning")
             return result
+
+    @app.post("/commissioning/position", response_model=CommissionStatus)
+    async def commissioning_position(value: CommissionTarget):
+        async with gate:
+            return await manual_call("position", value, prefix="commissioning")
 
     @app.post("/commissioning/target", response_model=CommissionStatus)
     async def commissioning_target(value: CommissionTarget):
@@ -663,7 +685,7 @@ def create_app(config=None, store=None, client=None):
     @app.post("/requests", response_model=Operation, status_code=202)
     async def submit(request: TextRequest):
         if not retrieval_enabled():
-            raise HTTPException(409, "Automatic retrieval is disabled for this profile or backend")
+            raise HTTPException(409, "Automatic retrieval is disabled for this backend")
         if not request.text.strip():
             raise HTTPException(422, "Request must contain text")
         async with gate:

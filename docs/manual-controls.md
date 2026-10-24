@@ -5,8 +5,8 @@ travel through the coordinator to the arm controller without calling the assista
 voice, or vision services. The camera remains useful to the operator, but camera
 observations do not authorize manual movement.
 
-Mock mode is the default and exposes six simulated joints. Start it with
-`npm run dev`. No hardware library is opened by mock control. Manual acquisition
+Mock mode exposes six simulated joints. Start it with
+`npm run dev:mock`. No hardware library is opened by mock control. Manual acquisition
 and tool retrieval are mutually exclusive across all browser sessions.
 
 ## Wiring and controls
@@ -23,8 +23,7 @@ Panel selection numbers follow the physical order from base to claw:
 | 5 | `joint_5` | Joint 5 | 1 |
 | 6 | `claw` | Claw | 0 |
 
-Intermediate labels can be renamed in configuration. The channel mapping is
-validated; changing a display label cannot redirect a command to another channel.
+The channel mapping is fixed from base 5 through claw 0.
 
 Choose an input and click **Enable manual control**. Only the selected joint moves:
 
@@ -38,10 +37,9 @@ Choose an input and click **Enable manual control**. Only the selected joint mov
 - **On-screen buttons:** select that input and hold either direction button. Releasing
   or cancelling the pointer ends the jog.
 
-Precision is 25% of the configured maximum rate. Select a joint with controls neutral;
+Precision is 25% of the 100 µs/s Jog rate. Select a joint with controls neutral;
 release enable and direction after changing joints or input sources before jogging
-again. Increasing pulse direction is shown from configuration; it is not inferred
-from servo numbering. Text fields retain their normal keyboard behavior.
+again. Increasing pulse width is shown; its physical direction must be observed during commissioning. Text fields retain their normal keyboard behavior.
 
 The browser Gamepad API requires a secure context. Use the browser on the Pi through
 `http://localhost:5173`, an SSH port forward to localhost, or an HTTPS reverse proxy
@@ -50,33 +48,16 @@ keyboard and on-screen controls still work. Browser support and OS controller
 mapping must be checked on the actual device. See the
 [Gamepad specification](https://www.w3.org/TR/gamepad/).
 
-## Hardware configuration and preparation
+## Hardware preparation
 
-Follow [hardware setup](hardware.md) and [commissioning](commissioning.md) first.
-PCA9685 automatic retrieval remains disabled. RoArm manual control is unavailable.
-The diagnostics profile never enables manual movement.
+Follow [hardware setup](hardware.md) and [commissioning](commissioning.md) first. Save valid minimum and maximum pulse limits for all six joints in Initialization. Each range must include the 1500 µs starting pulse and a representable PCA9685 tick. Jog then uses those limits automatically. Its default rate is 100 µs/s; physical suitability of that rate and the starting arrangement must be confirmed by the operator. PCA9685 automatic retrieval remains disabled.
 
-Copy `config/workbench/manual.example.json` to the ignored
-`config/workbench/manual.local.json`. The example intentionally contains unknown
-values and disabled flags. Supply physically measured `min_us` and `max_us`, a
-reviewed `initial_us`, observed positive `direction`, and a commissioned maximum
-`max_rate_us_per_second` for every joint. The software accepts rates above zero and
-at most 1000 µs/s; that envelope is not a recommended physical speed. Pulse bounds
-must be within 500–2500 µs and contain representable PCA9685 ticks. Record a reference
-to physical commissioning evidence in `evidence` and set `commissioned` and `enabled`
-true only after validating the procedure below. Offline notebook completeness alone
-does not qualify live manual control. Do not copy the mock fixture's pulse values
-onto the physical arm.
-
-Set `WORKBENCH_MANUAL_CONFIG` to the absolute local configuration path in the arm
-service environment. With `scripts/dev.py`, the environment is inherited by services.
-Select the PCA9685 Pi configuration and the workbench profile; hardware mode is an
-explicit operator choice. Opening the service or dashboard never opens I2C for motion.
+Opening the dashboard does not command arm movement. The current monitor must read the claw INA219 before output and continuously throughout powered movement and holding.
 
 At each hardware service startup:
 
 1. Disconnect servo power and physically support the arm and any load. Put the
-   assembly into the reviewed starting arrangement for applying the configured
+   assembly into the reviewed starting arrangement for applying the 1500 µs
    initial targets. Verify channel wiring, clearance and the accessible power cutoff.
 2. Check **Servo power is disconnected and the arm is supported**, then **Prepare
    outputs**. This initializes the PCA9685 and programs all six reviewed initial
@@ -94,7 +75,7 @@ Stop or input-timeout latch when the output state remains known.
 
 Displayed values are commanded, quantized pulses in µs, never measured joint angles.
 Only one target changes at a time. The controller integrates normalized input at
-50 Hz, retains fractional changes, clamps to configured bounds, and caps each update's
+50 Hz, retains fractional changes, clamps to saved bounds, and caps each update's
 elapsed time at 20 ms to avoid catch-up jumps. Pulse quantization can make individual
 updates larger than the fractional target increment; the configured rate describes
 target progression, not measured physical joint speed.
@@ -176,12 +157,12 @@ for unverified-scale labels, verified-shunt configuration, and physical acceptan
 
 ## Typed pulse testing before limits are commissioned
 
-Use the **Initialization** tab to find and save minimum/maximum pulse commands. It
-initializes all six outputs at 1500 μs on the first explicit move, then changes one
-selected joint at a time by up to 40 μs with OK/Not OK feedback after each move. See
-[joint trials](joint-trials.md) for range extensions, persistent bounds, the power-off
-workflow and current interlock. Capturing bounds does not enable manual jogging or
-automatic retrieval; existing commissioning gates remain in place.
+Use **Initialization** to enter a pulse for any joint and click **Move**, or edit
+minimum/maximum values and click **Save limits**. The first move initializes all six
+outputs at 1500 μs; later moves affect only the selected row. Direct moves accept
+500–2500 μs regardless of saved limits or blank Min/Max fields. Saved values are recorded
+as manually entered limits, not observed movement evidence. See
+[joint values](joint-trials.md) for monitoring and recovery details.
 
 ## Supervised 30-minute neutral hold
 

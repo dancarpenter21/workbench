@@ -106,7 +106,7 @@ not verify servo power, output signals or mechanical operation.
 
 ### Software status and calibration
 
-The Pi profile is `config/development/pi.json`: `camera.backend` selects `picamera2`,
+The Pi defaults are `config/development/pi.json`: `camera.backend` selects `picamera2`,
 and `arm.backend` selects `pca9685`. It still defaults to mock mode. In hardware mode,
 the PCA9685 arm service reports unavailable and rejects execution and recovery without
 opening I2C. Automated retrieval is deliberately pending a validated motion design.
@@ -195,7 +195,7 @@ uv run --no-sync python -m workbench_vision.setup capture \
 ```
 
 Inspect the PNG for color, framing and focus. The setup command opens the **real camera**
-even though the Pi profile defaults to mock mode. It needs no reference images and does
+even when the application is launched in mock mode. It needs no reference images and does
 not start or import the arm runtime. It discards five warm-up frames by default;
 `--discard-frames` accepts 0–60. This is not a guarantee of stable focus or lighting.
 Use a new output filename for each capture; existing images are never overwritten.
@@ -413,11 +413,8 @@ Physical acceptance remains **unperformed** until the hardware is available.
 
 The Workbench tab supports single-joint jogging with keyboard, Xbox controller, and
 on-screen controls. Wiring follows base channel 5 through claw channel 0. See
-[manual controls](manual-controls.md) for the dedicated commissioning gate and
-disconnected-power preparation procedure. PCA9685 automatic retrieval stays disabled.
+[manual controls](manual-controls.md) for saved commissioning limits and disconnected-power preparation procedure. PCA9685 automatic retrieval stays disabled.
 
 For the unchanged factory arm, use [guided joint trials](joint-trials.md) to
-observe one isolated servo before defining a combined starting pose. The physical
-gate is `arm.commissioning_enabled` (false by default); the Workbench panel does
-not require a completed manual calibration. Never infer an upright or safe pose
+observe one isolated servo before defining a combined starting pose. Jog becomes available after valid limits for all six joints are saved in Initialization. Never infer an upright or safe pose
 from the manufacturer's midpoint pulse alone.

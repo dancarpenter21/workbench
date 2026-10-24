@@ -10,6 +10,7 @@ from workbench_contracts import (
     CommissionAcquire,
     CommissionAttemptSelect,
     CommissionBounds,
+    CommissionBoundsUpdate,
     CommissionChecklist,
     CommissionChecklistUpdate,
     CommissionCommand,
@@ -22,6 +23,7 @@ from workbench_contracts import (
     CommissionMark,
     CommissionPowerOffReset,
     CommissionPrepare,
+    CommissionReadiness,
     CommissionReady,
     CommissionSelect,
     CommissionSession,
@@ -86,6 +88,9 @@ def create_app(config=None, store=None):
         return hardware.snapshot(commanded_neutral=commanded_neutral()).neutral_evidence
 
     def manual_snapshot():
+        manual.use_bounds(commissioning.bounds())
+        if cfg["mode"] == "hardware" and cfg["arm"].get("backend") == "pca9685":
+            state["error"] = manual.error
         snapshot = manual.status(
             busy=busy() or commissioning.reserved, recovery=current().recovery_required
         )
@@ -220,6 +225,7 @@ def create_app(config=None, store=None):
         worker = None
         try:
             commissioning.attach(state["store"])
+            manual.use_bounds(commissioning.bounds())
             monitor.attach(state["store"])
             scales.attach(state["store"])
             await manual_io(monitor_tick)
@@ -242,8 +248,6 @@ def create_app(config=None, store=None):
                 await save(status)
             elif cfg["mode"] == "hardware":
                 try:
-                    if cfg.get("profile") == "diagnostics":
-                        raise ValueError("Motion disabled in diagnostics profile")
                     backend = cfg["arm"].get("backend", "roarm")
                     if backend != "roarm":
                         raise ValueError(f"Unknown arm backend: {backend}")
@@ -352,6 +356,28 @@ def create_app(config=None, store=None):
         async with lock:
             return commissioning.bounds()
 
+    @app.post("/commissioning/bounds", response_model=CommissionBounds)
+    async def commissioning_save_bounds(value: CommissionBoundsUpdate):
+        async with lock:
+            if (
+                busy()
+                or manual.token
+                or (manual.prepared and not manual.simulated)
+                or commissioning.token
+            ):
+                raise HTTPException(409, "End active arm control before changing limits")
+            result = await manual_io(commissioning.set_bounds, value)
+            manual.use_bounds(result)
+            return result
+
+    @app.get("/commissioning/ready", response_model=CommissionReadiness)
+    async def commissioning_readiness():
+        async with lock:
+            manual.use_bounds(commissioning.bounds())
+            if cfg["mode"] == "hardware" and cfg["arm"].get("backend") == "pca9685":
+                state["error"] = manual.error
+            return CommissionReadiness(ready=manual.error == "")
+
     @app.get("/commissioning/current-scale", response_model=CurrentScaleState)
     async def current_scale_status():
         async with lock:
@@ -365,7 +391,7 @@ def create_app(config=None, store=None):
     @app.post("/commissioning/current-scale/apply", response_model=CurrentScaleState)
     async def current_scale_apply(value: CurrentScaleApply):
         async with lock:
-            if cfg.get("profile", "workbench") != "workbench" or not monitor.enabled:
+            if not monitor.enabled:
                 raise HTTPException(
                     409, "Current scale activation requires the workbench PCA9685 backend"
                 )
@@ -432,7 +458,7 @@ def create_app(config=None, store=None):
     @app.post("/commissioning/initialize", response_model=CommissionSession)
     async def commissioning_initialize(value: CommissionAcquire):
         async with lock:
-            if busy() or manual.token or commissioning.reserved:
+            if busy() or manual.token:
                 raise HTTPException(409, "Arm is busy; finish the current session first")
             if not commissioning.available:
                 raise HTTPException(409, "Commissioning unavailable")
@@ -446,14 +472,11 @@ def create_app(config=None, store=None):
     @app.post("/commissioning/reset-current", response_model=CommissionStatus)
     async def commissioning_reset_current(value: CommissionPowerOffReset):
         async with lock:
-            if (
-                not value.power_off_and_supported
-                or busy()
-                or manual.token
-                or commissioning.reserved
-            ):
-                raise HTTPException(409, "Finish sessions and disconnect servo power before reset")
-            await manual_io(monitor.prepare)
+            if busy() or manual.token or commissioning.reserved:
+                raise HTTPException(409, "Finish active sessions before resetting the sensor fault")
+            if monitor.shutdown_required:
+                await manual_io(monitor_tick)
+            await manual_io(monitor.reset_fault)
             return commissioning.status()
 
     @app.post("/commissioning/acquire", response_model=CommissionSession)
@@ -496,6 +519,11 @@ def create_app(config=None, store=None):
             result = await manual_io(commissioning.step, value)
             return result
 
+    @app.post("/commissioning/position", response_model=CommissionStatus)
+    async def commissioning_position(value: CommissionTarget):
+        async with lock:
+            return await manual_io(commissioning.position, value)
+
     @app.post("/commissioning/target", response_model=CommissionStatus)
     async def commissioning_target(value: CommissionTarget):
         async with lock:
@@ -523,6 +551,11 @@ def create_app(config=None, store=None):
             result = await manual_io(commissioning.stop_trial, value)
             return result
 
+    @app.post("/commissioning/resume", response_model=CommissionSession)
+    async def commissioning_resume(value: CommissionStop):
+        async with lock:
+            return await manual_io(commissioning.resume, value)
+
     @app.post("/commissioning/finish", response_model=CommissionStatus)
     async def commissioning_finish(value: CommissionFinish):
         async with lock:
@@ -540,6 +573,7 @@ def create_app(config=None, store=None):
     @app.post("/manual/prepare", response_model=ManualStatus)
     async def manual_prepare(request: ManualPrepare):
         async with lock:
+            manual.use_bounds(commissioning.bounds())
             if busy() or manual.token or commissioning.reserved:
                 raise HTTPException(409, "Arm is busy")
             # Preparation is allowed during recovery only with power disconnected.
@@ -551,6 +585,7 @@ def create_app(config=None, store=None):
     @app.post("/manual/session", response_model=ManualSession)
     async def manual_acquire(request: ManualAcquire):
         async with lock:
+            manual.use_bounds(commissioning.bounds())
             if busy() or commissioning.reserved or current().recovery_required:
                 raise HTTPException(409, "Arm is busy or requires recovery")
             if manual.token or not manual.status().available or not manual.prepared:
@@ -576,8 +611,6 @@ def create_app(config=None, store=None):
 
     @app.post("/execute", response_model=ArmStatus, status_code=202)
     async def execute(command: ArmCommand):
-        if cfg.get("profile") == "diagnostics":
-            raise HTTPException(409, "Motion disabled in diagnostics profile")
         async with lock:
             if commissioning.reserved:
                 raise HTTPException(409, "Finish commissioning with power disconnected first")

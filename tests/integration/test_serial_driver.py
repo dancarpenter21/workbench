@@ -9,6 +9,8 @@ from workbench_common import settings
 
 def calibration():
     config = settings()
+    config["arm"]["port"] = "/dev/ttyUSB0"
+    config["arm"]["baudrate"] = 115200
     home = {"base": 0, "shoulder": 0, "elbow": 1, "hand": 1}
     pickup = {**home, "base": 0.2}
     config["workbench"]["arm"]["calibrated"] = True

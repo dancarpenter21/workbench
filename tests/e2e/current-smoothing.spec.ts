@@ -13,7 +13,7 @@ test("brief late updates keep ammeter status steady, but actual read failures sh
           if ((window as any).__meterPaused) return;
           const failed = (window as any).__meterFailed;
           this.onmessage?.({ data: JSON.stringify({
-            mode: "mock", profile: "workbench", retrieval_enabled: true, operation: null,
+            mode: "mock", commissioning_ready: true, retrieval_enabled: true, operation: null,
             recovery_required: false, message: "", manual: null, commissioning: null,
             claw_current: { simulated: true, reading_healthy: !failed, healthy: !failed,
               fault: failed ? "I2C read failed. CUT PHYSICAL SERVO POWER" : "", age_seconds: 0.01,

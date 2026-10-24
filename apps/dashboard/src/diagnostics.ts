@@ -37,7 +37,10 @@ export function mountDiagnostics(root: HTMLElement) {
       <section class="diagnostic-card" data-component="hat"><h2>Servo HAT</h2>
         <div id="diagnostic-live-hat"></div><p id="diagnostic-hat-detail"></p></section>
       <section class="diagnostic-card" data-component="motion_interlock"><h2>Motion interlock</h2>
-        <p id="diagnostic-interlock-state" role="status"></p><p id="diagnostic-interlock-reason"></p></section>
+        <p id="diagnostic-interlock-state" role="status"></p><p id="diagnostic-interlock-reason"></p>
+        <label class="ack"><input id="diagnostic-recovery-ack" type="checkbox" /> Arm supported, servo power disconnected, interruption inspected.</label>
+        <button id="diagnostic-recovery" disabled>Clear stopped session and reset monitoring</button>
+        <p id="diagnostic-recovery-result" role="status"></p></section>
       <section class="diagnostic-card" data-component="neutral_reference"><h2>Neutral commissioning reference</h2>
         <p id="diagnostic-neutral-state" role="status"></p>
         <details id="diagnostic-neutral-record" hidden><summary>Recorded neutral reference</summary>
@@ -47,6 +50,33 @@ export function mountDiagnostics(root: HTMLElement) {
     <section id="diagnostic-current-scale" class="diagnostic-card"></section>`;
   const scales = mountCurrentScale(root.querySelector<HTMLElement>("#diagnostic-current-scale")!);
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!;
+  const recovery = el<HTMLButtonElement>("diagnostic-recovery");
+  const recoveryAck = el<HTMLInputElement>("diagnostic-recovery-ack");
+  recoveryAck.onchange = () => { recovery.disabled = !recoveryAck.checked; };
+  recovery.onclick = async () => {
+    recovery.disabled = true;
+    const result = el("diagnostic-recovery-result");
+    async function call(path: string, body?: object) {
+      const response = await fetch(`/api/coordinator/commissioning/${path}`, {
+        method: body ? "POST" : "GET", headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(5000),
+      });
+      const value = await response.json();
+      if (!response.ok) throw new Error(value.message ?? "Recovery failed");
+      return value as components["schemas"]["CommissionStatus"];
+    }
+    try {
+      const status = await call("status");
+      if (status.reserved) {
+        if (status.stage !== "awaiting_power_off") throw new Error("Stop the arm before recovery.");
+        await call("finish", { trial_id: status.trial_id, power_off_and_supported: true });
+      }
+      await call("reset-current", { fault_reviewed: true });
+      result.textContent = "Interruption cleared. Return to Initialization to move.";
+      recoveryAck.checked = false;
+    } catch (value) { result.textContent = value instanceof Error ? value.message : "Recovery failed"; }
+    finally { recovery.disabled = !recoveryAck.checked; }
+  };
   const refreshButton = el<HTMLButtonElement>("diagnostic-refresh");
   const downloadButton = el<HTMLButtonElement>("diagnostic-download");
   const recordButton = el<HTMLButtonElement>("diagnostic-record");
@@ -168,9 +198,7 @@ export function mountDiagnostics(root: HTMLElement) {
       for (const value of checks.values()) value.stale = true;
       for (const check of data.checks) checks.set(check.component, { check, stale: false });
       el("diagnostic-mode").textContent = data.mode === "mock" ? "SIMULATED" : "PI HARDWARE";
-      el("diagnostic-note").textContent = data.profile === "diagnostics"
-        ? "Diagnostics profile · arm motion and retrieval disabled. Live arm status updates continuously; other checks every five seconds."
-        : `Workbench profile · ${data.mode === "mock" ? "SIMULATED" : "Pi hardware"} · ${data.retrieval_enabled ? "hardware checks do not establish motion readiness" : "automatic retrieval disabled"}. Live arm status updates continuously; other checks every five seconds.`;
+      el("diagnostic-note").textContent = `${data.mode === "mock" ? "SIMULATED" : "Pi hardware"} · ${data.retrieval_enabled ? "hardware checks do not establish motion readiness" : "automatic retrieval disabled"}. Live arm status updates continuously; other checks every five seconds.`;
       downloadButton.disabled = false;
     } catch {
       for (const value of checks.values()) value.stale = true;

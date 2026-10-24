@@ -1,8 +1,6 @@
 # Pi diagnostics dashboard
 
-The diagnostics profile checks the installed Raspberry Pi, camera, USB microphone,
-and PCA9685-compatible HAT without enabling arm motion. It extends the existing
-workbench dashboard and services. Mock mode remains the default for development.
+Diagnostics is a tab in the normal workbench. Start the full stack with `npm start` and select Diagnostics. It reports Pi, camera, microphone, HAT, current monitor, and model status. Opening this tab does not command arm motion.
 
 ## Prepare this Pi
 
@@ -33,24 +31,10 @@ used for this Pi's initial diagnostics build.
 ## Start and open from the LAN
 
 ```sh
-uv run --no-sync python scripts/dev.py --profile diagnostics --dashboard-host 0.0.0.0
+npm start
 ```
 
-Open `http://192.168.1.132:5173` from another computer on the same LAN (use the Pi's
-current address if DHCP changes it). The Diagnostics view opens automatically.
-Backends remain bound to loopback; Vite proxies the browser's API requests. This
-is a manually started development dashboard for a trusted LAN, without login or
-internet exposure. Ctrl+C stops the launcher and its children. There is no boot
-installation or automatic service restart.
-
-The launcher selects `config/development/pi.json`, hardware inputs, and the
-`diagnostics` profile. Logs and SQLite state are isolated under `.runtime/diagnostics/`.
-`WORKBENCH_CONFIG` and `WORKBENCH_STATE_DIR` can override those defaults. Motion
-requests are rejected by both the coordinator and arm API. No arm output driver
-is initialized, including when an alternate arm backend is configured.
-
-For independent service launches, use `WORKBENCH_MODE=hardware` and
-`WORKBENCH_PROFILE=diagnostics` with the same Pi config and isolated state directory.
+Open `http://<pi-address>:5173` from another computer on the same LAN and select Diagnostics. Backends remain bound to loopback; Vite proxies browser API requests. Ctrl+C stops the launcher and its children. Logs and SQLite state are under `.runtime/hardware/`.
 
 ## Use the diagnostics
 
@@ -71,8 +55,7 @@ For independent service launches, use `WORKBENCH_MODE=hardware` and
   individual I²C address (defaults: bus 1, `0x40`). Opening or refreshing Diagnostics
   does not launch the standalone checker or construct a PWM output driver. Register communication does not measure
   servo position, power, movement, or mechanical calibration.
-- **Models:** installed dependency/model-path presence is reported without loading
-  models. The diagnostics profile deliberately skips model loading.
+- **Models:** installed dependency, model path, and loading status are reported.
 - **Report:** downloads the latest complete diagnostic response as JSON. Audio is
   excluded. Recordings are transient in server/browser memory, not written to disk.
 
@@ -93,11 +76,11 @@ metrics. The voice service and coordinator expose:
 
 The test returns WAV bytes encoded as base64 plus signal measurements. All commands
 use fixed arguments, validated device identifiers, and bounded execution. The
-coordinator's existing status now includes `profile` and `retrieval_enabled`.
+coordinator status includes `retrieval_enabled` and commissioning readiness.
 
 Browser requests use the existing `/api/coordinator/` proxy prefix. Generated
 OpenAPI and TypeScript contracts contain the additions. Existing mock retrieval
-and stop/recovery remain available in the Workbench view of the normal profile.
+and stop/recovery remain available in the Workbench view.
 
 ## Verification
 

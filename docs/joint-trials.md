@@ -1,74 +1,47 @@
-# Initialization and commissioning checklist
+# Initialization: direct joint values
 
-The **Initialization** tab combines pulse-bound controls with a commissioning checklist.
-Open **Checklist** beside the heading to read the guidance and track progress.
+Initialization contains six rows: Base, Joints 2–5, and Claw. Each row has editable
+**Pulse**, **Min**, and **Max** fields in microseconds and a **Move** button.
+**Save limits** stores any entered limits; unfinished joints can remain blank. There are no step buttons,
+range-extension controls, feedback prompts, checklist, or recovery panels on this tab.
+Errors appear only when loading or an action fails. Live ammeter readings remain in
+the shared header, and simulated data is labelled SIMULATED.
 
-The checklist automatically checks externally verified current scale and saved minimum/
-maximum bounds for all six joints. Tick the remaining review items after documenting:
-hardware/support/cutoff; safe starting pulses and power-on procedure; observed directions;
-tested per-joint rates; stop/disconnect/recovery behavior; and the reviewed Jog configuration.
-Review checkboxes are editable only after powered trials are finished. They persist across
-browsers/restarts for the current domain, assembly identity and hardware setup, independently
-of temporary trial observations. You can uncheck a review when it needs repeating.
+Click **Move** on a row to command that joint's entered pulse. The first move of a
+new session initializes all six joints to the established 1500 μs neutral request,
+then applies the entered pulse. Confirm that starting arrangement is safe. Later
+moves affect only the requested joint; other outputs retain their targets. Direct
+entry accepts 500–2500 μs independently of saved Jog limits; Min/Max can remain blank. It does not use the old
+40 μs step limit, split moves into steps, or retry failed commands. Repeated commands
+remain at least 250 ms apart. Pulses are commands, not measured joint positions.
 
-Checked reviews record your confirmation, not independent measurements. The checklist does
-not modify motion configuration or enable Jog or retrieval. Simulated progress is labelled
-and never establishes physical acceptance. Repeat relevant physical reviews after changing
-the assembly, load or procedure. Current-scale setup is linked directly to Diagnostics.
-The automatic-retrieval section explains the additional motion design and acceptance work.
+Edit any minimum or maximum and click **Save limits**. Blank fields preserve existing
+values; you can save one joint or one endpoint at a time. Each completed range must
+include 1500 μs, have minimum below maximum, fit inside 500–2500 μs, and contain a
+representable PWM pulse. Saving never moves the arm or opens an output device. Values persist for
+the current physical/simulated domain, assembly and hardware setup. Manually entered
+limits are marked `source: manual`; they are not fabricated trial observations.
+Jog uses saved limits after its output preparation. Automatic retrieval remains disabled.
 
-Choose a joint and use **Move** or a **±1, ±10, ±20, ±40 μs** button. Each step
-button commands its full change immediately. The first move in each session initializes
-all six servos to the established neutral request of **1500 μs**, then applies the
-selected joint's requested change. Opening the tab never moves the arm. Other joints
-hold their last command.
+Leaving the page, losing focus, disconnecting, or pressing the shared Stop ends motion
+ownership and retains the last PWM target. A later explicit Move can resume a normally
+stopped session from its retained targets. It does not return to neutral in that case.
+When a stopped session cannot resume, an explicit Move starts a fresh monitored neutral
+initialization. The previous session remains in history with unverified observations.
+Latched sensor faults still require explicit recovery before movement.
+Use **Diagnostics → Motion interlock**: inspect the interruption, support the arm,
+disconnect servo power, acknowledge that preparation, then clear the stopped session
+and reset monitoring. A reset requires a fresh valid sensor reading and never moves
+the arm. Faults are never cleared automatically by Move or Save limits.
 
-Observe the arm and press **OK** or **Not OK** after every move. After OK, use
-**Set minimum** or **Set maximum** to capture the current tested pulse without moving.
-Recapturing explicitly replaces that endpoint; minimum must be below maximum. The
-joint selectors show the latest saved bounds, or **Not set**. These results persist
-across sessions and restarts, separately for physical/simulated domains and hardware
-setup/assembly identity. The active current-scale verification supplies assembly identity;
-without one, the identity is “Assembly not named.” Physical setup changes select a
-separate set; mock results never establish physical limits.
+Every physical session reads the claw INA219 at **0x41** before enabling output and
+continuously during movement and powered holding. Missing, stale, invalid or failed
+readings stop testing and attempt PWM shutdown; cut physical servo power. With a
+verified shunt resistance, **abs(current) >= 2.5 A** aborts testing. Otherwise raw
+shunt voltage remains visible and amperes and the cutoff are labelled unverified.
+Polling and PWM shutdown are not a physical current limiter.
 
-The initial exploration range is **1450–1550 μs**. Near an edge, check clearance,
-acknowledge it, then use **Extend lower/upper range by 50 μs**. Extending causes no
-movement and does not change saved bounds. Exploration stays within 500–2500 μs and
-resets each session. Every move is limited to **40 μs**, at least **250 ms** apart;
-requests are never split into automatic steps. Isolated trials through the existing
-API retain their 10 μs limit. Pulse commands are not measured angles. PWM resolution
-is approximately 4.88 μs, so a 1 μs change may produce the same output.
-
-**Not OK** records the result, attempts PWM shutdown and ends motion; cut physical
-servo power and support the arm. PWM shutdown can release loads. **Stop — hold
-position** retains the last target. Support the arm, disconnect servo power and confirm
-**Finish** before another session. Blur, disconnect or restart never resumes motion;
-finish interrupted sessions before starting again.
-
-There are no operator forms, record selectors, history or export controls in this tab.
-Trial evidence and telemetry remain available through the existing commissioning APIs.
-Current-scale verification is under **Diagnostics**. Direction remains unknown unless
-recorded separately. Captured bounds do not automatically configure Jog, qualify combined
-paths/rates, or enable automatic retrieval.
-
-The claw INA219 at **0x41** is read before any output initialization and throughout
-all neutral writes, movement and powered holding, including stopped sessions without
-a browser. Missing, stale, invalid or failed readings abort testing and attempt PWM
-shutdown. Cut physical servo power. With an externally verified shunt resistance,
-**abs(current) >= 2.5 A** trips the monitor. Otherwise raw shunt readings remain visible,
-and amperes and cutoff remain explicitly unverified. Polling and PWM shutdown are not
-a physical current limiter.
-
-Neutral initialization never clears a sensor fault. After inspection, finish any
-interrupted session, disconnect power and use the visible **Reset sensor fault** control.
-Reset requires the power-off/support acknowledgment and a fresh healthy reading with
-claw supply at most 0.5 V. No movement is retried automatically.
-
-Physical use requires the workbench profile, hardware mode, PCA9685 backend and its
-commissioning gate. Channel mapping is base 5, joints 2–5 on 4–1, and claw 0.
-Follow the established safe-neutral procedure and continuous supervision. Simulated
-results do not satisfy physical acceptance.
-
-The shared header shows HAT presence and live raw ammeter readings on every tab.
-HAT detection establishes register communication, not servo power or position.
+The channel mapping is Base 5, Joints 2–5 on 4–1, and Claw 0. Physical tests use hardware
+mode with the PCA9685 backend. Simulated tests do not establish physical acceptance.
+The commissioning APIs retain trial histories, feedback, and bounded step testing for
+commissioning tools; the Initialization page uses direct value entry.

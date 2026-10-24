@@ -19,6 +19,7 @@ from workbench_contracts import (
     CommissionPrepare,
     CommissionReady,
     CommissionSelect,
+    CommissionStop,
     CommissionTarget,
     CommissionWindow,
 )
@@ -58,11 +59,76 @@ def test_each_joint_changes_alone_and_exports_raw_samples(pulse):
     exported = control.export(draft_id)
     assert exported.telemetry and all(s["simulated"] for s in exported.telemetry)
     assert all(s["shunt_mv"] == 0 and s["current_a"] is None for s in exported.telemetry)
-    assert not exported.manual_config["enabled"]
+    assert exported.record.id == draft_id
     actions = [e["action"] for e in store.journal(control.prefix + "events:" + draft_id)]
     assert actions.count("step_intent") == actions.count("step_result") == 6
     finish(control)
     assert all(j.state == "needs_review" for j in control.read(draft_id).joints)
+
+
+def test_assumed_ok_allows_repeated_moves_and_capture_without_fabricated_feedback(pulse):
+    control, clock, _ = pulse
+    for target in (1510, 1520):
+        result = control.target(
+            command(control, CommissionTarget, joint_id="base", pulse_us=target, assume_ok=True)
+        )
+        assert result.stage == "ready"
+        assert result.pending_command is None
+        assert result.capture_ready
+        assert result.capture_command_id
+        clock[0] += 0.26
+    control.mark(
+        command(
+            control,
+            CommissionMark,
+            kind="maximum",
+            joint_id="base",
+            command_id=result.capture_command_id,
+            expected_requested_us=1520,
+            settled_and_clear=True,
+        )
+    )
+    draft = control.read(control.trial["draft_id"])
+    assert not control.joint(draft).attempts[-1].feedback
+    assert [event.action for event in draft.history].count("assumed_ok") == 2
+    assert control.bounds().joints["base"].maximum.requested_us == 1520
+
+
+def test_not_ok_overrides_assumed_ok_and_shuts_down(pulse):
+    from workbench_contracts import CommissionFeedback
+
+    control, _, _ = pulse
+    result = control.target(
+        command(control, CommissionTarget, joint_id="base", pulse_us=1510, assume_ok=True)
+    )
+    result = control.feedback(
+        command(
+            control,
+            CommissionFeedback,
+            command_id=result.capture_command_id,
+            joint_id="base",
+            expected_requested_us=1510,
+            outcome="unsafe",
+            observed_direction="unknown",
+            physical_frame="Operator view",
+            notes="Operator reported a problem",
+        )
+    )
+    assert not result.claw_current.healthy
+    assert control.token is None
+    assert not result.can_resume_powered
+    assert not result.capture_ready
+
+
+def test_assumed_ok_never_bypasses_ammeter_fault(pulse):
+    control, _, _ = pulse
+    control.monitor.trip("Injected missing ammeter reading")
+    with pytest.raises(HTTPException):
+        control.target(
+            command(control, CommissionTarget, joint_id="base", pulse_us=1510, assume_ok=True)
+        )
+    assert control.token is None
+    assert not control.status().capture_ready
 
 
 def test_reject_large_change_wrong_joint_and_bad_windows(pulse):
@@ -92,6 +158,118 @@ def test_reject_large_change_wrong_joint_and_bad_windows(pulse):
     with pytest.raises(HTTPException) as error:
         control.target(command(control, CommissionTarget, joint_id="base", pulse_us=1520))
     assert error.value.status_code == 429
+
+
+def test_powered_resume_retains_targets_and_requires_new_session_token(pulse):
+    control, clock, _ = pulse
+    control.target(command(control, CommissionTarget, joint_id="base", pulse_us=1520))
+    feedback(control)
+    previous_token = control.token
+    targets = control.status().targets.copy()
+    control.stop()
+    assert control.status().can_resume_powered
+    result = control.resume(CommissionStop(trial_id=control.trial["trial_id"]))
+    assert result.token != previous_token
+    assert result.status.stage == "ready"
+    assert result.status.targets == targets
+    clock[0] += 0.26
+    control.target(command(control, CommissionTarget, joint_id="base", pulse_us=1530))
+    assert control.status().targets["base"] == 1530
+
+
+def test_powered_resume_preserves_pending_feedback_and_rejects_faults(pulse):
+    control, _, _ = pulse
+    control.target(command(control, CommissionTarget, joint_id="base", pulse_us=1520))
+    pending = control.status().pending_command
+    control.stop()
+    result = control.resume(CommissionStop(trial_id=control.trial["trial_id"]))
+    assert result.status.stage == "awaiting_feedback"
+    assert result.status.pending_command == pending
+    feedback(control)
+    with pytest.raises(HTTPException):
+        control.fault(RuntimeError("Injected write failure"))
+    assert not control.status().can_resume_powered
+    with pytest.raises(HTTPException):
+        control.resume(CommissionStop(trial_id=control.trial["trial_id"]))
+
+
+def test_powered_resume_does_not_clear_sensor_fault(pulse):
+    control, _, _ = pulse
+    control.stop()
+    control.monitor.trip("Injected sensor fault")
+    assert not control.status().can_resume_powered
+    with pytest.raises(HTTPException):
+        control.resume(CommissionStop(trial_id=control.trial["trial_id"]))
+    assert control.token is None
+    assert control.monitor.fault
+
+
+def test_explicit_sensor_reset_accepts_powered_healthy_sample():
+    cfg = settings()
+    cfg["mode"] = "hardware"
+    cfg["arm"]["backend"] = "pca9685"
+    monitor = ClawCurrentMonitor(cfg, bus_factory=lambda _: SensorBus())
+    try:
+        monitor.trip("Stale INA219 readings")
+        with pytest.raises(RuntimeError, match="disconnect ALL servo power"):
+            monitor.prepare()
+        assert monitor.fault
+        monitor.reset_fault()
+        assert monitor.status().healthy
+        assert monitor.status().bus_v == 5
+        assert monitor.status().shunt_mv is not None
+    finally:
+        monitor.close()
+
+
+@pytest.mark.asyncio
+async def test_sensor_reset_api_requires_explicit_ack_and_never_initializes_outputs(tmp_path):
+    cfg = settings()
+    cfg["mode"] = "mock"
+    store = Store("sensor-reset-api", tmp_path)
+    store.put("claw_current_fault", "Stale INA219 readings")
+    app = create_app(cfg, store)
+    try:
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app), base_url="http://test"
+            ) as client:
+                rejected = await client.post("/commissioning/reset-current", json={})
+                assert rejected.status_code == 422
+                result = await client.post(
+                    "/commissioning/reset-current", json={"fault_reviewed": True}
+                )
+                assert result.status_code == 200, result.text
+                status = result.json()
+                assert status["claw_current"]["healthy"]
+                assert status["claw_current"]["simulated"]
+                assert status["targets"] == {}
+                assert not status["reserved"]
+    finally:
+        store.close()
+
+
+@pytest.mark.parametrize("shunt", [-25000, 25000])
+def test_powered_sensor_reset_rejects_overcurrent(shunt):
+    cfg = settings()
+    cfg["mode"] = "hardware"
+    cfg["arm"].update(
+        backend="pca9685",
+        claw_current={
+            "scale_verified": True,
+            "shunt_ohms": 0.1,
+            "verification_evidence": "Injected test scale",
+        },
+    )
+    monitor = ClawCurrentMonitor(cfg, bus_factory=lambda _: SensorBus(shunt=shunt))
+    try:
+        monitor.trip("Stale INA219 readings")
+        with pytest.raises(RuntimeError):
+            monitor.reset_fault()
+        assert monitor.fault
+        assert not monitor.status().healthy
+    finally:
+        monitor.close()
 
 
 def test_logging_failure_prevents_target_and_invalidates_session(pulse, monkeypatch):

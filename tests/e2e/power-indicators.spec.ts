@@ -22,7 +22,7 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
         constructor() {
           setInterval(() => {
             if (!(window as any).__pauseCurrent) this.onmessage?.({ data: JSON.stringify({
-              mode: "hardware", profile: "workbench", retrieval_enabled: false, operation: null,
+              mode: "hardware", commissioning_ready: true, retrieval_enabled: false, operation: null,
               recovery_required: false, message: "", manual: null, commissioning: null, claw_current: sample,
             }) });
           }, 75);

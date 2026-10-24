@@ -18,19 +18,23 @@ ROOT = Path(os.environ.get("WORKBENCH_ROOT", Path(__file__).resolve().parents[4]
 
 
 def settings() -> dict:
-    path = Path(os.environ.get("WORKBENCH_CONFIG", ROOT / "config/development/default.json"))
+    mode = os.environ.get("WORKBENCH_MODE", "hardware")
+    default = ROOT / (
+        "config/development/default.json" if mode == "mock" else "config/development/pi.json"
+    )
+    local = ROOT / ".runtime/hardware/workbench-config.json"
+    path = Path(
+        os.environ.get(
+            "WORKBENCH_CONFIG", local if mode == "hardware" and local.exists() else default
+        )
+    )
     data = json.loads(path.read_text())
     data["mode"] = os.environ.get("WORKBENCH_MODE", data["mode"])
     if data["mode"] not in {"mock", "hardware"}:
         raise ValueError("WORKBENCH_MODE must be mock or hardware")
-    data["profile"] = os.environ.get("WORKBENCH_PROFILE", data.get("profile", "workbench"))
-    if data["profile"] not in {"workbench", "diagnostics"}:
-        raise ValueError("WORKBENCH_PROFILE must be workbench or diagnostics")
+    data.pop("profile", None)
     bench = Path(os.environ.get("WORKBENCH_CALIBRATION", ROOT / "config/workbench/default.json"))
     data["workbench"] = json.loads(bench.read_text())
-    manual = os.environ.get("WORKBENCH_MANUAL_CONFIG")
-    if manual:
-        data["manual"] = json.loads(Path(manual).read_text())
     return data
 
 

@@ -6,7 +6,7 @@ Record physical observations, assembly/configuration version, observer, timestam
 load, and pass/fail evidence in the commissioning records. Keep runtime evidence private.
 
 1. **Disconnected initialization:** support the arm, disconnect servo power, verify
-   independent channels and cutoff. Start the workbench profile with manual configuration.
+   independent channels and cutoff. Start the workbench with saved commissioning limits.
    Opening services and the dashboard must not program motion. Verify preparation
    programs the reviewed initial signals on all six channels with motor power off.
 2. **Power application:** follow the reviewed arrangement and power sequence. Observe

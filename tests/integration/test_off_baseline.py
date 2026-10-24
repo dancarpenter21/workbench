@@ -271,6 +271,7 @@ def test_sensor_fault_latch_survives_monitor_restart_until_explicit_power_off_pr
     cfg = settings()
     cfg["mode"] = "hardware"
     cfg["arm"]["backend"] = "pca9685"
+    cfg["arm"]["claw_current"].pop("off_baseline", None)
     store = Store("fault", tmp_path)
     old = ClawCurrentMonitor(cfg, bus_factory=lambda _: SensorBus(voltage=2))
     old.attach(store)

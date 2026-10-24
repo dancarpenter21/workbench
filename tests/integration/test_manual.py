@@ -1,14 +1,17 @@
 import asyncio
+from datetime import datetime, timezone
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
 import pytest
 from fastapi import HTTPException
 from workbench_arm_controller.app import create_app
+from workbench_arm_controller.commissioning_live import LiveCommissioning
 from workbench_arm_controller.manual import JOINT_ORDER, ManualControl, mock_configuration
 from workbench_arm_controller.pca9685 import Pca9685Output
 from workbench_common import Store, settings
-from workbench_contracts import ManualInput
+from workbench_contracts import CommissionPulseBound, ManualInput
 
 
 def controller():
@@ -16,6 +19,40 @@ def controller():
     cfg = settings()
     cfg["mode"] = "mock"
     return ManualControl(cfg, clock=lambda: now[0]), now
+
+
+def test_saved_limits_enable_jog_and_changed_assembly_requires_new_limits(tmp_path):
+    cfg = settings()
+    cfg["mode"] = "hardware"
+    control = ManualControl(cfg)
+    assert not control.status().available
+    store = Store("limits", tmp_path)
+    commissioning = LiveCommissioning(cfg)
+    commissioning.attach(store)
+    bounds = commissioning.bounds()
+    control.use_bounds(bounds)
+    assert not control.status().available
+    for name in JOINT_ORDER:
+        for kind, pulse in (("minimum", 1450), ("maximum", 1550)):
+            setattr(
+                bounds.joints[name],
+                kind,
+                CommissionPulseBound(
+                    requested_us=pulse,
+                    encoded_us=pulse,
+                    observed_at=datetime.now(timezone.utc),
+                    trial_id="fixture",
+                    command_id="fixture",
+                ),
+            )
+    control.use_bounds(bounds)
+    assert control.status().available
+    assert all(j.min_us == 1450 and j.max_us == 1550 for j in control.joints)
+    bounds.assembly_id = "replacement arm"
+    bounds.joints["claw"].maximum = None
+    control.use_bounds(bounds)
+    assert not control.status().available
+    store.close()
 
 
 def command(control, speed=0, joint="base"):
@@ -234,6 +271,10 @@ class Bus:
 
 
 async def test_hardware_preparation_failure_and_pwm_shutdown(tmp_path, monkeypatch):
+    # Synthetic buses must not contend with the running physical controller's lock.
+    monkeypatch.setattr(
+        "workbench_arm_controller.device_lock.Path", lambda name: tmp_path / Path(name).name
+    )
     cfg = settings()
     cfg["mode"] = "hardware"
     cfg["arm"]["backend"] = "pca9685"
@@ -253,12 +294,31 @@ async def test_hardware_preparation_failure_and_pwm_shutdown(tmp_path, monkeypat
 
     monkeypatch.setattr("workbench_arm_controller.manual.Pca9685Output", output)
     store = Store("arm", tmp_path)
+    commissioning = LiveCommissioning(cfg, monitor=monitor)
+    commissioning.attach(store)
+    bounds = commissioning.bounds()
+    for name in JOINT_ORDER:
+        for kind, pulse in (("minimum", 1000), ("maximum", 2000)):
+            setattr(
+                bounds.joints[name],
+                kind,
+                CommissionPulseBound(
+                    requested_us=pulse,
+                    encoded_us=pulse,
+                    observed_at=datetime.now(timezone.utc),
+                    trial_id="fixture",
+                    command_id="fixture",
+                ),
+            )
+    store.put(commissioning.bounds_key(bounds), bounds.model_dump(mode="json"))
     app = create_app(cfg, store)
     async with app.router.lifespan_context(app):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app), base_url="http://test"
         ) as client:
             assert not opened and not bus.writes
+            assert (await client.get("/commissioning/ready")).json() == {"ready": True}
+            assert len((await client.get("/manual/status")).json()["joints"]) == 6
             assert (
                 await client.post(
                     "/manual/prepare", json={"power_disconnected_and_arm_supported": False}
@@ -267,6 +327,7 @@ async def test_hardware_preparation_failure_and_pwm_shutdown(tmp_path, monkeypat
             prepared = await client.post(
                 "/manual/prepare", json={"power_disconnected_and_arm_supported": True}
             )
+            assert prepared.status_code == 200, prepared.text
             assert prepared.json()["prepared"] and opened
             assert [j["channel"] for j in prepared.json()["joints"]] == [5, 4, 3, 2, 1, 0]
             assert (

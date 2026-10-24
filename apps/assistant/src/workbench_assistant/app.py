@@ -34,7 +34,7 @@ def create_app(config=None):
 
     @asynccontextmanager
     async def lifespan(app):
-        if cfg["mode"] == "hardware" and cfg.get("profile") != "diagnostics":
+        if cfg["mode"] == "hardware":
             try:
                 from llama_cpp import Llama
 
@@ -69,9 +69,8 @@ def create_app(config=None):
         return Health(
             service="assistant",
             mode=cfg["mode"],
-            ready=not state["error"] and cfg.get("profile") != "diagnostics",
-            detail=state["error"]
-            or ("Model loading skipped" if cfg.get("profile") == "diagnostics" else ""),
+            ready=not state["error"],
+            detail=state["error"],
         )
 
     @app.post("/interpret", response_model=Intent)

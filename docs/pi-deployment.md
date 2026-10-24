@@ -92,7 +92,7 @@ WORKBENCH_COORDINATOR_URL=http://127.0.0.1:8100 \
 Adjust the coordinator port if changed in the bundle. Open `http://127.0.0.1:5173` on
 the Pi. Do not run top-level `npm run dev` alongside the service: it starts backends too.
 Remote access, authentication and a production frontend server remain outside this local
-commissioning profile.
+commissioning setup.
 
 ## 4. Interpret health without inferring physical readiness
 
