@@ -22,6 +22,19 @@ MODULES = {
 }
 
 
+def load_launch_config(path):
+    try:
+        return json.loads(Path(path).read_text())
+    except FileNotFoundError as exc:
+        raise SystemExit(
+            f"Configuration file not found: {path}\n"
+            "No applications started. Check WORKBENCH_CONFIG or follow the first-run "
+            "initialization steps in README.md#first-run-initialization. "
+            "Create the local launch configuration explicitly, then complete the "
+            "Initialization checklist; a config file alone does not establish commissioning."
+        ) from exc
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["mock", "hardware"], default="hardware")
@@ -46,9 +59,7 @@ def main():
     }
     if args.mode == "hardware":
         env.setdefault("WORKBENCH_CONFIG", str(ROOT / "config/development/pi.json"))
-    cfg = json.loads(
-        Path(env.get("WORKBENCH_CONFIG", ROOT / "config/development/default.json")).read_text()
-    )
+    cfg = load_launch_config(env.get("WORKBENCH_CONFIG", ROOT / "config/development/default.json"))
     ports = [urlparse(cfg["services"][name]).port for name in MODULES]
     if not args.backend_only:
         ports.append(args.dashboard_port)

@@ -2,7 +2,12 @@
 
 ## Start the arm workbench
 
-From the repository root, run:
+**First launch?** Complete [first-run initialization](#first-run-initialization) below
+before using these commands. If `.runtime/hardware/workbench-config.json` does not
+exist, the local launch configuration has not been created yet. Startup stops rather
+than creating settings or assuming the arm is commissioned.
+
+For an already configured bench, run from the repository root:
 
 ```sh
 WORKBENCH_CONFIG="$PWD/.runtime/hardware/workbench-config.json" \
@@ -21,9 +26,29 @@ WORKBENCH_MANUAL_CONFIG="$PWD/config/workbench/manual.local.json" \
   uv run --no-sync python scripts/dev.py --mode hardware --profile workbench --dashboard-host 0.0.0.0
 ```
 
-**First time only:** follow [environment setup](#prepare-the-environment-once) and
-[local configuration setup](#enable-initialization-for-this-bench) below. The Jog
-command additionally needs your measured `manual.local.json`.
+## First-run initialization
+
+Follow these steps in order. **Creating a launch configuration and commissioning the
+physical arm are separate steps.** A config file's existence is not proof that
+initialization is complete.
+
+1. **Prepare the environment:** follow [environment setup](#prepare-the-environment-once).
+2. **Create the local launch configuration:** follow [Enable Initialization for this
+   bench](#enable-initialization-for-this-bench). This explicitly enables the
+   Initialization controls; it does not enable Jog or automatic retrieval.
+3. **Launch the workbench** with the first command above. Open **Initialization** and
+   complete its commissioning checklist: hardware/support/cutoff checks, externally
+   verified current scale, six joint pulse bounds, safe starting pulses, directions,
+   tested rates, stop/recovery checks and reviewed Jog configuration. The first move
+   commands all six joints to 1500 μs; review that starting arrangement before moving.
+4. **Configure and enable Jog:** follow [Use Jog with the measured joint
+   configuration](#use-jog-with-the-measured-joint-configuration), then use the Jog
+   launch command above. Copying the example without filling in measurements is
+   not sufficient.
+
+Progress is visible in **Initialization → Checklist**. Sensor readings remain required
+throughout powered tests. See the [Initialization guide](docs/joint-trials.md) for the
+full procedure. PCA9685 automatic tool retrieval remains disabled.
 
 ## About the project
 
@@ -107,7 +132,9 @@ See the individual [voice](apps/voice/README.md) and
 
 ### Enable Initialization for this bench
 
-Create a local runtime configuration with pulse commissioning enabled. This preserves
+**Required before the first hardware launch:** create the local runtime configuration
+with pulse commissioning enabled. If startup reported that `workbench-config.json`
+is missing, this is the step to follow. This preserves
 an existing local runtime configuration and leaves the tracked Pi defaults unchanged:
 
 ```sh
@@ -125,6 +152,9 @@ path.parent.mkdir(parents=True, exist_ok=True)
 path.write_text(json.dumps(config, indent=2) + "\n")
 PYCONFIG
 ```
+
+This step creates the launch profile only. Continue with the **Initialization**
+checklist after starting the app; do not treat file creation as completed commissioning.
 
 ### Launch the hardware workbench
 
