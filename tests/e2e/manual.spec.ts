@@ -35,6 +35,10 @@ test("keyboard jogging, joint mapping, precision, release and focus loss", async
   expect(await value()).toBe(held);
   await page.keyboard.press("6");
   await expect(page.locator("#manual-selected")).toHaveText("Claw · Servo 0");
+  // Joint selection requires a sampled neutral input before re-enabling movement.
+  await page.waitForResponse(response => response.url().endsWith("/manual/input") &&
+    response.request().postDataJSON()?.joint_id === "claw" &&
+    response.request().postDataJSON()?.speed === 0 && response.ok());
   const claw = await value();
   await page.keyboard.down("Shift");
   await page.keyboard.down("Space");

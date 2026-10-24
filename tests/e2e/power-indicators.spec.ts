@@ -1,14 +1,16 @@
 import { test, expect } from "@playwright/test";
 
-for (const state of ["off", "energized", "fault", "stale", "unknown", "missing"]) {
+for (const state of ["off", "energized", "fault", "stale", "unknown", "missing", "recovered_off", "recovered_powered"]) {
   test(`main Workbench supply indicator: ${state}`, async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 480 });
     await page.addInitScript(({ state }) => {
       const sample = state === "missing" ? null : {
-        simulated: false, healthy: state !== "fault", fault: state === "fault" ? "Sensor fault latched" : "",
+        simulated: false, healthy: state !== "fault" && !state.startsWith("recovered"),
+        reading_healthy: state !== "fault",
+        fault: state === "fault" || state.startsWith("recovered") ? "Stale INA219 readings (earlier interruption)" : "",
         sampled_at: new Date().toISOString(), age_seconds: state === "stale" ? 1 : 0.01,
-        bus_v: state === "energized" ? 5 : 0.004, shunt_mv: -0.06,
-        current_a: null, scale_verified: false, power_state: state === "energized" ? "energized" : state === "unknown" ? "unknown" : "off",
+        bus_v: (state === "energized" || state === "recovered_powered") ? 5 : 0.004, shunt_mv: -0.06,
+        current_a: null, scale_verified: false, power_state: (state === "energized" || state === "recovered_powered") ? "energized" : state === "unknown" ? "unknown" : "off",
         off_bounds: state === "unknown" ? null : {
           baseline_id: "20261023T214233Z-journal-97c7c90c", domain: "physical", i2c_bus: 1,
           sensor_address: 65, pwm_address: 64, max_bus_v: 0.020, max_abs_shunt_mv: 0.120, evidence: "Recorded capture fixture",
@@ -30,8 +32,15 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing"]
     }, { state });
     await page.goto("/");
     const badge = page.locator("#power-indicator");
-    const label = state === "off" ? "Powered down" : state === "energized" ? "Powered" : state === "fault" || state === "stale" ? "Sensor fault" : "Power unknown";
+    const label = state === "off" || state === "recovered_off" ? "Powered down" : state === "energized" ? "Powered" : state === "recovered_powered" ? "Reset required" : state === "fault" || state === "stale" ? "Sensor fault" : "Power unknown";
     await expect(badge).toContainText(label);
+    if (state.startsWith("recovered")) {
+      await expect(badge).toHaveAttribute("data-state", state === "recovered_off" ? "off" : "paused");
+      await expect(page.locator("#workbench-current .current-fault")).toBeEmpty();
+      await page.locator("#workbench-current summary").click();
+      await expect(page.locator("#workbench-current .current-recovery")).toContainText("previous monitoring interruption");
+      if (state === "recovered_off") await page.screenshot({ path: "test-results/powered-off-normal.png" });
+    }
     if (state === "off") {
       await expect(page.locator("#workbench-current .current-label")).toHaveText("Powered down");
       await expect(page.locator("#workbench-current .current-raw")).toContainText("-0.06 mV");

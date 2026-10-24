@@ -327,6 +327,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/arm-controller/commissioning/current-scale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current Scale Status */
+        get: operations["arm_controller_current_scale_status_commissioning_current_scale_get"];
+        put?: never;
+        /** Current Scale Save */
+        post: operations["arm_controller_current_scale_save_commissioning_current_scale_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/arm-controller/commissioning/current-scale/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Current Scale Apply */
+        post: operations["arm_controller_current_scale_apply_commissioning_current_scale_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/arm-controller/commissioning/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Feedback */
+        post: operations["arm_controller_commissioning_feedback_commissioning_feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/arm-controller/commissioning/drafts/{draft_id}/select-attempt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Select Attempt */
+        post: operations["arm_controller_commissioning_select_attempt_commissioning_drafts__draft_id__select_attempt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/arm-controller/commissioning/status": {
         parameters: {
             query?: never;
@@ -391,6 +460,40 @@ export interface paths {
         get: operations["arm_controller_commissioning_export_commissioning_drafts__draft_id__export_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/arm-controller/commissioning/initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Initialize */
+        post: operations["arm_controller_commissioning_initialize_commissioning_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/arm-controller/commissioning/reset-current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Reset Current */
+        post: operations["arm_controller_commissioning_reset_current_commissioning_reset_current_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -822,6 +925,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/coordinator/commissioning/current-scale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current Scale Status */
+        get: operations["coordinator_current_scale_status_commissioning_current_scale_get"];
+        put?: never;
+        /** Current Scale Save */
+        post: operations["coordinator_current_scale_save_commissioning_current_scale_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/commissioning/current-scale/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Current Scale Apply */
+        post: operations["coordinator_current_scale_apply_commissioning_current_scale_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/commissioning/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Feedback */
+        post: operations["coordinator_commissioning_feedback_commissioning_feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/commissioning/drafts/{draft_id}/select-attempt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Select Attempt */
+        post: operations["coordinator_commissioning_select_attempt_commissioning_drafts__draft_id__select_attempt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/coordinator/commissioning/evidence": {
         parameters: {
             query?: never;
@@ -903,6 +1075,40 @@ export interface paths {
         get: operations["coordinator_commissioning_drafts_draft_id_export_commissioning_drafts__draft_id__export_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/commissioning/initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Initialize */
+        post: operations["coordinator_commissioning_initialize_commissioning_initialize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/commissioning/reset-current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commissioning Reset Current */
+        post: operations["coordinator_commissioning_reset_current_commissioning_reset_current_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1524,6 +1730,8 @@ export interface components {
         };
         /** ClawCurrentStatus */
         ClawCurrentStatus: {
+            /** Reading Healthy */
+            reading_healthy?: boolean | null;
             /** Monitor Session Id */
             monitor_session_id?: string | null;
             /**
@@ -1597,6 +1805,13 @@ export interface components {
         };
         /** CommissionAcquire */
         CommissionAcquire: {
+            /** Observer */
+            observer?: string | null;
+            /**
+             * Conditions
+             * @default Supported bench trial
+             */
+            conditions: string;
             /**
              * Trial Type
              * @default isolated
@@ -1607,6 +1822,63 @@ export interface components {
             draft_id: string;
             /** Joint Id */
             joint_id: string;
+        };
+        /** CommissionAttempt */
+        CommissionAttempt: {
+            /** Current Scale */
+            current_scale?: {
+                [key: string]: unknown;
+            };
+            /** Telemetry Reference */
+            telemetry_reference?: string | null;
+            /** Id */
+            id: string;
+            /** Trial Id */
+            trial_id: string;
+            /** Joint Id */
+            joint_id: string;
+            /** Observer */
+            observer: string;
+            /** Conditions */
+            conditions: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at?: string;
+            /** Ended At */
+            ended_at?: string | null;
+            /**
+             * State
+             * @default in_progress
+             * @enum {string}
+             */
+            state: "in_progress" | "observed" | "needs_review";
+            /** Observations */
+            observations?: {
+                [key: string]: components["schemas"]["CommissionObservation"];
+            };
+            /** Feedback */
+            feedback?: components["schemas"]["CommissionFeedbackRecord"][];
+            /**
+             * Direction
+             * @default
+             */
+            direction: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+        };
+        /** CommissionAttemptSelect */
+        CommissionAttemptSelect: {
+            /** Revision */
+            revision: number;
+            /** Joint Id */
+            joint_id: string;
+            /** Attempt Id */
+            attempt_id: string;
         };
         /** CommissionCommand */
         CommissionCommand: {
@@ -1681,6 +1953,12 @@ export interface components {
         };
         /** CommissionExport */
         CommissionExport: {
+            /**
+             * Schema Version
+             * @default 2
+             * @constant
+             */
+            schema_version: 2;
             /** Telemetry */
             telemetry?: {
                 [key: string]: unknown;
@@ -1691,10 +1969,81 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** CommissionFeedback */
+        CommissionFeedback: {
+            /** Token */
+            token: string;
+            /** Sequence */
+            sequence: number;
+            /** Command Id */
+            command_id: string;
+            /** Joint Id */
+            joint_id: string;
+            /** Expected Requested Us */
+            expected_requested_us: number;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "settled_clear" | "uncertain" | "unsafe";
+            /**
+             * Observed Direction
+             * @enum {string}
+             */
+            observed_direction: "positive" | "negative" | "none" | "unknown";
+            /** Physical Frame */
+            physical_frame: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+        };
+        /** CommissionFeedbackRecord */
+        CommissionFeedbackRecord: {
+            /** Issued At */
+            issued_at?: string | null;
+            /** Written At */
+            written_at?: string | null;
+            /** Command Id */
+            command_id: string;
+            /** Joint Id */
+            joint_id: string;
+            /** Requested Us */
+            requested_us: number;
+            /** Encoded Us */
+            encoded_us: number;
+            /** Previous Us */
+            previous_us: number;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "settled_clear" | "uncertain" | "unsafe";
+            /**
+             * Observed Direction
+             * @enum {string}
+             */
+            observed_direction: "positive" | "negative" | "none" | "unknown";
+            /** Physical Frame */
+            physical_frame: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at?: string;
+        };
         /** CommissionFinish */
         CommissionFinish: {
             /** Trial Id */
             trial_id: string;
+            /** Reviewed Joint Ids */
+            reviewed_joint_ids?: string[];
             /**
              * Power Off And Supported
              * @constant
@@ -1732,6 +2081,10 @@ export interface components {
              * @default
              */
             notes: string;
+            /** Attempts */
+            attempts?: components["schemas"]["CommissionAttempt"][];
+            /** Selected Attempt Id */
+            selected_attempt_id?: string | null;
         };
         /** CommissionMark */
         CommissionMark: {
@@ -1773,6 +2126,34 @@ export interface components {
              * @default
              */
             notes: string;
+        };
+        /** CommissionPendingCommand */
+        CommissionPendingCommand: {
+            /** Command Id */
+            command_id: string;
+            /** Joint Id */
+            joint_id: string;
+            /** Previous Us */
+            previous_us: number;
+            /** Requested Us */
+            requested_us: number;
+            /** Encoded Us */
+            encoded_us?: number | null;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Written At */
+            written_at?: string | null;
+        };
+        /** CommissionPowerOffReset */
+        CommissionPowerOffReset: {
+            /**
+             * Power Off And Supported
+             * @constant
+             */
+            power_off_and_supported: true;
         };
         /** CommissionPrepare */
         CommissionPrepare: {
@@ -1908,12 +2289,13 @@ export interface components {
              * @default false
              */
             reserved: boolean;
+            pending_command?: components["schemas"]["CommissionPendingCommand"] | null;
             /**
              * Stage
              * @default idle
              * @enum {string}
              */
-            stage: "idle" | "acquired" | "prepared" | "ready" | "awaiting_power_off";
+            stage: "idle" | "acquired" | "prepared" | "ready" | "awaiting_feedback" | "awaiting_power_off";
             /** Trial Id */
             trial_id?: string | null;
             /** Draft Id */
@@ -1972,6 +2354,74 @@ export interface components {
              * @constant
              */
             reviewed: true;
+        };
+        /** CurrentScaleApply */
+        CurrentScaleApply: {
+            /** Verification Id */
+            verification_id: string;
+            /**
+             * Power Off And Supported
+             * @constant
+             */
+            power_off_and_supported: true;
+        };
+        /** CurrentScaleState */
+        CurrentScaleState: {
+            /** Records */
+            records?: components["schemas"]["CurrentScaleVerification"][];
+            /** Active Id */
+            active_id?: string | null;
+            /**
+             * Source
+             * @default configuration
+             * @enum {string}
+             */
+            source: "configuration" | "web";
+        };
+        /** CurrentScaleVerification */
+        CurrentScaleVerification: {
+            /**
+             * Id
+             * @default
+             */
+            id: string;
+            /**
+             * Domain
+             * @enum {string}
+             */
+            domain: "physical" | "simulated";
+            /** Assembly Id */
+            assembly_id: string;
+            /** Observer */
+            observer: string;
+            /** Method */
+            method: string;
+            /** Instrumentation */
+            instrumentation: string;
+            /** Evidence */
+            evidence: string;
+            /**
+             * Observed At
+             * Format: date-time
+             */
+            observed_at: string;
+            /** I2C Bus */
+            i2c_bus: number;
+            /**
+             * Sensor Address
+             * @default 65
+             * @constant
+             */
+            sensor_address: 65;
+            /** Pwm Address */
+            pwm_address: number;
+            /** Shunt Ohms */
+            shunt_ohms: number;
+            /**
+             * Externally Verified
+             * @constant
+             */
+            externally_verified: true;
         };
         /** ManualAcquire */
         ManualAcquire: {
@@ -3373,6 +3823,304 @@ export interface operations {
             };
         };
     };
+    arm_controller_current_scale_status_commissioning_current_scale_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentScaleState"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_current_scale_save_commissioning_current_scale_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CurrentScaleVerification"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentScaleVerification"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_current_scale_apply_commissioning_current_scale_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CurrentScaleApply"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentScaleState"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_feedback_commissioning_feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionFeedback"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_select_attempt_commissioning_drafts__draft_id__select_attempt_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionAttemptSelect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionDraft"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     arm_controller_commissioning_status_commissioning_status_get: {
         parameters: {
             query?: never;
@@ -3683,6 +4431,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommissionExport"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_initialize_commissioning_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionAcquire"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionSession"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_reset_current_commissioning_reset_current_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionPowerOffReset"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionStatus"];
                 };
             };
             /** @description Bad Request */
@@ -5195,6 +6063,304 @@ export interface operations {
             };
         };
     };
+    coordinator_current_scale_status_commissioning_current_scale_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentScaleState"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_current_scale_save_commissioning_current_scale_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CurrentScaleVerification"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentScaleVerification"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_current_scale_apply_commissioning_current_scale_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CurrentScaleApply"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentScaleState"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_commissioning_feedback_commissioning_feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionFeedback"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_commissioning_select_attempt_commissioning_drafts__draft_id__select_attempt_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionAttemptSelect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionDraft"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     coordinator_commissioning_evidence_commissioning_evidence_get: {
         parameters: {
             query?: never;
@@ -5561,6 +6727,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommissionExport"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_commissioning_initialize_commissioning_initialize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionAcquire"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionSession"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_commissioning_reset_current_commissioning_reset_current_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionPowerOffReset"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionStatus"];
                 };
             };
             /** @description Bad Request */

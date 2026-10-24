@@ -478,6 +478,8 @@ header { position: sticky; top: 0; z-index: 10; height: 58px; }
 .manual-panel .panel-heading .eyebrow { display: none; }
 
 .current-status { position: sticky; top: 114px; z-index: 4; }
+#trial-current { position: static; }
+#trial-joints button { min-height: 42px; }
 
 .current-baseline { color: #5d7183; font-size: 11px; overflow-wrap: anywhere; }
 .power-indicator { display: inline-flex; align-items: center; border-radius: 20px; padding: 5px 9px; font-size: 11px; font-weight: 700; background: #fff5d9; color: #775600; white-space: nowrap; }
@@ -496,3 +498,9 @@ header { position: sticky; top: 0; z-index: 10; height: 58px; }
 .neutral-evidence p { margin: 5px 0; font-size: 12px; }
 .neutral-provenance { overflow-wrap: anywhere; font-size: 10px; color: #61798d; }
 @media (max-width: 1200px) { #neutral-reference { margin: 6px 12px; } }
+
+.current-status[data-state="paused"] { background: #fff8e7; border-color: #e6d5a4; }
+.current-status[data-state="paused"] .status-light { background: #b78b25; }
+.current-recovery { color: #617182; font-size: 11px; margin-top: 5px; }
+.current-recovery:empty { display: none; }
+.power-indicator[data-state="paused"] { background: #fff5d9; color: #775600; }

@@ -121,6 +121,13 @@ def test_classifier_requires_both_voltage_and_absolute_shunt_and_valid_health():
     assert monitor.status().power_state == "unknown"
     monitor.trip("sensor failure")
     monitor.poll(force=True)
+    assert monitor.status().power_state == "off"
+    assert monitor.status().reading_healthy and not monitor.status().healthy
+    with pytest.raises(RuntimeError, match="sensor failure"):
+        monitor.require()  # Recovered readings do not clear the motion interlock.
+    sensor.values[2] = 3  # A new conversion failure must not reuse the earlier off reading.
+    assert not monitor.poll(force=True)
+    assert not monitor.status().reading_healthy
     assert monitor.status().power_state == "unknown"
     monitor.close()
 

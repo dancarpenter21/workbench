@@ -1,4 +1,5 @@
 import type { components } from "@workbench/contracts";
+import { mountCurrentScale } from "./current-scale";
 import { renderCurrent } from "./current";
 
 type Status = components["schemas"]["CommissionStatus"];
@@ -6,95 +7,60 @@ type Draft = components["schemas"]["CommissionDraft"];
 type Session = components["schemas"]["CommissionSession"];
 type Workbench = components["schemas"]["WorkbenchStatus"];
 type Export = components["schemas"]["CommissionExport"];
+const joints = ["base", "joint_2", "joint_3", "joint_4", "joint_5", "claw"];
+const label = (id: string) => id === "base" ? "Base" : id === "claw" ? "Claw" : id.replace("joint_", "Joint ");
 
 export function mountCommissioning(root: HTMLElement) {
   root.innerHTML = `
-    <div class="panel-heading"><div><p class="eyebrow">MEASURE & RECORD</p><h2>Pulse test</h2></div>
-      <span id="trial-domain" class="badge">Connecting…</span></div>
-    <p>Test one servo at a time on the factory-assembled arm. Base is servo 5; claw is servo 0.
-      Support the links. Isolated trials require power isolation of the other five servos.</p>
     <div id="trial-current" aria-label="Claw current monitor"></div>
-    <details class="telemetry-details"><summary>▤ All pulse values</summary><pre id="trial-targets" aria-label="All servo targets"></pre></details>
-    <p class="caption">Initial trial settings: 1500 μs start · 1450–1550 μs window · 10 μs per click.
-      These are trial settings, not measured limits. Applying power may cause a large initial movement.
-      An upright pose is not assumed.</p>
-    <details id="trial-records" class="record-details" open><summary>▤ Records</summary>
-    <div class="manual-settings">
-      <label>Assembly label<input id="trial-assembly" maxlength="200" placeholder="Factory arm / bench 1" /></label>
-      <label>Observer<input id="trial-observer" maxlength="200" placeholder="Your name" /></label>
-      <button id="trial-create" class="secondary">New record</button>
-      <label>Resume record<select id="trial-drafts"><option value="">Select a record</option></select></label>
-    </div>
-    </details>
+    <div id="trial-joints" class="manual-joints" aria-label="Choose joint"></div>
     <p id="trial-message" role="status"></p>
-    <div id="trial-joints" class="manual-joints" aria-label="Commissioning joints"></div>
-    <div id="trial-record" hidden>
-      <h3 id="trial-selected"></h3><p id="trial-observations" class="caption"></p>
-      <details id="trial-notes-panel"><summary>✎ Notes & direction</summary>
-      <div class="manual-settings"><label>Observed direction when pulse increases
-        <input id="trial-direction" maxlength="500" placeholder="Describe what you saw" /></label>
-        <label>Notes<textarea id="trial-notes" maxlength="4000" rows="2"></textarea></label>
-        <button id="trial-save" class="secondary">Save observations</button></div>
-      </details>
-      <div id="trial-launch" class="launch-row">
-      <label>Test mode<select id="trial-type"><option value="isolated">Isolated single servo</option>
-        <option value="all_holding">All servos holding · move one at a time</option></select></label>
-      <button id="trial-acquire">▶ Start trial</button></div>
-
-      <button id="trial-export" class="secondary">⇩ Export</button>
-    </div>
-    <div id="trial-preparation" hidden>
-      <h3>1. Prepare with servo power disconnected</h3>
-      <label class="ack"><input id="trial-power-off" type="checkbox" /> Base secured, links supported, clearance checked,
-        servo power disconnected; for isolated trials, the other five servos are power-isolated.</label>
-      <button id="trial-prepare" disabled>Prepare outputs at 1500 μs</button>
-    </div>
-    <div id="trial-power-on" hidden>
-      <h3>2. Apply servo power externally</h3>
-      <p>Keep the arm supported. The first powered movement is unknown; the step rate does not limit it.
-        If it binds or moves unexpectedly, disconnect servo power and stop the trial.</p>
-      <label class="ack"><input id="trial-ready-ack" type="checkbox" /> I applied power to the selected trial servos and observed that they settled with clearance.</label>
-      <button id="trial-ready" disabled>Ready for individual steps</button>
-    </div>
     <div id="trial-motion" hidden>
-      <h3>3. Step, observe, and mark</h3><output id="trial-pulse"></output>
-      <div id="trial-typed" class="manual-settings">
-        <label>Target pulse (μs)<input id="trial-target" type="number" min="500" max="2500" step="1" /></label>
-        <button id="trial-apply">✓ Apply ≤10 μs</button>
-        <details id="trial-window-panel" class="window-details"><summary>↔ Trial window</summary><div class="manual-settings">
-        <label>Trial minimum (μs)<input id="trial-low" type="number" min="500" max="2500" /></label>
-        <label>Trial maximum (μs)<input id="trial-high" type="number" min="500" max="2500" /></label>
-        <label class="ack"><input id="trial-window-ack" type="checkbox" /> I reviewed clearance for this trial window.</label>
-        <button id="trial-window" class="secondary">✓ Save window</button></div></details>
-
+      <form id="trial-position-form" class="manual-settings">
+        <label>Position (μs)<input id="trial-target" type="number" min="500" max="2500" step="1" required /></label>
+        <button id="trial-apply" type="submit">Move</button>
+      </form>
+      <p id="trial-pulse" class="caption"></p>
+      <div id="trial-feedback" hidden>
+        <p>Is this position OK?</p>
+        <div class="actions"><button id="trial-settled">OK</button><button id="trial-unsafe" class="danger">Not OK</button></div>
       </div>
-      <div class="actions"><button id="trial-minus" class="secondary">− 10 μs</button>
-        <button id="trial-plus" class="secondary">+ 10 μs</button></div>
-      <label class="ack"><input id="trial-mark-ack" type="checkbox" /> This target has settled and has clearance; I observed it directly.</label>
-      <div class="actions"><button id="trial-initial" class="secondary">✓ Initial</button>
-        <button id="trial-minimum" class="secondary">✓ Min</button>
-        <button id="trial-maximum" class="secondary">✓ Max</button></div>
-
     </div>
-    <button id="trial-stop" class="danger" hidden>■ Stop trial</button>
-    <div id="trial-finish-panel" hidden><h3>4. Disconnect servo power before finishing</h3>
-      <p>The last target may still be active. Support the arm and disconnect servo power externally.</p>
+    <button id="trial-stop" class="danger" hidden>Stop</button>
+    <div id="trial-finish-panel" hidden>
+      <p>Support the arm and disconnect servo power.</p>
       <label class="ack"><input id="trial-finish-ack" type="checkbox" /> Servo power is disconnected and the arm is supported.</label>
-      <label class="ack"><input id="trial-review" type="checkbox" /> I reviewed the three marks and saved direction notes for this joint.</label>
-      <button id="trial-finish" disabled>Disable outputs & finish trial</button></div>
-    <p class="caption">Stop holds the last PWM target. It does not disconnect power. Isolated trials require fresh power-off preparation for each joint. All-servos-holding trials retain the other five targets.
-      Individual observations do not validate a combined arm pose or jogging rates.</p>
-    <p id="trial-error" role="alert"></p>`;
-  root.insertBefore(root.querySelector("#trial-record")!, root.querySelector("#trial-stop"));
-  const guide = document.createElement("details");
-  guide.className = "panel-guide";
-  guide.innerHTML = "<summary>ⓘ Setup & safety guide</summary>";
-  for (const paragraph of [...root.querySelectorAll<HTMLParagraphElement>(":scope > p:not([id]), :scope > .caption")]) guide.append(paragraph);
-  guide.append(root.querySelector(".telemetry-details")!);
-  root.append(guide);
+      <button id="trial-finish">Finish</button>
+    </div>
+    <p id="trial-error" role="alert"></p>
+    <details id="trial-settings"><summary>Setup & history</summary>
+      <p id="trial-domain"></p>
+      <div class="manual-settings">
+        <label>Assembly<input id="trial-assembly" maxlength="200" placeholder="Not named" /></label>
+        <label>Operator<input id="trial-observer" maxlength="200" placeholder="Not recorded" /></label>
+        <button id="trial-create" class="secondary">New record</button>
+        <label>Saved record<select id="trial-drafts"><option value="">New record on Start</option></select></label>
+      </div>
+      <details id="trial-window-panel"><summary>Position range</summary>
+        <div class="manual-settings"><label>Minimum (μs)<input id="trial-low" type="number" min="500" max="2500" /></label>
+          <label>Maximum (μs)<input id="trial-high" type="number" min="500" max="2500" /></label>
+          <label class="ack"><input id="trial-window-ack" type="checkbox" /> I checked clearance for this range.</label>
+          <button id="trial-window" class="secondary">Save range</button></div>
+      </details>
+      <div id="trial-reset-panel" hidden>
+        <label class="ack"><input id="trial-reset-off" type="checkbox" /> Servo power is disconnected; the arm is supported and the sensor fault has been inspected.</label>
+        <button id="trial-reset" class="secondary">Reset sensor fault</button>
+      </div>
+      <p>The first Move initializes all six servos to neutral (1500 μs). Each move is limited to 10 μs. Positions are commanded pulses, not measured joint angles. Stop holds the last target; Not OK attempts output shutdown. Cut physical servo power if movement is unsafe.</p>
+      <pre id="trial-targets" aria-label="All servo targets"></pre>
+      <div id="trial-history"></div>
+      <button id="trial-export" class="secondary">Export record</button>
+      <div id="trial-scale"></div>
+    </details>`;
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#trial-${id}`)!;
   const button = (id: string) => el<HTMLButtonElement>(id);
   const input = (id: string) => el<HTMLInputElement>(id);
+  const scales = mountCurrentScale(el("scale"));
   let status: Status | null = null;
   let draft: Draft | null = null;
   let selected = "base";
@@ -104,151 +70,107 @@ export function mountCommissioning(root: HTMLElement) {
   let visible = true;
   let connected = false;
   let generation = 0;
-  let nextStep = 0;
   let polling = false;
   let acquiring = false;
   let heartbeat: Promise<void> | null = null;
+  let nextMove = 0;
+  let savedMessage = "";
 
   async function request<T>(path: string, body?: unknown): Promise<T> {
     const response = await fetch(`/api/coordinator/commissioning/${path}`, {
-      method: body === undefined ? "GET" : "POST",
-      headers: { "Content-Type": "application/json" },
+      method: body === undefined ? "GET" : "POST", headers: { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(1500),
-      keepalive: path === "stop",
+      signal: AbortSignal.timeout(1500), keepalive: path === "stop",
     });
     const value = await response.json();
-    if (!response.ok) throw new Error(value.message ?? "Commissioning request failed");
+    if (!response.ok) throw new Error(value.message ?? "Request failed");
     return value as T;
   }
-  function fail(error: unknown) {
-    el("error").textContent = error instanceof Error ? error.message : "Commissioning unavailable";
-  }
-  function fields() {
-    const joint = draft?.joints.find((j) => j.id === selected);
-    input("direction").value = joint?.direction ?? "";
-    el<HTMLTextAreaElement>("notes").value = joint?.notes ?? "";
-  }
-  async function refreshDraft() {
-    if (draft) draft = await request<Draft>(`drafts/${draft.id}`);
+  function fail(error: unknown) { el("error").textContent = error instanceof Error ? error.message : "Unavailable"; }
+  async function refreshDraft() { if (draft) draft = await request<Draft>(`drafts/${draft.id}`); }
+  for (const id of joints) {
+    const b = document.createElement("button");
+    b.className = "secondary"; b.dataset.joint = id; b.textContent = label(id);
+    b.title = `Servo ${5 - joints.indexOf(id)}`;
+    b.onclick = () => void action(async () => {
+      if (token) await command("select", { joint_id: id });
+      selected = id; savedMessage = "";
+    }, true);
+    el("joints").append(b);
   }
   function render() {
-    const own = !!token;
-    const all = status?.trial_type === "all_holding";
-    renderCurrent(el("current"), status?.claw_current);
-    el("targets").textContent = Object.entries(status?.targets ?? {}).map(([name, pulse]) =>
-      `${name} · Servo ${5 - ["base", "joint_2", "joint_3", "joint_4", "joint_5", "claw"].indexOf(name)}: requested ${pulse} μs · encoded ${status?.encoded_targets?.[name]?.toFixed(2) ?? "unknown"} μs`).join("\n");
-    const ready = own && status?.stage === "ready" && status.claw_current?.healthy === true;
+    renderCurrent(el("current"), status?.claw_current); scales.update(status);
+    const ready = !!token && status?.stage === "ready" && status.claw_current?.healthy === true;
+    const awaiting = !!token && status?.stage === "awaiting_feedback";
+    const idle = !!status?.available && !status.reserved && status.claw_current?.healthy === true;
     const disabled = pending || !connected;
-    el("domain").textContent = status?.simulated ? "● SIMULATED" : "● PHYSICAL";
-    el("domain").title = "Simulated observations are not physical commissioning evidence.";
-    const stages = { idle: "○ Choose a record", acquired: "○ Prepare outputs", prepared: "○ Apply power & confirm",
-      ready: "✓ Ready · ≤10 μs per step", awaiting_power_off: "■ Power off to finish" };
-    el("message").textContent = status ? stages[status.stage ?? "idle"] : "Connecting…";
-    el("message").title = status?.message ?? "";
-    el("record").hidden = !draft;
-    el("records").hidden = !!status?.reserved;
-    el("launch").hidden = !!status?.reserved;
-    el("selected").textContent = `${selected.replaceAll("_", " ")} · Servo ${draft?.joints.find(j => j.id === selected)?.channel ?? "—"}`;
-    const joint = draft?.joints.find(j => j.id === selected);
-    el("observations").textContent = joint ? `${joint.state}: ${Object.entries(joint.observations ?? {}).map(([key, mark]) => `${key} ${mark.requested_us} μs`).join(" · ") || "No marks yet"}` : "";
-    const joints = el("joints");
-    if (!draft) { joints.replaceChildren(); delete joints.dataset.draft; }
-    if (draft && joints.dataset.draft !== draft.id) {
-      joints.replaceChildren();
-      joints.dataset.draft = draft.id;
-      for (const j of draft.joints) {
-        const b = document.createElement("button");
-        b.className = "secondary";
-        b.dataset.joint = j.id;
-        b.onclick = () => {
-          if (token && status?.trial_type === "all_holding" && status.stage === "ready") {
-            void action(async () => {
-              await command("select", { joint_id: j.id });
-              selected = j.id; clearAcks(); fields(); render();
-            }, true);
-          } else { selected = j.id; fields(); render(); }
-        };
-        joints.append(b);
-      }
-    }
-    joints.querySelectorAll<HTMLButtonElement>("button").forEach(b => {
-      const j = draft!.joints.find(j => j.id === b.dataset.joint)!;
-      const label = j.id === "base" ? "Base" : j.id === "claw" ? "Claw" : j.id.replace("joint_", "J");
-      const pulse = status?.targets?.[j.id];
-      b.innerHTML = `<span class="servo-glyph" aria-hidden="true">⚙</span><strong></strong><span class="joint-value"></span><span class="joint-check" aria-hidden="true"></span>`;
-      b.querySelector("strong")!.textContent = `${label} · ${j.channel}`;
-      b.querySelector(".joint-value")!.textContent = pulse == null ? "— μs" : `${pulse} μs`;
-      b.querySelector(".joint-check")!.textContent = j.state === "observed" ? "✓" : j.state === "needs_review" ? "!" : "";
-      b.dataset.state = j.state;
-      b.setAttribute("aria-label", `${label}, servo ${j.channel}, ${pulse ?? "unknown"} microseconds, ${j.state}`);
-      b.disabled = !!status?.reserved && !(own && all && ready && !pending);
-      b.setAttribute("aria-pressed", String(j.id === selected));
+    el("domain").textContent = status?.simulated ? "SIMULATED — no physical commissioning evidence" : "Physical arm";
+    el("message").textContent = savedMessage || (!connected ? "Connecting…" : status?.stage === "awaiting_feedback" ? "" : status?.stage === "awaiting_power_off" ? "Testing stopped." : "");
+    el("joints").querySelectorAll<HTMLButtonElement>("button").forEach(b => {
+      b.setAttribute("aria-pressed", String(b.dataset.joint === selected));
+      b.disabled = disabled || (!!status?.reserved && !(ready && status.trial_type === "all_holding"));
     });
-    el<HTMLSelectElement>("type").disabled = !!status?.reserved;
-    if (status?.reserved) el<HTMLSelectElement>("type").value = status.trial_type ?? "isolated";
-    button("create").disabled = disabled || !!status?.reserved;
-    el<HTMLSelectElement>("drafts").disabled = pending || !!status?.reserved;
-    button("acquire").disabled = disabled || !draft || !status?.available || !!status.reserved;
-    button("save").disabled = disabled || !draft;
-    button("export").disabled = disabled || !draft;
-    el("preparation").hidden = !(own && status?.stage === "acquired");
-    el("power-on").hidden = !(own && status?.stage === "prepared");
-    el("motion").hidden = !ready;
-    button("prepare").disabled = disabled || !input("power-off").checked;
-    button("ready").disabled = disabled || !input("ready-ack").checked;
-    el("pulse").textContent = `Requested ${status?.requested_us ?? "unknown"} μs · Encoded ${status?.encoded_us?.toFixed(2) ?? "unknown"} μs`;
-    const window = status?.windows?.[selected] ?? [1450, 1550];
-    el("typed").hidden = !all;
+    el("motion").hidden = !idle && !ready && !awaiting;
+    el("feedback").hidden = !awaiting;
+    button("apply").disabled = disabled || (!ready && !idle) || Date.now() < nextMove;
+    input("target").disabled = disabled || (!ready && !idle);
+    button("settled").disabled = disabled || !awaiting;
+    button("unsafe").disabled = disabled || !awaiting;
     const targetKey = `${selected}:${status?.requested_us}`;
     if (input("target").dataset.target !== targetKey) {
-      input("target").value = String(status?.requested_us ?? 1500);
-      input("target").dataset.target = targetKey;
+      input("target").value = String(status?.requested_us ?? 1500); input("target").dataset.target = targetKey;
     }
-    const windowKey = `${selected}:${window.join(":")}`;
-    if (input("low").dataset.window !== windowKey) {
-      input("low").value = String(window[0]); input("high").value = String(window[1]);
-      input("low").dataset.window = windowKey;
-    }
-    button("apply").disabled = disabled || !ready || Date.now() < nextStep;
-    button("window").disabled = disabled || !ready || !input("window-ack").checked;
-    button("minus").disabled = disabled || !ready || Date.now() < nextStep || (status?.requested_us ?? window[0]) - 10 < window[0];
-    button("plus").disabled = disabled || !ready || Date.now() < nextStep || (status?.requested_us ?? window[1]) + 10 > window[1];
-    for (const k of ["initial", "minimum", "maximum"]) button(k).disabled = disabled || !ready || !input("mark-ack").checked;
+    el("pulse").textContent = `${label(selected)} · Current command: ${status?.requested_us ?? "—"} μs · Up to 10 μs per move`;
     button("stop").hidden = !status?.reserved || status.stage === "awaiting_power_off";
     el("finish-panel").hidden = status?.stage !== "awaiting_power_off";
     button("finish").disabled = disabled || !input("finish-ack").checked;
+    el("reset-panel").hidden = !!status?.reserved || !status?.claw_current?.fault;
+    button("reset").disabled = disabled || !input("reset-off").checked;
+    for (const id of ["assembly", "observer"]) input(id).disabled = !!status?.reserved;
+    button("create").disabled = disabled || !!status?.reserved;
+    el<HTMLSelectElement>("drafts").disabled = disabled || !!status?.reserved;
+    button("export").disabled = disabled || !draft;
+    el("window-panel").hidden = status?.trial_type !== "all_holding";
+    button("window").disabled = disabled || !ready || !input("window-ack").checked;
+    const bounds = status?.windows?.[selected] ?? [1450, 1550];
+    if (input("low").dataset.key !== `${selected}:${bounds}`) {
+      input("low").value = String(bounds[0]); input("high").value = String(bounds[1]);
+      input("low").dataset.key = `${selected}:${bounds}`;
+    }
+    el("targets").textContent = Object.entries(status?.targets ?? {}).map(([id, pulse]) => `${label(id)}: ${pulse} μs`).join("\n");
+    const history = el("history");
+    const historyKey = `${draft?.id}:${draft?.revision}:${selected}`;
+    if (history.dataset.key !== historyKey) {
+      history.replaceChildren(); history.dataset.key = historyKey;
+      for (const attempt of draft?.joints.find(j => j.id === selected)?.attempts ?? []) {
+        for (const feedback of attempt.feedback ?? []) {
+          const row = document.createElement("p");
+          row.textContent = `${feedback.requested_us} μs — ${feedback.outcome === "settled_clear" ? "OK" : "Not OK"} · ${(feedback.observed_at ? new Date(feedback.observed_at).toLocaleString() : "")}`;
+          history.append(row);
+        }
+      }
+    }
   }
   async function listDrafts() {
     const drafts = await request<Draft[]>("drafts");
     const select = el<HTMLSelectElement>("drafts");
-    select.replaceChildren(new Option("Select a record", ""), ...drafts.map(d => new Option(`${d.assembly_id} · ${d.observer} · ${d.id.slice(0, 8)}`, d.id)));
+    select.replaceChildren(new Option("New record on Start", ""), ...drafts.map(d => new Option(`${d.assembly_id} · ${d.id.slice(0, 8)}`, d.id)));
     select.value = draft?.id ?? "";
   }
-  function clearAcks() {
-    root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach(i => { i.checked = false; });
-  }
+  function clearAcks() { for (const id of ["finish-ack", "window-ack", "reset-off"]) input(id).checked = false; }
   async function end() {
-    generation++;
-    token = null;
-    clearAcks();
-    const trial = status?.trial_id;
-    if (trial && status?.stage !== "awaiting_power_off") {
-      try { status = await request<Status>("stop", { trial_id: trial }); }
-      catch (error) { fail(error); }
+    generation++; token = null; clearAcks();
+    if (status?.trial_id && status.stage !== "awaiting_power_off") {
+      try { status = await request<Status>("stop", { trial_id: status.trial_id }); } catch (error) { fail(error); }
     }
     render();
   }
   async function action(work: () => Promise<void>, stopOnFailure = false) {
     if (pending) return;
-    pending = true;
-    el("error").textContent = "";
-    render();
+    pending = true; el("error").textContent = ""; render();
     try { await heartbeat; await work(); }
-    catch (error) {
-      fail(error);
-      if (stopOnFailure) await end();
-    } finally { pending = false; render(); }
+    catch (error) { fail(error); if (stopOnFailure) await end(); }
+    finally { pending = false; render(); }
   }
   async function command(path: string, body: object = {}) {
     if (!token) return;
@@ -256,72 +178,70 @@ export function mountCommissioning(root: HTMLElement) {
     const result = await request<Status>(path, { token, sequence: ++sequence, ...body });
     if (epoch === generation) status = result;
   }
-  button("create").onclick = () => void action(async () => {
-    draft = await request<Draft>("drafts", { assembly_id: input("assembly").value.trim(), observer: input("observer").value.trim() });
-    selected = "base"; fields(); await listDrafts();
-  });
+  async function createRecord() {
+    // Reuse the explicitly verified assembly identity when one has been configured.
+    const scale = await request<components["schemas"]["CurrentScaleState"]>("current-scale");
+    const active = scale.records?.find(r => r.id === scale.active_id);
+    draft = await request<Draft>("drafts", {
+      assembly_id: input("assembly").value.trim() || active?.assembly_id || "Assembly not named",
+      observer: input("observer").value.trim() || "Operator name not recorded",
+    });
+    await listDrafts();
+  }
+  button("create").onclick = () => void action(createRecord);
   el<HTMLSelectElement>("drafts").onchange = () => void action(async () => {
     const id = el<HTMLSelectElement>("drafts").value;
     draft = id ? await request<Draft>(`drafts/${id}`) : null;
-    selected = "base"; fields();
   });
-  button("save").onclick = () => void action(async () => {
-    // Refresh revision without replacing local unsaved text.
-    await refreshDraft();
-    draft = await request<Draft>(`drafts/${draft!.id}`, { revision: draft!.revision, joint_id: selected,
-      direction: input("direction").value, notes: el<HTMLTextAreaElement>("notes").value });
-  });
-  button("acquire").onclick = () => void action(async () => {
-    const epoch = ++generation;
-    acquiring = true;
+  async function initialize() {
+    const epoch = ++generation; acquiring = true;
     let result: Session;
-    try { result = await request<Session>("acquire", { draft_id: draft!.id, joint_id: selected, trial_type: el<HTMLSelectElement>("type").value }); }
-    finally { acquiring = false; }
-    if (epoch !== generation || !visible || document.hidden) {
-      await request("stop", { trial_id: result.status.trial_id }); return;
+    try {
+      if (!draft) await createRecord();
+      result = await request<Session>("initialize", { draft_id: draft!.id, joint_id: selected,
+        conditions: "Operator-requested neutral initialization and position test" });
+    } finally { acquiring = false; }
+    if (epoch !== generation || !visible || document.hidden || !document.hasFocus()) {
+      await request("stop", { trial_id: result.status.trial_id }); return false;
     }
-    token = result.token; sequence = 0; status = result.status; clearAcks();
-    await refreshDraft();
-    el<HTMLDetailsElement>("records").open = false;
-  }, true);
-  button("prepare").onclick = () => void action(async () => {
-    await command("prepare", status?.trial_type === "all_holding"
-      ? { power_off_and_supported: true } : { power_off_supported_isolated: true }); clearAcks();
-  }, true);
-  button("ready").onclick = () => void action(async () => {
-    await command("ready", { settled_and_clear: true }); clearAcks();
-  }, true);
-  for (const [id, direction] of [["minus", -1], ["plus", 1]] as const) {
-    button(id).onclick = () => void action(async () => {
-      input("mark-ack").checked = false;
-      await command("step", { direction });
-      nextStep = Date.now() + 300;
-      setTimeout(render, 310);
-    }, true);
+    token = result.token; sequence = 0; status = result.status; savedMessage = ""; clearAcks();
+    el<HTMLDetailsElement>("settings").open = false;
+    return true;
   }
-  button("apply").onclick = () => void action(async () => {
-    input("mark-ack").checked = false;
-    if (!input("target").value.trim()) throw new Error("Enter a pulse width");
-    await command("target", { joint_id: selected, pulse_us: input("target").valueAsNumber });
-    nextStep = Date.now() + 300; setTimeout(render, 310);
-  }, true);
-  button("window").onclick = () => void action(async () => {
-    await command("window", { joint_id: selected, min_us: input("low").valueAsNumber,
-      max_us: input("high").valueAsNumber, reviewed: true });
-    input("window-ack").checked = false;
-    input("mark-ack").checked = false;
-  }, true);
-  for (const kind of ["initial", "minimum", "maximum"]) {
-    button(kind).onclick = () => void action(async () => {
-      await command("mark", { kind, expected_requested_us: status!.requested_us, settled_and_clear: true });
-      input("mark-ack").checked = false;
+  button("reset").onclick = () => void action(async () => {
+    status = await request<Status>("reset-current", { power_off_and_supported: true });
+    input("reset-off").checked = false; savedMessage = "";
+  });
+  el<HTMLFormElement>("position-form").onsubmit = event => {
+    event.preventDefault();
+    if (button("apply").disabled) return;
+    const target = input("target").valueAsNumber;
+    if (!Number.isFinite(target) || Math.abs(target - (status?.requested_us ?? 1500)) > 10) {
+      fail(new Error("Enter a position within 10 μs of the current command.")); return;
+    }
+    void action(async () => {
+      if (!token && !await initialize()) return;
+      await command("target", { joint_id: selected, pulse_us: target }); savedMessage = "";
+      nextMove = Date.now() + 300; setTimeout(render, 310);
+    }, true);
+  };
+  for (const [id, outcome] of [["settled", "settled_clear"], ["unsafe", "unsafe"]] as const) {
+    button(id).onclick = () => void action(async () => {
+      await command("feedback", { command_id: status!.pending_command!.command_id,
+        joint_id: selected, expected_requested_us: status!.requested_us, outcome,
+        observed_direction: "unknown", physical_frame: "Not recorded in simple position test",
+        notes: outcome === "settled_clear" ? "Operator marked position OK" : "Operator marked position Not OK" });
+      savedMessage = outcome === "settled_clear" ? "OK — saved." : "Not OK — cut servo power.";
+      if (outcome !== "settled_clear") token = null;
       await refreshDraft();
     }, true);
   }
+  button("window").onclick = () => void action(async () => {
+    await command("window", { joint_id: selected, min_us: input("low").valueAsNumber, max_us: input("high").valueAsNumber, reviewed: true }); input("window-ack").checked = false;
+  }, true);
   button("stop").onclick = () => { void end(); };
   button("finish").onclick = () => void action(async () => {
-    status = await request<Status>("finish", { trial_id: status!.trial_id,
-      power_off_and_supported: true, observations_reviewed: input("review").checked });
+    status = await request<Status>("finish", { trial_id: status!.trial_id, power_off_and_supported: true });
     clearAcks(); await refreshDraft();
   });
   button("export").onclick = () => void action(async () => {
@@ -330,49 +250,38 @@ export function mountCommissioning(root: HTMLElement) {
     const link = document.createElement("a"); link.href = url; link.download = `commissioning-${draft!.id}.json`;
     link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
-  root.querySelectorAll('input[type="checkbox"]').forEach(i => i.addEventListener("change", render));
+  for (const id of ["finish-ack", "window-ack", "reset-off"]) input(id).onchange = render;
   window.addEventListener("blur", () => { if (token || acquiring) void end(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden && (token || acquiring)) void end(); });
   window.addEventListener("pagehide", () => { if (token || acquiring) void end(); });
   setInterval(() => {
     if (token && !pending && !heartbeat && visible && connected) {
       heartbeat = (async () => {
-        try { await command("heartbeat"); }
-        catch (error) { fail(error); await end(); }
+        try { await command("heartbeat"); } catch (error) { fail(error); await end(); }
         finally { heartbeat = null; render(); }
       })();
     }
   }, 100);
   async function poll() {
     if (polling || token || pending || !visible) return;
-    polling = true;
-    const epoch = generation;
+    polling = true; const epoch = generation;
     try {
       const result = await request<Status>("status");
       if (epoch !== generation || token || pending) return;
       status = result;
       if (status.reserved && status.draft_id) {
-        const changed = draft?.id !== status.draft_id || selected !== status.joint_id;
         const loaded = await request<Draft>(`drafts/${status.draft_id}`);
         if (epoch !== generation || token || pending) return;
-        draft = loaded;
-        selected = status.joint_id!;
-        if (changed) fields();
+        draft = loaded; selected = status.joint_id!;
       }
       render();
     } catch (error) { fail(error); }
     finally { polling = false; }
   }
-  void listDrafts().catch(fail);
-  void poll();
-  setInterval(() => { void poll(); }, 500);
+  void listDrafts().catch(fail); void poll(); setInterval(() => { void poll(); }, 500);
   return {
     end,
     setVisible(value: boolean) { visible = value; if (!value && (token || acquiring)) void end(); else if (value) void poll(); },
-    updateWorkbench(value: Workbench | null) {
-      connected = value !== null;
-      if (!connected && token) void end();
-      render();
-    },
+    updateWorkbench(value: Workbench | null) { connected = value !== null; if (!connected && token) void end(); render(); },
   };
 }

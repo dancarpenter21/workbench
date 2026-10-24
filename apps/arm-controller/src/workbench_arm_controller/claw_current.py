@@ -56,6 +56,7 @@ class ClawCurrentMonitor:
         self.stream = "claw:service"
         self.last = None
         self.last_attempt = None
+        self.last_read_ok = False
         self.sample = {}
         self.sampled_at = None
         self.fault = ""
@@ -108,11 +109,16 @@ class ClawCurrentMonitor:
             return
         if not force and self.last_attempt is not None and self.clock() - self.last_attempt < 0.1:
             return
+        self.last_read_ok = False
         started = self.clock()
         self.last_attempt = started
         try:
             if self.simulated:
-                sample = {"bus_v": 5.0, "shunt_mv": 0.0, "current_a": None}
+                sample = {
+                    "bus_v": 5.0,
+                    "shunt_mv": 0.0,
+                    "current_a": 0.0 if self.shunt is not None else None,
+                }
             else:
                 if self.bus is None:
                     if self.factory is None:
@@ -128,11 +134,13 @@ class ClawCurrentMonitor:
             if self.clock() - started >= 0.3:
                 raise ValueError("INA219 read exceeded freshness deadline")
             self.last = started
+            self.last_read_ok = True
             if self.store:
                 payload = self.status().model_dump(mode="json")
                 self.store.append(self.stream, payload)
             return True
         except Exception as exc:
+            self.last_read_ok = False
             self.trip(str(exc))
             return False
 
@@ -174,9 +182,10 @@ class ClawCurrentMonitor:
 
     def status(self):
         age = None if self.last is None else max(0, self.clock() - self.last)
-        healthy = not self.fault and age is not None and age < 0.3
+        reading_healthy = self.last_read_ok and age is not None and age < 0.3
+        healthy = not self.fault and reading_healthy
         power_state = "unknown"
-        if healthy and self.off_bounds:
+        if reading_healthy and self.off_bounds:
             power_state = (
                 "off"
                 if 0 <= self.sample["bus_v"] <= self.off_bounds.max_bus_v
@@ -202,6 +211,7 @@ class ClawCurrentMonitor:
             off_baseline_error=self.off_baseline_error,
             simulated=self.simulated,
             healthy=healthy,
+            reading_healthy=reading_healthy,
             fault=self.fault,
             sampled_at=self.sampled_at,
             age_seconds=age,

@@ -13,13 +13,16 @@ from workbench_contracts import (
     WAV_REQUEST_BODY,
     ArmStatus,
     CommissionAcquire,
+    CommissionAttemptSelect,
     CommissionCommand,
     CommissionCreate,
     CommissionDraft,
     CommissionEdit,
     CommissionExport,
+    CommissionFeedback,
     CommissionFinish,
     CommissionMark,
+    CommissionPowerOffReset,
     CommissionPrepare,
     CommissionReady,
     CommissionSelect,
@@ -29,6 +32,9 @@ from workbench_contracts import (
     CommissionStop,
     CommissionTarget,
     CommissionWindow,
+    CurrentScaleApply,
+    CurrentScaleState,
+    CurrentScaleVerification,
     Diagnostic,
     DiagnosticsReport,
     Health,
@@ -308,6 +314,32 @@ def create_app(config=None, store=None, client=None):
             )
         return state["manual"]
 
+    @app.get("/commissioning/current-scale", response_model=CurrentScaleState)
+    async def current_scale_status():
+        return await manual_call("current-scale", prefix="commissioning")
+
+    @app.post("/commissioning/current-scale", response_model=CurrentScaleVerification)
+    async def current_scale_save(value: CurrentScaleVerification):
+        async with gate:
+            return await manual_call("current-scale", value, prefix="commissioning")
+
+    @app.post("/commissioning/current-scale/apply", response_model=CurrentScaleState)
+    async def current_scale_apply(value: CurrentScaleApply):
+        async with gate:
+            return await manual_call("current-scale/apply", value, prefix="commissioning")
+
+    @app.post("/commissioning/feedback", response_model=CommissionStatus)
+    async def commissioning_feedback(value: CommissionFeedback):
+        async with gate:
+            return await manual_call("feedback", value, prefix="commissioning")
+
+    @app.post("/commissioning/drafts/{draft_id}/select-attempt", response_model=CommissionDraft)
+    async def commissioning_select_attempt(draft_id: str, value: CommissionAttemptSelect):
+        async with gate:
+            return await manual_call(
+                f"drafts/{draft_id}/select-attempt", value, prefix="commissioning"
+            )
+
     @app.get("/commissioning/evidence", response_model=NeutralEvidence)
     async def commissioning_evidence():
         return await manual_call("evidence", prefix="commissioning")
@@ -339,6 +371,16 @@ def create_app(config=None, store=None, client=None):
         async with gate:
             result = await manual_call(f"drafts/{draft_id}", value, prefix="commissioning")
             return result
+
+    @app.post("/commissioning/initialize", response_model=CommissionSession)
+    async def commissioning_initialize(value: CommissionAcquire):
+        async with gate:
+            return await manual_call("initialize", value, prefix="commissioning")
+
+    @app.post("/commissioning/reset-current", response_model=CommissionStatus)
+    async def commissioning_reset_current(value: CommissionPowerOffReset):
+        async with gate:
+            return await manual_call("reset-current", value, prefix="commissioning")
 
     @app.post("/commissioning/acquire", response_model=CommissionSession)
     async def commissioning_post_acquire(value: CommissionAcquire):

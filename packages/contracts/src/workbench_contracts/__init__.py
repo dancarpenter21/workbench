@@ -100,6 +100,7 @@ class OffCurrentBounds(Contract):
 
 
 class ClawCurrentStatus(Contract):
+    reading_healthy: bool | None = None
     monitor_session_id: str | None = None
     sample_sequence: int = 0
     i2c_bus: int | None = None
@@ -251,6 +252,38 @@ class CommissionObservation(Contract):
     notes: str = ""
 
 
+class CommissionFeedbackRecord(Contract):
+    issued_at: datetime | None = None
+    written_at: datetime | None = None
+    command_id: str
+    joint_id: str
+    requested_us: float
+    encoded_us: float
+    previous_us: float
+    outcome: Literal["settled_clear", "uncertain", "unsafe"]
+    observed_direction: Literal["positive", "negative", "none", "unknown"]
+    physical_frame: str = Field(min_length=1, max_length=500)
+    notes: str = Field(default="", max_length=2000)
+    observed_at: datetime = Field(default_factory=now)
+
+
+class CommissionAttempt(Contract):
+    current_scale: dict = Field(default_factory=dict)
+    telemetry_reference: str | None = None
+    id: str
+    trial_id: str
+    joint_id: str
+    observer: str
+    conditions: str
+    started_at: datetime = Field(default_factory=now)
+    ended_at: datetime | None = None
+    state: Literal["in_progress", "observed", "needs_review"] = "in_progress"
+    observations: dict[str, CommissionObservation] = Field(default_factory=dict)
+    feedback: list[CommissionFeedbackRecord] = Field(default_factory=list)
+    direction: str = ""
+    notes: str = ""
+
+
 class CommissionJoint(Contract):
     id: str
     channel: int
@@ -258,6 +291,8 @@ class CommissionJoint(Contract):
     observations: dict[str, CommissionObservation] = Field(default_factory=dict)
     direction: str = ""
     notes: str = ""
+    attempts: list[CommissionAttempt] = Field(default_factory=list)
+    selected_attempt_id: str | None = None
 
 
 class CommissionEvent(Contract):
@@ -294,6 +329,16 @@ class CommissionDraft(Contract):
     history: list[CommissionEvent] = Field(default_factory=list)
 
 
+class CommissionPendingCommand(Contract):
+    command_id: str
+    joint_id: str
+    previous_us: float
+    requested_us: float
+    encoded_us: float | None = None
+    issued_at: datetime
+    written_at: datetime | None = None
+
+
 class CommissionStatus(Contract):
     trial_type: Literal["isolated", "all_holding"] = "isolated"
     targets: dict[str, float] = Field(default_factory=dict)
@@ -303,7 +348,10 @@ class CommissionStatus(Contract):
     available: bool = False
     simulated: bool = True
     reserved: bool = False
-    stage: Literal["idle", "acquired", "prepared", "ready", "awaiting_power_off"] = "idle"
+    pending_command: CommissionPendingCommand | None = None
+    stage: Literal[
+        "idle", "acquired", "prepared", "ready", "awaiting_feedback", "awaiting_power_off"
+    ] = "idle"
     trial_id: str | None = None
     draft_id: str | None = None
     joint_id: str | None = None
@@ -325,6 +373,8 @@ class CommissionEdit(Contract):
 
 
 class CommissionAcquire(Contract):
+    observer: str | None = Field(default=None, min_length=1, max_length=200)
+    conditions: str = Field(default="Supported bench trial", min_length=1, max_length=2000)
     trial_type: Literal["isolated", "all_holding"] = "isolated"
     draft_id: str
     joint_id: str
@@ -338,6 +388,10 @@ class CommissionSession(Contract):
 class CommissionCommand(Contract):
     token: str
     sequence: int = Field(ge=0, strict=True)
+
+
+class CommissionPowerOffReset(Contract):
+    power_off_and_supported: Literal[True]
 
 
 class CommissionPrepare(CommissionCommand):
@@ -385,12 +439,57 @@ class CommissionStop(Contract):
     trial_id: str
 
 
+class CommissionFeedback(CommissionCommand):
+    command_id: str
+    joint_id: str
+    expected_requested_us: float
+    outcome: Literal["settled_clear", "uncertain", "unsafe"]
+    observed_direction: Literal["positive", "negative", "none", "unknown"]
+    physical_frame: str = Field(min_length=1, max_length=500)
+    notes: str = Field(default="", max_length=2000)
+
+
+class CommissionAttemptSelect(Contract):
+    revision: int = Field(ge=0)
+    joint_id: str
+    attempt_id: str
+
+
+class CurrentScaleVerification(Contract):
+    id: str = ""
+    domain: Literal["physical", "simulated"]
+    assembly_id: str = Field(min_length=1, max_length=200)
+    observer: str = Field(min_length=1, max_length=200)
+    method: str = Field(min_length=1, max_length=2000)
+    instrumentation: str = Field(min_length=1, max_length=1000)
+    evidence: str = Field(min_length=1, max_length=2000)
+    observed_at: datetime
+    i2c_bus: int = Field(ge=0)
+    sensor_address: Literal[65] = 65
+    pwm_address: int = Field(ge=0, le=127)
+    shunt_ohms: float = Field(gt=0, allow_inf_nan=False)
+    externally_verified: Literal[True]
+
+
+class CurrentScaleApply(Contract):
+    verification_id: str
+    power_off_and_supported: Literal[True]
+
+
+class CurrentScaleState(Contract):
+    records: list[CurrentScaleVerification] = Field(default_factory=list)
+    active_id: str | None = None
+    source: Literal["configuration", "web"] = "configuration"
+
+
 class CommissionFinish(CommissionStop):
+    reviewed_joint_ids: list[str] = Field(default_factory=list)
     power_off_and_supported: Literal[True]
     observations_reviewed: bool = False
 
 
 class CommissionExport(Contract):
+    schema_version: Literal[2] = 2
     telemetry: list[dict] = Field(default_factory=list)
     record: CommissionDraft
     manual_config: dict

@@ -14,9 +14,11 @@ from workbench_arm_controller.servo_trial import SingleServoOutput
 from workbench_common import Store, settings
 from workbench_contracts import (
     CommissionAcquire,
+    CommissionAttemptSelect,
     CommissionCommand,
     CommissionCreate,
     CommissionEdit,
+    CommissionFeedback,
     CommissionFinish,
     CommissionMark,
     CommissionPrepare,
@@ -50,6 +52,20 @@ def ready(control):
     control.ready(command(control, CommissionReady, settled_and_clear=True))
 
 
+def feedback(control, **overrides):
+    pending = control.trial["pending_command"]
+    values = dict(
+        command_id=pending["command_id"],
+        joint_id=pending["joint_id"],
+        expected_requested_us=pending["requested_us"],
+        outcome="settled_clear",
+        observed_direction="positive",
+        physical_frame="Clockwise viewed from above",
+    )
+    values.update(overrides)
+    return control.feedback(command(control, CommissionFeedback, **values))
+
+
 def mark(control, kind):
     control.mark(
         command(
@@ -79,11 +95,14 @@ def test_observed_record_and_disabled_export(trial):
     ready(control)
     mark(control, "initial")
     control.step(command(control, CommissionStep, direction=-1))
+    feedback(control)
     mark(control, "minimum")
     clock[0] += 0.26
     control.step(command(control, CommissionStep, direction=1))
+    feedback(control)
     clock[0] += 0.26
     control.step(command(control, CommissionStep, direction=1))
+    feedback(control)
     mark(control, "maximum")
     draft = control.read(draft_id)
     control.edit(
@@ -96,6 +115,13 @@ def test_observed_record_and_disabled_export(trial):
         ),
     )
     finish(control, reviewed=True)
+    draft = control.read(draft_id)
+    control.select_attempt(
+        draft_id,
+        CommissionAttemptSelect(
+            revision=draft.revision, joint_id="base", attempt_id=draft.joints[0].attempts[-1].id
+        ),
+    )
     export = control.export(draft_id)
     assert export.record.joints[0].state == "observed"
     assert export.record.domain == "simulated"
@@ -130,12 +156,14 @@ def test_readiness_replay_bounds_rate_and_marks(trial):
     with pytest.raises(HTTPException):
         control.step(value)
     assert control.trial["requested_us"] == 1510
+    feedback(control)
     with pytest.raises(HTTPException) as error:
         control.step(command(control, CommissionStep, direction=1))
     assert error.value.status_code == 429
     for _ in range(4):
         clock[0] += 0.26
         control.step(command(control, CommissionStep, direction=1))
+        feedback(control)
     clock[0] += 0.26
     with pytest.raises(HTTPException):
         control.step(command(control, CommissionStep, direction=1))

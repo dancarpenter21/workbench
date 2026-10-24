@@ -10,13 +10,16 @@ from workbench_contracts import (
     ArmCommand,
     ArmStatus,
     CommissionAcquire,
+    CommissionAttemptSelect,
     CommissionCommand,
     CommissionCreate,
     CommissionDraft,
     CommissionEdit,
     CommissionExport,
+    CommissionFeedback,
     CommissionFinish,
     CommissionMark,
+    CommissionPowerOffReset,
     CommissionPrepare,
     CommissionReady,
     CommissionSelect,
@@ -26,6 +29,9 @@ from workbench_contracts import (
     CommissionStop,
     CommissionTarget,
     CommissionWindow,
+    CurrentScaleApply,
+    CurrentScaleState,
+    CurrentScaleVerification,
     Diagnostic,
     Health,
     ManualAcquire,
@@ -40,6 +46,7 @@ from workbench_contracts import (
 
 from workbench_arm_controller.claw_current import ClawCurrentMonitor
 from workbench_arm_controller.commissioning_live import LiveCommissioning
+from workbench_arm_controller.current_scale import CurrentScaleRecords
 from workbench_arm_controller.driver import SerialArm
 from workbench_arm_controller.manual import ManualControl
 from workbench_arm_controller.neutral_reference import NeutralReference
@@ -51,6 +58,7 @@ def create_app(config=None, store=None):
     state = {"store": store, "driver": None, "task": None, "error": ""}
     lock = asyncio.Lock()
     monitor = ClawCurrentMonitor(cfg)
+    scales = CurrentScaleRecords(monitor)
     manual = ManualControl(cfg, monitor=monitor)
     commissioning = LiveCommissioning(cfg, monitor=monitor)
     neutral_reference = NeutralReference(cfg)
@@ -63,6 +71,7 @@ def create_app(config=None, store=None):
         if commissioning.trial and commissioning.trial.get("stage") in (
             "prepared",
             "ready",
+            "awaiting_feedback",
             "awaiting_power_off",
         ):
             targets = commissioning.trial.get("targets", {})
@@ -203,6 +212,7 @@ def create_app(config=None, store=None):
         try:
             commissioning.attach(state["store"])
             monitor.attach(state["store"])
+            scales.attach(state["store"])
             await manual_io(monitor_tick)
             status = current()
             if status.state == "moving" or state["store"].get("manual_active", False):
@@ -374,6 +384,53 @@ def create_app(config=None, store=None):
                     status.message = f"{exc}. {await stop_driver()}"
                     await save(status)
 
+    @app.get("/commissioning/current-scale", response_model=CurrentScaleState)
+    async def current_scale_status():
+        async with lock:
+            return scales.status()
+
+    @app.post("/commissioning/current-scale", response_model=CurrentScaleVerification)
+    async def current_scale_save(value: CurrentScaleVerification):
+        async with lock:
+            return await manual_io(scales.save, value)
+
+    @app.post("/commissioning/current-scale/apply", response_model=CurrentScaleState)
+    async def current_scale_apply(value: CurrentScaleApply):
+        async with lock:
+            if cfg.get("profile", "workbench") != "workbench" or not monitor.enabled:
+                raise HTTPException(
+                    409, "Current scale activation requires the workbench PCA9685 backend"
+                )
+            if busy() or manual.token or commissioning.reserved:
+                raise HTTPException(409, "Finish all arm sessions before applying a scale")
+
+            def disable():
+                if commissioning.simulated:
+                    return
+                if manual.output:
+                    manual.output.disable()
+                    manual.output.close_preserving_pwm()
+                    manual.output = None
+                output = commissioning.open_output()
+                try:
+                    output.disable()
+                finally:
+                    output.close()
+                manual.prepared = False
+                manual.commanded = {}
+
+            return await manual_io(scales.apply, value, disable)
+
+    @app.post("/commissioning/feedback", response_model=CommissionStatus)
+    async def commissioning_feedback(value: CommissionFeedback):
+        async with lock:
+            return await manual_io(commissioning.feedback, value)
+
+    @app.post("/commissioning/drafts/{draft_id}/select-attempt", response_model=CommissionDraft)
+    async def commissioning_select_attempt(draft_id: str, value: CommissionAttemptSelect):
+        async with lock:
+            return await manual_io(commissioning.select_attempt, draft_id, value)
+
     @app.get("/commissioning/status", response_model=CommissionStatus)
     async def commissioning_status():
         async with lock:
@@ -403,6 +460,33 @@ def create_app(config=None, store=None):
     async def commissioning_export(draft_id: str):
         async with lock:
             return commissioning.export(draft_id)
+
+    @app.post("/commissioning/initialize", response_model=CommissionSession)
+    async def commissioning_initialize(value: CommissionAcquire):
+        async with lock:
+            if busy() or manual.token or commissioning.reserved:
+                raise HTTPException(409, "Arm is busy; finish the current session first")
+            if not commissioning.available:
+                raise HTTPException(409, "Commissioning unavailable")
+            if not commissioning.simulated and manual.output:
+                await manual_io(manual.output.close_preserving_pwm)
+                manual.output = None
+                manual.prepared = False
+                manual.commanded = {}
+            return await manual_io(commissioning.initialize, value)
+
+    @app.post("/commissioning/reset-current", response_model=CommissionStatus)
+    async def commissioning_reset_current(value: CommissionPowerOffReset):
+        async with lock:
+            if (
+                not value.power_off_and_supported
+                or busy()
+                or manual.token
+                or commissioning.reserved
+            ):
+                raise HTTPException(409, "Finish sessions and disconnect servo power before reset")
+            await manual_io(monitor.prepare)
+            return commissioning.status()
 
     @app.post("/commissioning/acquire", response_model=CommissionSession)
     async def commissioning_acquire(value: CommissionAcquire):

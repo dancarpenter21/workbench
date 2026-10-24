@@ -7,9 +7,11 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 from workbench_contracts import (
+    CommissionAttempt,
     CommissionDraft,
     CommissionEvent,
     CommissionExport,
+    CommissionFeedbackRecord,
     CommissionJoint,
     CommissionObservation,
     CommissionSession,
@@ -58,6 +60,26 @@ class LiveCommissioning:
         self.store = store
         self.trial = store.get(self.prefix + "trial")
         if self.trial:
+            draft = self.read(self.trial["draft_id"])
+            for joint in draft.joints:
+                if (
+                    self.trial.get("trial_type") == "all_holding"
+                    or joint.id == self.trial["joint_id"]
+                ):
+                    if not any(a.trial_id == self.trial["trial_id"] for a in joint.attempts):
+                        joint.attempts.append(
+                            CommissionAttempt(
+                                id=str(uuid4()),
+                                trial_id=self.trial["trial_id"],
+                                joint_id=joint.id,
+                                observer=draft.observer,
+                                conditions="Interrupted legacy trial; setup observations in history",
+                                observations=dict(joint.observations),
+                                direction=joint.direction,
+                                notes=joint.notes,
+                            )
+                        )
+            self.save(draft)
             self.trial.update(
                 stage="awaiting_power_off",
                 requested_us=None,
@@ -84,6 +106,14 @@ class LiveCommissioning:
         return CommissionDraft.model_validate(data)
 
     def save(self, draft):
+        if self.trial and self.trial["draft_id"] == draft.id:
+            for joint in draft.joints:
+                for attempt in joint.attempts:
+                    if attempt.trial_id == self.trial["trial_id"]:
+                        attempt.observations = dict(joint.observations)
+                        attempt.direction = joint.direction
+                        attempt.notes = joint.notes
+                        attempt.state = joint.state if joint.state != "untested" else "needs_review"
         draft.revision += 1
         self.store.put(self.prefix + "draft:" + draft.id, draft.model_dump(mode="json"))
         return draft
@@ -132,6 +162,7 @@ class LiveCommissioning:
             raise HTTPException(409, "Record changed; reload before saving")
         joint = self.joint(draft, request.joint_id)
         joint.direction, joint.notes = request.direction, request.notes
+        joint.selected_attempt_id = None
         if joint.state == "observed":
             joint.state = "needs_review"
         draft.history.append(
@@ -201,18 +232,33 @@ class LiveCommissioning:
             raise HTTPException(409, "Commissioning unavailable or arm reserved")
         draft = self.read(request.draft_id)
         self.check_setup(draft)
+        active_assembly = getattr(self.monitor, "active_assembly_id", None)
+        if active_assembly and active_assembly != draft.assembly_id:
+            raise HTTPException(409, "Active current verification belongs to another assembly")
         joint = self.joint(draft, request.joint_id)
+        trial_id = str(uuid4())
         for item in draft.joints if request.trial_type == "all_holding" else [joint]:
             item.state = "in_progress"
             # A fresh preparation cannot silently reuse observations.
             item.observations = {}
+            item.attempts.append(
+                CommissionAttempt(
+                    id=str(uuid4()),
+                    trial_id=trial_id,
+                    joint_id=item.id,
+                    observer=request.observer or draft.observer,
+                    conditions=request.conditions,
+                    current_scale=self.monitor.status().model_dump(mode="json"),
+                    telemetry_reference=self.prefix + "samples:" + draft.id,
+                )
+            )
         self.save(draft)
         self.trial = dict(
             trial_type=request.trial_type,
             targets={},
             encoded_targets={},
             windows={name: [1450, 1550] for name in JOINT_ORDER},
-            trial_id=str(uuid4()),
+            trial_id=trial_id,
             draft_id=draft.id,
             joint_id=joint.id,
             stage="acquired",
@@ -234,6 +280,49 @@ class LiveCommissioning:
                 else {"legacy_setup": "not recorded"}
             ),
         )
+        return CommissionSession(token=self.token, status=self.status())
+
+    def initialize(self, request):
+        """A user Move starts a new all-holding session at the established neutral target.
+
+        This records output commands, never a claim that measured position has settled.
+        Existing sensor faults must be explicitly reset with power disconnected.
+        """
+
+        def check_current():
+            if not self.monitor.poll(force=True):
+                raise RuntimeError(self.monitor.fault)
+            self.monitor.require()
+
+        check_current()
+        self.acquire(request.model_copy(update={"trial_type": "all_holding"}))
+        try:
+            self.event(
+                "neutral_intent", "User requested initialization of all six servos at 1500 us"
+            )
+            self.trial["stage"] = "awaiting_power_off"
+            self.persist()
+            check_current()
+            if self.simulated:
+                encoded = {name: encode_pulse(1500)[1] for name in JOINT_ORDER}
+            else:
+                self.output = self.open_output()
+                encoded = self.output.initialize_neutral(check_current)
+            check_current()
+            self.trial.update(
+                stage="ready",
+                targets=dict.fromkeys(JOINT_ORDER, 1500),
+                encoded_targets=encoded,
+                requested_us=1500,
+                encoded_us=encoded[self.trial["joint_id"]],
+            )
+            self.event(
+                "neutral_result", "All six neutral targets written; physical position unmeasured"
+            )
+            self.persist()
+            self.deadline = self.clock() + 0.3
+        except Exception as exc:
+            self.fault(exc)
         return CommissionSession(token=self.token, status=self.status())
 
     def tick(self):
@@ -370,11 +459,8 @@ class LiveCommissioning:
 
     def target(self, request):
         self.authenticate(request, "ready")
-        if (
-            self.trial.get("trial_type") != "all_holding"
-            or request.joint_id != self.trial["joint_id"]
-        ):
-            raise HTTPException(409, "Select a joint in all-servos-holding mode first")
+        if request.joint_id != self.trial["joint_id"]:
+            raise HTTPException(409, "Select the requested joint first")
         return self.apply_target(request.pulse_us)
 
     def step(self, request):
@@ -398,7 +484,16 @@ class LiveCommissioning:
             )
         try:
             self.monitor.require()
-            self.event("step_intent", f"Requested {target} us")
+            pending = dict(
+                issued_at=now().isoformat(),
+                command_id=str(uuid4()),
+                joint_id=joint,
+                previous_us=self.trial["requested_us"],
+                requested_us=target,
+            )
+            self.trial.update(stage="awaiting_feedback", pending_command=pending)
+            self.persist()
+            self.event("step_intent", json.dumps(pending))
             self.monitor.require()
             self.last_step = self.clock()
             if self.simulated:
@@ -407,16 +502,89 @@ class LiveCommissioning:
                 actual = self.output.write_joint(5 - JOINT_ORDER.index(joint), target, low, high)
             else:
                 actual = self.output.write(target)
+            pending["encoded_us"] = actual
+            pending["written_at"] = now().isoformat()
             self.trial.update(requested_us=target, encoded_us=actual)
             self.trial.setdefault("targets", {})[joint] = target
             self.trial.setdefault("encoded_targets", {})[joint] = actual
             self.persist()
-            self.event(
-                "step_result", f"Requested {target} us; encoded {actual} us; position unmeasured"
-            )
+            self.event("step_result", json.dumps({**pending, "physical_position": "unmeasured"}))
         except Exception as exc:
             self.fault(exc)
         return self.status()
+
+    def feedback(self, request):
+        self.authenticate(request, "awaiting_feedback")
+        pending = self.trial.get("pending_command") or {}
+        if (
+            request.command_id != pending.get("command_id")
+            or request.joint_id != pending.get("joint_id")
+            or request.expected_requested_us != pending.get("requested_us")
+        ):
+            raise HTTPException(409, "Feedback does not match the pending command")
+        if not request.physical_frame.strip() or (
+            request.outcome != "settled_clear" and not request.notes.strip()
+        ):
+            raise HTTPException(422, "Physical frame and notes for unresolved outcomes required")
+        if request.outcome == "uncertain":
+            self.token = None
+            self.trial["stage"] = "awaiting_power_off"
+        # Unsafe feedback inhibits output before attempting record storage.
+        if request.outcome == "unsafe":
+            self.monitor.trip("Operator reported binding or unsafe movement")
+            try:
+                self.emergency_disable()
+            finally:
+                self.token = None
+                self.trial["stage"] = "awaiting_power_off"
+        try:
+            draft = self.read(self.trial["draft_id"])
+            joint = self.joint(draft)
+            record = CommissionFeedbackRecord(
+                **pending,
+                outcome=request.outcome,
+                observed_direction=request.observed_direction,
+                physical_frame=request.physical_frame,
+                notes=request.notes,
+            )
+            attempt = next(a for a in joint.attempts if a.trial_id == self.trial["trial_id"])
+            attempt.feedback.append(record)
+            if request.outcome != "settled_clear":
+                joint.state = "needs_review"
+            self.save(draft)
+            self.event("feedback", record.model_dump_json())
+            self.trial["pending_command"] = None
+            if request.outcome == "settled_clear":
+                self.monitor.require()
+                self.trial["stage"] = "ready"
+            elif request.outcome == "uncertain":
+                self.event(
+                    "stop", "Uncertain movement; inspect, support and disconnect servo power"
+                )
+            else:
+                self.event("fault", "Unsafe movement reported; CUT PHYSICAL SERVO POWER")
+            self.persist()
+        except Exception as exc:
+            self.fault(exc)
+        return self.status()
+
+    def select_attempt(self, draft_id, request):
+        if self.reserved:
+            raise HTTPException(409, "Finish the active trial before selecting an attempt")
+        draft = self.read(draft_id)
+        if request.revision != draft.revision:
+            raise HTTPException(409, "Record changed; reload before selecting")
+        joint = self.joint(draft, request.joint_id)
+        attempt = next((a for a in joint.attempts if a.id == request.attempt_id), None)
+        if not attempt or attempt.state != "observed" or attempt.ended_at is None:
+            raise HTTPException(422, "Select a completed reviewed attempt")
+        joint.selected_attempt_id = attempt.id
+        joint.observations = dict(attempt.observations)
+        joint.direction, joint.notes, joint.state = attempt.direction, attempt.notes, "observed"
+        draft.history.append(
+            CommissionEvent(at=now(), joint_id=joint.id, action="select_attempt", detail=attempt.id)
+        )
+        return self.save(draft)
 
     def mark(self, request):
         self.authenticate(request, "ready")
@@ -493,12 +661,26 @@ class LiveCommissioning:
             draft.joints if self.trial.get("trial_type") == "all_holding" else [self.joint(draft)]
         )
         for joint in joints:
-            complete = len(joint.observations) == 3 and bool(joint.direction.strip())
+            attempt = next(a for a in joint.attempts if a.trial_id == self.trial["trial_id"])
+            unresolved = any(f.outcome != "settled_clear" for f in attempt.feedback)
+            pending = self.trial.get("pending_command")
+            complete = (
+                len(joint.observations) == 3
+                and bool(joint.direction.strip())
+                and not unresolved
+                and not (pending and pending["joint_id"] == joint.id)
+            )
             joint.state = (
                 "observed"
-                if complete and request.observations_reviewed and not faulted
+                if complete
+                and (
+                    joint.id in request.reviewed_joint_ids
+                    or (request.observations_reviewed and len(joints) == 1)
+                )
+                and not faulted
                 else "needs_review"
             )
+            attempt.ended_at = now()
         self.save(draft)
         self.event(
             "finish_result",
@@ -513,17 +695,19 @@ class LiveCommissioning:
         draft = self.read(draft_id)
         channels = {}
         for joint in draft.joints:
+            selected = next((a for a in joint.attempts if a.id == joint.selected_attempt_id), None)
+            observations = (
+                selected.observations
+                if selected
+                else (joint.observations if not joint.attempts else {})
+            )
             channels[joint.id] = dict(
                 channel=joint.channel,
                 label=joint.id,
-                direction=joint.direction,
+                direction=selected.direction if selected else joint.direction,
                 max_rate_us_per_second=None,
                 **{
-                    key: (
-                        joint.observations[mark].requested_us
-                        if mark in joint.observations
-                        else None
-                    )
+                    key: (observations[mark].requested_us if mark in observations else None)
                     for key, mark in [
                         ("min_us", "minimum"),
                         ("max_us", "maximum"),

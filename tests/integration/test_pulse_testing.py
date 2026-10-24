@@ -6,7 +6,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 from test_claw_servo_test import SensorBus
-from test_commissioning_live import command, finish
+from test_commissioning_live import command, feedback, finish
 from workbench_arm_controller.app import create_app
 from workbench_arm_controller.claw_current import ClawCurrentMonitor
 from workbench_arm_controller.commissioning_live import LiveCommissioning
@@ -52,6 +52,7 @@ def test_each_joint_changes_alone_and_exports_raw_samples(pulse):
         result = control.target(command(control, CommissionTarget, joint_id=name, pulse_us=1490))
         assert result.targets == {**before, name: 1490}
         assert len(result.encoded_targets) == 6
+        feedback(control)
         clock[0] += 0.26
     exported = control.export(draft_id)
     assert exported.telemetry and all(s["simulated"] for s in exported.telemetry)
@@ -86,6 +87,7 @@ def test_reject_large_change_wrong_joint_and_bad_windows(pulse):
     )
     assert control.status().windows["base"] == [1400, 1600]
     control.target(command(control, CommissionTarget, joint_id="base", pulse_us=1510))
+    feedback(control)
     with pytest.raises(HTTPException) as error:
         control.target(command(control, CommissionTarget, joint_id="base", pulse_us=1520))
     assert error.value.status_code == 429

@@ -147,6 +147,12 @@ class ManualControl:
         if self.token:
             raise HTTPException(409, "End manual control before preparing outputs")
         if self.simulated:
+            self.monitor.prepare()
+            self.targets = {
+                name: data["initial_us"] for name, data in self.calibration["channels"].items()
+            }
+            self.commanded = {p.joint: p.commanded_us for p in self.plan.encode(self.targets)}
+            self.prepared = True
             self.recover()
             return
         # Caller has explicitly confirmed disconnected servo power and supported arm.

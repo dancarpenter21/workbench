@@ -1177,6 +1177,345 @@
         }
       }
     },
+    "/arm-controller/commissioning/current-scale": {
+      "get": {
+        "summary": "Current Scale Status",
+        "operationId": "arm_controller_current_scale_status_commissioning_current_scale_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentScaleState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Current Scale Save",
+        "operationId": "arm_controller_current_scale_save_commissioning_current_scale_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurrentScaleVerification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentScaleVerification"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/arm-controller/commissioning/current-scale/apply": {
+      "post": {
+        "summary": "Current Scale Apply",
+        "operationId": "arm_controller_current_scale_apply_commissioning_current_scale_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurrentScaleApply"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentScaleState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/arm-controller/commissioning/feedback": {
+      "post": {
+        "summary": "Commissioning Feedback",
+        "operationId": "arm_controller_commissioning_feedback_commissioning_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionFeedback"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/arm-controller/commissioning/drafts/{draft_id}/select-attempt": {
+      "post": {
+        "summary": "Commissioning Select Attempt",
+        "operationId": "arm_controller_commissioning_select_attempt_commissioning_drafts__draft_id__select_attempt_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionAttemptSelect"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
     "/arm-controller/commissioning/status": {
       "get": {
         "summary": "Commissioning Status",
@@ -1574,6 +1913,142 @@
               }
             },
             "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/arm-controller/commissioning/initialize": {
+      "post": {
+        "summary": "Commissioning Initialize",
+        "operationId": "arm_controller_commissioning_initialize_commissioning_initialize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionAcquire"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/arm-controller/commissioning/reset-current": {
+      "post": {
+        "summary": "Commissioning Reset Current",
+        "operationId": "arm_controller_commissioning_reset_current_commissioning_reset_current_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionPowerOffReset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -3220,6 +3695,345 @@
         }
       }
     },
+    "/coordinator/commissioning/current-scale": {
+      "get": {
+        "summary": "Current Scale Status",
+        "operationId": "coordinator_current_scale_status_commissioning_current_scale_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentScaleState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Current Scale Save",
+        "operationId": "coordinator_current_scale_save_commissioning_current_scale_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurrentScaleVerification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentScaleVerification"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coordinator/commissioning/current-scale/apply": {
+      "post": {
+        "summary": "Current Scale Apply",
+        "operationId": "coordinator_current_scale_apply_commissioning_current_scale_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CurrentScaleApply"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentScaleState"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coordinator/commissioning/feedback": {
+      "post": {
+        "summary": "Commissioning Feedback",
+        "operationId": "coordinator_commissioning_feedback_commissioning_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionFeedback"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coordinator/commissioning/drafts/{draft_id}/select-attempt": {
+      "post": {
+        "summary": "Commissioning Select Attempt",
+        "operationId": "coordinator_commissioning_select_attempt_commissioning_drafts__draft_id__select_attempt_post",
+        "parameters": [
+          {
+            "name": "draft_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Draft Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionAttemptSelect"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
     "/coordinator/commissioning/evidence": {
       "get": {
         "summary": "Commissioning Evidence",
@@ -3675,6 +4489,142 @@
               }
             },
             "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/coordinator/commissioning/initialize": {
+      "post": {
+        "summary": "Commissioning Initialize",
+        "operationId": "coordinator_commissioning_initialize_commissioning_initialize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionAcquire"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionSession"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coordinator/commissioning/reset-current": {
+      "post": {
+        "summary": "Commissioning Reset Current",
+        "operationId": "coordinator_commissioning_reset_current_commissioning_reset_current_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionPowerOffReset"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -5753,6 +6703,17 @@
       },
       "ClawCurrentStatus": {
         "properties": {
+          "reading_healthy": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading Healthy"
+          },
           "monitor_session_id": {
             "anyOf": [
               {
@@ -5925,6 +6886,26 @@
       },
       "CommissionAcquire": {
         "properties": {
+          "observer": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observer"
+          },
+          "conditions": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Conditions",
+            "default": "Supported bench trial"
+          },
           "trial_type": {
             "type": "string",
             "enum": [
@@ -5950,6 +6931,132 @@
           "joint_id"
         ],
         "title": "CommissionAcquire"
+      },
+      "CommissionAttempt": {
+        "properties": {
+          "current_scale": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Current Scale"
+          },
+          "telemetry_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telemetry Reference"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "trial_id": {
+            "type": "string",
+            "title": "Trial Id"
+          },
+          "joint_id": {
+            "type": "string",
+            "title": "Joint Id"
+          },
+          "observer": {
+            "type": "string",
+            "title": "Observer"
+          },
+          "conditions": {
+            "type": "string",
+            "title": "Conditions"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "in_progress",
+              "observed",
+              "needs_review"
+            ],
+            "title": "State",
+            "default": "in_progress"
+          },
+          "observations": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CommissionObservation"
+            },
+            "type": "object",
+            "title": "Observations"
+          },
+          "feedback": {
+            "items": {
+              "$ref": "#/components/schemas/CommissionFeedbackRecord"
+            },
+            "type": "array",
+            "title": "Feedback"
+          },
+          "direction": {
+            "type": "string",
+            "title": "Direction",
+            "default": ""
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "trial_id",
+          "joint_id",
+          "observer",
+          "conditions"
+        ],
+        "title": "CommissionAttempt"
+      },
+      "CommissionAttemptSelect": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revision"
+          },
+          "joint_id": {
+            "type": "string",
+            "title": "Joint Id"
+          },
+          "attempt_id": {
+            "type": "string",
+            "title": "Attempt Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "joint_id",
+          "attempt_id"
+        ],
+        "title": "CommissionAttemptSelect"
       },
       "CommissionCommand": {
         "properties": {
@@ -6144,6 +7251,12 @@
       },
       "CommissionExport": {
         "properties": {
+          "schema_version": {
+            "type": "integer",
+            "const": 2,
+            "title": "Schema Version",
+            "default": 2
+          },
           "telemetry": {
             "items": {
               "additionalProperties": true,
@@ -6169,11 +7282,184 @@
         ],
         "title": "CommissionExport"
       },
+      "CommissionFeedback": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Sequence"
+          },
+          "command_id": {
+            "type": "string",
+            "title": "Command Id"
+          },
+          "joint_id": {
+            "type": "string",
+            "title": "Joint Id"
+          },
+          "expected_requested_us": {
+            "type": "number",
+            "title": "Expected Requested Us"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "settled_clear",
+              "uncertain",
+              "unsafe"
+            ],
+            "title": "Outcome"
+          },
+          "observed_direction": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "negative",
+              "none",
+              "unknown"
+            ],
+            "title": "Observed Direction"
+          },
+          "physical_frame": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Physical Frame"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Notes",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "sequence",
+          "command_id",
+          "joint_id",
+          "expected_requested_us",
+          "outcome",
+          "observed_direction",
+          "physical_frame"
+        ],
+        "title": "CommissionFeedback"
+      },
+      "CommissionFeedbackRecord": {
+        "properties": {
+          "issued_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issued At"
+          },
+          "written_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Written At"
+          },
+          "command_id": {
+            "type": "string",
+            "title": "Command Id"
+          },
+          "joint_id": {
+            "type": "string",
+            "title": "Joint Id"
+          },
+          "requested_us": {
+            "type": "number",
+            "title": "Requested Us"
+          },
+          "encoded_us": {
+            "type": "number",
+            "title": "Encoded Us"
+          },
+          "previous_us": {
+            "type": "number",
+            "title": "Previous Us"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "settled_clear",
+              "uncertain",
+              "unsafe"
+            ],
+            "title": "Outcome"
+          },
+          "observed_direction": {
+            "type": "string",
+            "enum": [
+              "positive",
+              "negative",
+              "none",
+              "unknown"
+            ],
+            "title": "Observed Direction"
+          },
+          "physical_frame": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Physical Frame"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Notes",
+            "default": ""
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command_id",
+          "joint_id",
+          "requested_us",
+          "encoded_us",
+          "previous_us",
+          "outcome",
+          "observed_direction",
+          "physical_frame"
+        ],
+        "title": "CommissionFeedbackRecord"
+      },
       "CommissionFinish": {
         "properties": {
           "trial_id": {
             "type": "string",
             "title": "Trial Id"
+          },
+          "reviewed_joint_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Reviewed Joint Ids"
           },
           "power_off_and_supported": {
             "type": "boolean",
@@ -6231,6 +7517,24 @@
             "type": "string",
             "title": "Notes",
             "default": ""
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/CommissionAttempt"
+            },
+            "type": "array",
+            "title": "Attempts"
+          },
+          "selected_attempt_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Attempt Id"
           }
         },
         "additionalProperties": false,
@@ -6317,6 +7621,79 @@
           "observed_at"
         ],
         "title": "CommissionObservation"
+      },
+      "CommissionPendingCommand": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "title": "Command Id"
+          },
+          "joint_id": {
+            "type": "string",
+            "title": "Joint Id"
+          },
+          "previous_us": {
+            "type": "number",
+            "title": "Previous Us"
+          },
+          "requested_us": {
+            "type": "number",
+            "title": "Requested Us"
+          },
+          "encoded_us": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encoded Us"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Issued At"
+          },
+          "written_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Written At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "command_id",
+          "joint_id",
+          "previous_us",
+          "requested_us",
+          "issued_at"
+        ],
+        "title": "CommissionPendingCommand"
+      },
+      "CommissionPowerOffReset": {
+        "properties": {
+          "power_off_and_supported": {
+            "type": "boolean",
+            "const": true,
+            "title": "Power Off And Supported"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "power_off_and_supported"
+        ],
+        "title": "CommissionPowerOffReset"
       },
       "CommissionPrepare": {
         "properties": {
@@ -6579,6 +7956,16 @@
             "title": "Reserved",
             "default": false
           },
+          "pending_command": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CommissionPendingCommand"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "stage": {
             "type": "string",
             "enum": [
@@ -6586,6 +7973,7 @@
               "acquired",
               "prepared",
               "ready",
+              "awaiting_feedback",
               "awaiting_power_off"
             ],
             "title": "Stage",
@@ -6773,6 +8161,155 @@
           "reviewed"
         ],
         "title": "CommissionWindow"
+      },
+      "CurrentScaleApply": {
+        "properties": {
+          "verification_id": {
+            "type": "string",
+            "title": "Verification Id"
+          },
+          "power_off_and_supported": {
+            "type": "boolean",
+            "const": true,
+            "title": "Power Off And Supported"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "verification_id",
+          "power_off_and_supported"
+        ],
+        "title": "CurrentScaleApply"
+      },
+      "CurrentScaleState": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/CurrentScaleVerification"
+            },
+            "type": "array",
+            "title": "Records"
+          },
+          "active_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Id"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "configuration",
+              "web"
+            ],
+            "title": "Source",
+            "default": "configuration"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CurrentScaleState"
+      },
+      "CurrentScaleVerification": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "default": ""
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "physical",
+              "simulated"
+            ],
+            "title": "Domain"
+          },
+          "assembly_id": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Assembly Id"
+          },
+          "observer": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Observer"
+          },
+          "method": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Method"
+          },
+          "instrumentation": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Instrumentation"
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Evidence"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "i2c_bus": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "I2C Bus"
+          },
+          "sensor_address": {
+            "type": "integer",
+            "const": 65,
+            "title": "Sensor Address",
+            "default": 65
+          },
+          "pwm_address": {
+            "type": "integer",
+            "maximum": 127.0,
+            "minimum": 0.0,
+            "title": "Pwm Address"
+          },
+          "shunt_ohms": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Shunt Ohms"
+          },
+          "externally_verified": {
+            "type": "boolean",
+            "const": true,
+            "title": "Externally Verified"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "domain",
+          "assembly_id",
+          "observer",
+          "method",
+          "instrumentation",
+          "evidence",
+          "observed_at",
+          "i2c_bus",
+          "pwm_address",
+          "shunt_ohms",
+          "externally_verified"
+        ],
+        "title": "CurrentScaleVerification"
       },
       "ManualAcquire": {
         "properties": {

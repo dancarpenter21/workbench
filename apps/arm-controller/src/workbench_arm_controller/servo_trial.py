@@ -121,6 +121,26 @@ class SingleServoOutput:
             )
         }
 
+    def initialize_neutral(self, check_current):
+        """Explicit operator initialization of all six outputs, with live ammeter checks."""
+        if self.closed or self.faulted or self.channel is not None:
+            raise RuntimeError("Fresh output owner required for neutral initialization")
+        try:
+            check_current()
+            prepare(self.bus, self.address)
+            self.channel = 5
+            targets = {}
+            for channel, name in enumerate(
+                ("claw", "joint_5", "joint_4", "joint_3", "joint_2", "base")
+            ):
+                check_current()
+                targets[name] = self.write_joint(channel, START_US, MIN_US, MAX_US)
+                check_current()
+            return targets
+        except Exception:
+            self.faulted = True
+            raise
+
     def write_joint(self, channel, target, minimum, maximum):
         if self.closed or self.faulted or self.channel is None:
             raise RuntimeError("Trial output unavailable")
