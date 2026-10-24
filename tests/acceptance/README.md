@@ -1,5 +1,8 @@
 # Acceptance protocol
 
+For the separately gated Workbench manual feature, use the
+[manual joint-control acceptance procedure](manual-controls.md).
+
 Automated simulated acceptance: start mock applications, then run
 `uv run python scripts/smoke.py`. This checks 30 deliveries, identity and duplicate IDs.
 It is not a physical acceptance result.
@@ -54,3 +57,6 @@ second-USB-camera compatibility check applies only if USB camera support is eval
 
 All physical acceptance and Pi/device validation remain pending. No generated notebook,
 simulation, pulse check or software test result is a physical acceptance result.
+
+- [Guided individual-joint trials](joint-trials.md): isolated servo preparation,
+  observation records, retained-target stops, and acknowledged power-off finish.

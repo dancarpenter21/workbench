@@ -12,13 +12,37 @@ from workbench_contracts import (
     TERMINAL,
     WAV_REQUEST_BODY,
     ArmStatus,
+    CommissionAcquire,
+    CommissionCommand,
+    CommissionCreate,
+    CommissionDraft,
+    CommissionEdit,
+    CommissionExport,
+    CommissionFinish,
+    CommissionMark,
+    CommissionPrepare,
+    CommissionReady,
+    CommissionSelect,
+    CommissionSession,
+    CommissionStatus,
+    CommissionStep,
+    CommissionStop,
+    CommissionTarget,
+    CommissionWindow,
     Diagnostic,
     DiagnosticsReport,
     Health,
     Intent,
+    ManualAcquire,
+    ManualInput,
+    ManualPrepare,
+    ManualRelease,
+    ManualSession,
+    ManualStatus,
     MicrophoneDevice,
     MicrophoneResult,
     MicrophoneTest,
+    NeutralEvidence,
     Observations,
     Operation,
     Recovery,
@@ -47,7 +71,7 @@ def check_observations(obs: Observations, cfg, tool_id: str, location: str):
 
 def create_app(config=None, store=None, client=None):
     cfg = config or settings()
-    state = {"store": store, "client": client, "task": None}
+    state = {"store": store, "client": client, "task": None, "manual": None, "commissioning": None}
     gate = asyncio.Lock()
 
     def current():
@@ -64,14 +88,31 @@ def create_app(config=None, store=None, client=None):
         operation.state, operation.message = status, message
         return await save(operation)
 
+    def retrieval_enabled():
+        return cfg.get("profile") != "diagnostics" and not (
+            cfg["mode"] == "hardware" and cfg["arm"].get("backend") == "pca9685"
+        )
+
     def snapshot():
         return WorkbenchStatus(
             mode=cfg["mode"],
             profile=cfg.get("profile", "workbench"),
-            retrieval_enabled=cfg.get("profile") != "diagnostics",
+            retrieval_enabled=retrieval_enabled()
+            and not bool(state["manual"] and state["manual"].active)
+            and not bool(state["commissioning"] and state["commissioning"].reserved),
             operation=current(),
-            recovery_required=state["store"].get("recovery", False),
-            message=state["store"].get("stop_message", ""),
+            recovery_required=state["store"].get("recovery", False)
+            or bool(state["manual"] and state["manual"].recovery_required),
+            message=state["store"].get("stop_message", "")
+            or (
+                state["manual"].message
+                if state["manual"] and state["manual"].recovery_required
+                else ""
+            ),
+            claw_current=(state["manual"].claw_current if state["manual"] else None),
+            neutral_evidence=(state["manual"].neutral_evidence if state["manual"] else None),
+            manual=state["manual"],
+            commissioning=state["commissioning"],
         )
 
     async def call(service, method, path, operation_id=None, **kwargs):
@@ -161,10 +202,12 @@ def create_app(config=None, store=None, client=None):
             *(inspect(name) for name in cfg["services"] if name != "coordinator")
         )
         host = await host_check(mock=cfg["mode"] == "mock")
+        await refresh_manual()
         return DiagnosticsReport(
+            neutral_evidence=(state["manual"].neutral_evidence if state["manual"] else None),
             mode=cfg["mode"],
             profile=cfg.get("profile", "workbench"),
-            retrieval_enabled=cfg.get("profile") != "diagnostics",
+            retrieval_enabled=retrieval_enabled(),
             checks=[
                 host,
                 Diagnostic(
@@ -227,8 +270,184 @@ def create_app(config=None, store=None, client=None):
     async def tools():
         return cfg["workbench"]["tools"]
 
+    async def manual_call(path, value=None, prefix="manual"):
+        try:
+            result = await call(
+                "arm-controller",
+                "GET" if value is None else "POST",
+                "/" + prefix + "/" + path,
+                **({} if value is None else {"json": value.model_dump(mode="json")}),
+                timeout=1,
+            )
+            return result.json()
+        except httpx.HTTPStatusError as exc:
+            try:
+                message = exc.response.json().get("message", "Manual command refused")
+            except ValueError:
+                message = "Manual command refused"
+            raise HTTPException(exc.response.status_code, message) from exc
+        except (httpx.RequestError, ValueError) as exc:
+            raise HTTPException(503, "Arm controller unavailable; manual control ended") from exc
+
+    async def refresh_manual():
+        try:
+            state["commissioning"] = CommissionStatus.model_validate(
+                await manual_call("status", prefix="commissioning")
+            )
+        except (HTTPException, ValueError):
+            state["commissioning"] = None
+        try:
+            manual = ManualStatus.model_validate(await manual_call("status"))
+            if state["task"] and not state["task"].done():
+                manual.available = False
+                manual.message = "A retrieval request is active."
+            state["manual"] = manual
+        except (HTTPException, ValueError):
+            state["manual"] = ManualStatus(
+                simulated=cfg["mode"] == "mock", message="Arm controller unavailable"
+            )
+        return state["manual"]
+
+    @app.get("/commissioning/evidence", response_model=NeutralEvidence)
+    async def commissioning_evidence():
+        return await manual_call("evidence", prefix="commissioning")
+
+    @app.get("/commissioning/status", response_model=CommissionStatus)
+    async def commissioning_status():
+        return await manual_call("status", prefix="commissioning")
+
+    @app.get("/commissioning/drafts", response_model=list[CommissionDraft])
+    async def commissioning_drafts():
+        return await manual_call("drafts", prefix="commissioning")
+
+    @app.get("/commissioning/drafts/{draft_id}", response_model=CommissionDraft)
+    async def commissioning_drafts_draft_id(draft_id: str):
+        return await manual_call(f"drafts/{draft_id}", prefix="commissioning")
+
+    @app.get("/commissioning/drafts/{draft_id}/export", response_model=CommissionExport)
+    async def commissioning_drafts_draft_id_export(draft_id: str):
+        return await manual_call(f"drafts/{draft_id}/export", prefix="commissioning")
+
+    @app.post("/commissioning/drafts", response_model=CommissionDraft)
+    async def commissioning_post_drafts(value: CommissionCreate):
+        async with gate:
+            result = await manual_call("drafts", value, prefix="commissioning")
+            return result
+
+    @app.post("/commissioning/drafts/{draft_id}", response_model=CommissionDraft)
+    async def commissioning_post_drafts_draft_id(value: CommissionEdit, draft_id: str):
+        async with gate:
+            result = await manual_call(f"drafts/{draft_id}", value, prefix="commissioning")
+            return result
+
+    @app.post("/commissioning/acquire", response_model=CommissionSession)
+    async def commissioning_post_acquire(value: CommissionAcquire):
+        async with gate:
+            if state["task"] and not state["task"].done():
+                raise HTTPException(409, "Retrieval is active")
+            result = await manual_call("acquire", value, prefix="commissioning")
+            return result
+
+    @app.post("/commissioning/prepare", response_model=CommissionStatus)
+    async def commissioning_post_prepare(value: CommissionPrepare):
+        async with gate:
+            result = await manual_call("prepare", value, prefix="commissioning")
+            return result
+
+    @app.post("/commissioning/ready", response_model=CommissionStatus)
+    async def commissioning_post_ready(value: CommissionReady):
+        async with gate:
+            result = await manual_call("ready", value, prefix="commissioning")
+            return result
+
+    @app.post("/commissioning/heartbeat", response_model=CommissionStatus)
+    async def commissioning_post_heartbeat(value: CommissionCommand):
+        async with gate:
+            result = await manual_call("heartbeat", value, prefix="commissioning")
+            return result
+
+    @app.post("/commissioning/step", response_model=CommissionStatus)
+    async def commissioning_post_step(value: CommissionStep):
+        async with gate:
+            result = await manual_call("step", value, prefix="commissioning")
+            return result
+
+    @app.post("/commissioning/target", response_model=CommissionStatus)
+    async def commissioning_target(value: CommissionTarget):
+        async with gate:
+            return await manual_call("target", value, prefix="commissioning")
+
+    @app.post("/commissioning/select", response_model=CommissionStatus)
+    async def commissioning_select(value: CommissionSelect):
+        async with gate:
+            return await manual_call("select", value, prefix="commissioning")
+
+    @app.post("/commissioning/window", response_model=CommissionStatus)
+    async def commissioning_window(value: CommissionWindow):
+        async with gate:
+            return await manual_call("window", value, prefix="commissioning")
+
+    @app.post("/commissioning/mark", response_model=CommissionStatus)
+    async def commissioning_post_mark(value: CommissionMark):
+        async with gate:
+            result = await manual_call("mark", value, prefix="commissioning")
+            return result
+
+    @app.post("/commissioning/stop", response_model=CommissionStatus)
+    async def commissioning_post_stop(value: CommissionStop):
+        async with gate:
+            result = await manual_call("stop", value, prefix="commissioning")
+            return result
+
+    @app.post("/commissioning/finish", response_model=CommissionStatus)
+    async def commissioning_post_finish(value: CommissionFinish):
+        async with gate:
+            result = await manual_call("finish", value, prefix="commissioning")
+            await state["store"].aput_many({"recovery": False, "stop_message": ""})
+            return result
+
+    @app.get("/manual/status", response_model=ManualStatus)
+    async def manual_status():
+        return await refresh_manual()
+
+    @app.post("/manual/prepare", response_model=ManualStatus)
+    async def manual_prepare(value: ManualPrepare):
+        async with gate:
+            if state["task"] and not state["task"].done():
+                raise HTTPException(409, "A retrieval request is active")
+            result = ManualStatus.model_validate(await manual_call("prepare", value))
+            await state["store"].aput_many({"recovery": False, "stop_message": ""})
+            state["manual"] = result
+            return result
+
+    @app.post("/manual/session", response_model=ManualSession)
+    async def manual_acquire(value: ManualAcquire):
+        async with gate:
+            if state["task"] and not state["task"].done():
+                raise HTTPException(409, "A retrieval request is active")
+            if state["store"].get("recovery", False):
+                raise HTTPException(
+                    409, "Inspect the arm and recover before enabling manual control"
+                )
+            result = ManualSession.model_validate(await manual_call("session", value))
+            state["manual"] = result.status
+            return result
+
+    @app.post("/manual/input", response_model=ManualStatus)
+    async def manual_input(value: ManualInput):
+        result = ManualStatus.model_validate(await manual_call("input", value))
+        state["manual"] = result
+        return result
+
+    @app.post("/manual/release", response_model=ManualStatus)
+    async def manual_release(value: ManualRelease):
+        result = ManualStatus.model_validate(await manual_call("release", value))
+        state["manual"] = result
+        return result
+
     @app.get("/status", response_model=WorkbenchStatus)
     async def status():
+        await refresh_manual()
         return snapshot()
 
     @app.get("/operations/{operation_id}", response_model=Operation)
@@ -338,8 +557,8 @@ def create_app(config=None, store=None, client=None):
 
     @app.post("/requests", response_model=Operation, status_code=202)
     async def submit(request: TextRequest):
-        if cfg.get("profile") == "diagnostics":
-            raise HTTPException(409, "Retrieval disabled in diagnostics profile")
+        if not retrieval_enabled():
+            raise HTTPException(409, "Automatic retrieval is disabled for this profile or backend")
         if not request.text.strip():
             raise HTTPException(422, "Request must contain text")
         async with gate:
@@ -354,6 +573,17 @@ def create_app(config=None, store=None, client=None):
                 )
             if state["task"] and not state["task"].done():
                 raise HTTPException(409, "A request is already active")
+            trial = CommissionStatus.model_validate(
+                await manual_call("status", prefix="commissioning")
+            )
+            if trial.reserved:
+                raise HTTPException(409, "Finish commissioning before retrieval")
+            manual = ManualStatus.model_validate(await manual_call("status"))
+            state["manual"] = manual
+            if manual.active or manual.recovery_required:
+                raise HTTPException(
+                    409, "End manual control and recover if required before retrieval"
+                )
             operation = await save(Operation(id=request.operation_id, text=request.text))
             state["task"] = asyncio.create_task(workflow(operation))
             return operation
@@ -366,6 +596,7 @@ def create_app(config=None, store=None, client=None):
                 state["task"].cancel()
                 await asyncio.gather(state["task"], return_exceptions=True)
             message = await stop_arm()
+            await refresh_manual()
             operation = current()
             if operation and operation.state not in TERMINAL:
                 await update(operation, "stopped", message)
@@ -379,19 +610,30 @@ def create_app(config=None, store=None, client=None):
                 raise HTTPException(409, "Stop the active request before recovery")
             try:
                 await call("arm-controller", "POST", "/recover", json=request.model_dump())
+            except httpx.HTTPStatusError as exc:
+                try:
+                    reason = exc.response.json().get("message")
+                except ValueError:
+                    reason = None
+                raise HTTPException(
+                    exc.response.status_code,
+                    reason or "Arm recovery refused; check arm controller status",
+                ) from exc
             except httpx.HTTPError as exc:
                 raise HTTPException(
-                    503, "Arm recovery failed; inspect hardware and try again"
+                    503, "Arm controller unreachable; recovery could not be confirmed"
                 ) from exc
             await state["store"].aput_many({"recovery": False, "stop_message": ""})
+            await refresh_manual()
             return snapshot()
 
     @app.get("/events")
     async def events(request: Request):
         async def stream():
             while not await request.is_disconnected():
+                await refresh_manual()
                 yield f"data: {snapshot().model_dump_json()}\n\n"
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.1)
 
         return StreamingResponse(
             stream(),

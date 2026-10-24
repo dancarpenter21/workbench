@@ -1,4 +1,4 @@
-"""Launch the local applications, mock by default; stop all children on exit."""
+"""Launch the local arm workbench; simulation requires --mode mock."""
 
 import argparse
 import json
@@ -24,7 +24,7 @@ MODULES = {
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", choices=["mock", "hardware"], default="mock")
+    parser.add_argument("--mode", choices=["mock", "hardware"], default="hardware")
     parser.add_argument("--profile", choices=["workbench", "diagnostics"], default="workbench")
     parser.add_argument("--dashboard-host", default="127.0.0.1")
     parser.add_argument("--backend-only", action="store_true")
@@ -44,7 +44,7 @@ def main():
             ),
         ),
     }
-    if args.profile == "diagnostics":
+    if args.mode == "hardware":
         env.setdefault("WORKBENCH_CONFIG", str(ROOT / "config/development/pi.json"))
     cfg = json.loads(
         Path(env.get("WORKBENCH_CONFIG", ROOT / "config/development/default.json")).read_text()

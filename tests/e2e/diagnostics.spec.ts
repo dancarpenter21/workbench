@@ -27,10 +27,10 @@ test("retained readings become stale when the coordinator is unavailable", async
   await page.route("**/api/coordinator/diagnostics", (route) => route.abort());
   await page.getByRole("button", { name: "Refresh checks" }).click();
   await expect(page.locator("#diagnostic-note")).toContainText("stale");
-  await expect(page.locator(".diagnostic-status").first()).toHaveText("STALE");
+  await expect(page.locator(".diagnostic-status").first()).toContainText("STALE");
   await page.unroute("**/api/coordinator/diagnostics");
   await page.getByRole("button", { name: "Refresh checks" }).click();
-  await expect(page.locator(".diagnostic-status").first()).toHaveText("OK");
+  await expect(page.locator(".diagnostic-status").first()).toContainText("OK");
 });
 
 

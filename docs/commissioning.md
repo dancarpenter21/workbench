@@ -184,3 +184,21 @@ marked physical solely to exercise validation boundaries; they are not shipped r
 Keep local notes, photographs, audio and trial files under the ignored `.runtime/`
 directory and back them up separately. See [hardware setup](hardware.md),
 [the implementation plan](../PLAN.md) and [acceptance protocol](../tests/acceptance/README.md).
+
+## Manual joint jogging
+
+The Workbench tab now offers separately gated PCA9685 manual control. See
+[manual controls](manual-controls.md) for the fixed base-5 through claw-0 mapping,
+configuration, disconnected-power preparation, browser inputs and watchdog behavior.
+Use the [physical manual acceptance procedure](../tests/acceptance/manual-controls.md)
+before enabling its dedicated hardware configuration. Offline records and simulated
+results do not enable manual hardware motion or automatic retrieval.
+
+## Guided individual-joint observations
+
+The Workbench tab's **Commission joints** panel implements the restricted
+single-servo test for the unchanged factory assembly. Read
+[guided joint trials](joint-trials.md) for the power-off preparation, fixed
+1500 μs initial target, discrete steps, saved observations, interruption handling,
+and disabled configuration export. This is a separate stage from full manual
+rate/combined-pose qualification.

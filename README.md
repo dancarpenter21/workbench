@@ -8,7 +8,8 @@ coordination, arm control and the dashboard are separate applications in one mon
 
 *Robotic arm concept art.*
 
-The working default is a **simulated bench** with three tools in fixed positions. Real
+The normal launcher uses the **installed Pi hardware**. Simulation is available only
+through `npm run dev:mock` or `--mode mock` for development and tests. Real
 OpenCV, local speech/LLM and RoArm-M2-S adapters are included but require local models,
 reference images and reviewed arm calibration. Physical pickup has not been validated.
 
@@ -27,7 +28,10 @@ The Pi foundations now provide:
 - [Camera setup commands](apps/vision/README.md#camera-setup-without-the-service) for raw
   captures, region overlays, reference collection and validation before starting vision.
 - Six-channel pulse validation, an offline pose checker and low-level PCA9685 output.
-- A Pi profile at `config/development/pi.json`, still defaulting to mock mode.
+- [Manual joint controls](docs/manual-controls.md) in the Workbench tab, with keyboard,
+  browser Xbox controller and on-screen jogging, simulated by default. Base is channel 5
+  through claw on channel 0; physical control requires its own commissioning configuration.
+- A hardware profile at `config/development/pi.json`.
 - An [arm-control design and durable offline rehearsal](docs/arm-control.md) covering
   startup, bounded commands, independent simulated completion evidence, stop and recovery.
 - [Commissioning notebooks and trial snapshots](docs/commissioning.md) for measured
@@ -65,7 +69,12 @@ npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. All five backend services start automatically in mock mode.
+Open **http://127.0.0.1:5173**. All five backend services start against Pi hardware.
+Missing models, uncommissioned joints and unavailable devices report their actual errors;
+they do not fall back to simulation. Manual control requires reviewed joint limits and
+commissioning evidence; starting the app does not enable servo motion.
+
+For the simulated retrieval demo, launch `npm run dev:mock` instead.
 Enter “Grab me the crescent wrench” or choose a tool chip, then select **Retrieve tool**.
 After delivery, use **Reset mock scene** to put the simulated tools back and empty the tray.
 
@@ -114,11 +123,12 @@ calibration. All applications load these files at startup. Environment overrides
 | --- | --- |
 | `WORKBENCH_CONFIG` | Absolute path to runtime settings JSON |
 | `WORKBENCH_CALIBRATION` | Absolute path to tool/bench calibration JSON |
+| `WORKBENCH_MANUAL_CONFIG` | Absolute path to separately commissioned manual-control JSON |
 | `WORKBENCH_MODE` | `mock` or `hardware` for independently launched applications |
 | `WORKBENCH_STATE_DIR` | Durable state/log directory |
 | `WORKBENCH_ROOT` | Repository root when launching from an unusual environment |
 
-The launcher explicitly selects `mock` unless passed `--mode hardware`. Follow the
+The launcher selects `hardware` with the Pi configuration unless passed `--mode mock`. Follow the
 [hardware and calibration guide](docs/hardware.md) before enabling hardware mode. It covers
 the selected Pi hardware, Camera Module 3 setup, pulse calibration, power boundaries and
 legacy RoArm instructions. USB webcams remain supported through OpenCV. GoPro integration
@@ -127,7 +137,7 @@ pickup still need bench validation.
 
 ## Development and verification
 
-Latest local verification (2026-10-21): **223 Python tests and 4 browser tests passed**,
+Latest local verification (2026-10-22): **237 Python tests and 8 browser tests passed**,
 with Ruff lint/format, contract generation, and the dashboard build passing. On the
 installed Pi, live camera preview, USB microphone capture/playback/cancellation, and
 read-only HAT communication were verified through the diagnostics dashboard. See the
@@ -162,3 +172,26 @@ and the required 27/30 successful deliveries with no wrong-tool deliveries.
 Run one process/worker per application on a trusted local computer. Distributed deployment,
 authentication, general clutter recognition, direct handoffs and autonomous grasp learning
 are outside this first version.
+
+The Workbench tab also provides [guided joint commissioning](docs/joint-trials.md):
+power-off preparation of one servo, discrete 10 μs trial steps, persistent
+observations, and disabled configuration export. Physical trials have a separate
+`arm.commissioning_enabled` gate, off by default.
+
+## Universal claw-testing rule
+
+**Every physical claw test must monitor the INA219 ammeter at `0x41`**, including
+neutral/startup tests involving all six servos, standalone scripts, commissioning,
+ad hoc commands, and main-app testing. The claw is channel 0 on the HAT at `0x40`.
+Read the sensor before enabling claw output and continuously during movement and
+powered holding. Device detection or a single reading does not satisfy this rule.
+If readings fail, become stale, or are invalid, stop the test, attempt to disable
+PWM, and cut physical servo power; do not automatically retry movement.
+
+Use absolute current: **`abs(current) < 2.5 A`**. With a verified current scale,
+readings at or above 2.5 A abort the test and attempt PWM shutdown. Until shunt
+resistance is verified, report raw shunt voltage and explicitly state that amperes
+and the 2.5 A cutoff remain unverified; never assume a resistance silently.
+Polling can miss peaks, and disabling PWM does not disconnect servo power.
+Physical claw test paths that lack monitoring must be updated before use.
+See [the claw test instructions](apps/arm-controller/README.md#claw-neutral-and-ina219-test).

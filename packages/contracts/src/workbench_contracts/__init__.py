@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 WAV_REQUEST_BODY = {
     "requestBody": {
@@ -88,6 +88,138 @@ class ArmStatus(Contract):
     recovery_required: bool = False
 
 
+class OffCurrentBounds(Contract):
+    baseline_id: str = Field(min_length=1, max_length=200)
+    domain: Literal["physical", "simulated"]
+    i2c_bus: int = Field(ge=0)
+    sensor_address: Literal[65] = 65
+    pwm_address: int = Field(ge=64, le=119)
+    max_bus_v: float = Field(gt=0, le=0.5)
+    max_abs_shunt_mv: float = Field(gt=0, le=0.5)
+    evidence: str = Field(min_length=1)
+
+
+class ClawCurrentStatus(Contract):
+    monitor_session_id: str | None = None
+    sample_sequence: int = 0
+    i2c_bus: int | None = None
+    sensor_address: int = 65
+    pwm_address: int | None = None
+    power_state: Literal["off", "energized", "unknown"] = "unknown"
+    off_bounds: OffCurrentBounds | None = None
+    off_baseline_error: str = ""
+    simulated: bool = True
+    healthy: bool = False
+    fault: str = ""
+    sampled_at: datetime | None = None
+    age_seconds: float | None = None
+    bus_v: float | None = None
+    shunt_mv: float | None = None
+    current_a: float | None = None
+    scale_verified: bool = False
+    shunt_ohms: float | None = None
+    verification_evidence: str = ""
+    cutoff_a: float = 2.5
+
+
+class ReferenceStatistics(Contract):
+    min: float
+    max: float
+    mean: float
+    median: float
+    stddev: float = Field(ge=0)
+    p95: float
+    p99: float
+
+    @model_validator(mode="after")
+    def ordered(self):
+        if not self.min <= self.mean <= self.max:
+            raise ValueError("Reference statistics must be ordered")
+        return self
+
+
+class NeutralHoldReference(Contract):
+    schema_version: Literal[1] = 1
+    trial_id: str = Field(min_length=1)
+    domain: Literal["physical", "simulated"]
+    i2c_bus: int = Field(ge=0)
+    sensor_address: Literal[65] = 65
+    pwm_address: int = Field(ge=64, le=119)
+    targets_us: dict[str, Literal[1500]]
+    nominal_encoded_us: float
+    scale_verified: Literal[False] = False
+    pwm_full_off_verified: Literal[True]
+    measured_circuit: str
+    duration_seconds: float = Field(gt=0)
+    sample_count: int = Field(gt=0)
+    bus_v: ReferenceStatistics
+    shunt_mv: ReferenceStatistics
+    report_path: str
+    report_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    samples_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def six_neutral_channels(self):
+        if set(self.targets_us) != {str(n) for n in range(6)}:
+            raise ValueError("Neutral evidence requires all six channels")
+        return self
+
+
+class NeutralEvidence(Contract):
+    reference: NeutralHoldReference | None = None
+    state: Literal[
+        "unavailable", "fault", "off", "not_neutral", "within_reference", "outside_reference"
+    ] = "unavailable"
+    detail: str = "Neutral reference not configured"
+    commanded_neutral: bool = False
+
+
+class ManualJoint(Contract):
+    id: str
+    label: str
+    channel: int = Field(ge=0, le=5)
+    min_us: float
+    max_us: float
+    max_rate_us_per_second: float = Field(gt=0)
+    direction: str
+    commanded_us: float | None = None
+
+
+class ManualStatus(Contract):
+    neutral_evidence: NeutralEvidence | None = None
+    claw_current: ClawCurrentStatus | None = None
+    simulated: bool
+    available: bool = False
+    prepared: bool = False
+    active: bool = False
+    recovery_required: bool = False
+    message: str = ""
+    joints: list[ManualJoint] = Field(default_factory=list)
+
+
+class ManualPrepare(Contract):
+    power_disconnected_and_arm_supported: Literal[True]
+
+
+class ManualAcquire(Contract):
+    ready_acknowledged: Literal[True]
+
+
+class ManualSession(Contract):
+    token: UUID
+    status: ManualStatus
+
+
+class ManualRelease(Contract):
+    token: UUID
+
+
+class ManualInput(ManualRelease):
+    sequence: int = Field(ge=0, strict=True)
+    joint_id: str
+    speed: float = Field(ge=-1, le=1, strict=True)
+
+
 OperationState = Literal[
     "interpreting",
     "checking",
@@ -112,13 +244,169 @@ class Operation(Contract):
     updated_at: datetime = Field(default_factory=now)
 
 
+class CommissionObservation(Contract):
+    requested_us: float
+    encoded_us: float
+    observed_at: datetime
+    notes: str = ""
+
+
+class CommissionJoint(Contract):
+    id: str
+    channel: int
+    state: Literal["untested", "in_progress", "observed", "needs_review"] = "untested"
+    observations: dict[str, CommissionObservation] = Field(default_factory=dict)
+    direction: str = ""
+    notes: str = ""
+
+
+class CommissionEvent(Contract):
+    at: datetime
+    trial_id: str | None = None
+    joint_id: str | None = None
+    action: str
+    detail: str
+
+
+class CommissionSetup(Contract):
+    assembly_condition: Literal["factory_assembled_unchanged"] = "factory_assembled_unchanged"
+    backend: Literal["mock", "pca9685"]
+    i2c_bus: int | None = None
+    i2c_address: int | None = None
+    initial_us: Literal[1500] = 1500
+    trial_min_us: Literal[1450] = 1450
+    trial_max_us: Literal[1550] = 1550
+    step_us: Literal[10] = 10
+    nominal_reference_clock_hz: Literal[25000000] = 25000000
+    prescale: Literal[121] = 121
+    position_feedback: Literal[False] = False
+
+
+class CommissionDraft(Contract):
+    schema_version: Literal[1] = 1
+    id: str
+    revision: int = 0
+    domain: Literal["physical", "simulated"]
+    assembly_id: str
+    observer: str
+    setup: CommissionSetup | None = None
+    joints: list[CommissionJoint]
+    history: list[CommissionEvent] = Field(default_factory=list)
+
+
+class CommissionStatus(Contract):
+    trial_type: Literal["isolated", "all_holding"] = "isolated"
+    targets: dict[str, float] = Field(default_factory=dict)
+    encoded_targets: dict[str, float] = Field(default_factory=dict)
+    windows: dict[str, list[float]] = Field(default_factory=dict)
+    claw_current: ClawCurrentStatus | None = None
+    available: bool = False
+    simulated: bool = True
+    reserved: bool = False
+    stage: Literal["idle", "acquired", "prepared", "ready", "awaiting_power_off"] = "idle"
+    trial_id: str | None = None
+    draft_id: str | None = None
+    joint_id: str | None = None
+    requested_us: float | None = None
+    encoded_us: float | None = None
+    message: str = ""
+
+
+class CommissionCreate(Contract):
+    assembly_id: str = Field(min_length=1, max_length=200)
+    observer: str = Field(min_length=1, max_length=200)
+
+
+class CommissionEdit(Contract):
+    revision: int = Field(ge=0)
+    joint_id: str
+    direction: str = Field(max_length=500)
+    notes: str = Field(max_length=4000)
+
+
+class CommissionAcquire(Contract):
+    trial_type: Literal["isolated", "all_holding"] = "isolated"
+    draft_id: str
+    joint_id: str
+
+
+class CommissionSession(Contract):
+    token: str
+    status: CommissionStatus
+
+
+class CommissionCommand(Contract):
+    token: str
+    sequence: int = Field(ge=0, strict=True)
+
+
+class CommissionPrepare(CommissionCommand):
+    power_off_supported_isolated: Literal[True] | None = None
+    power_off_and_supported: Literal[True] | None = None
+
+    @model_validator(mode="after")
+    def require_power_off(self):
+        if not (self.power_off_supported_isolated or self.power_off_and_supported):
+            raise ValueError("Power-off and support acknowledgment required")
+        return self
+
+
+class CommissionReady(CommissionCommand):
+    settled_and_clear: Literal[True]
+
+
+class CommissionStep(CommissionCommand):
+    direction: int = Field(ge=-1, le=1, strict=True)
+
+
+class CommissionTarget(CommissionCommand):
+    joint_id: str
+    pulse_us: float = Field(ge=500, le=2500, allow_inf_nan=False)
+
+
+class CommissionSelect(CommissionCommand):
+    joint_id: str
+
+
+class CommissionWindow(CommissionSelect):
+    min_us: float = Field(ge=500, le=2500, allow_inf_nan=False)
+    max_us: float = Field(ge=500, le=2500, allow_inf_nan=False)
+    reviewed: Literal[True]
+
+
+class CommissionMark(CommissionCommand):
+    kind: Literal["initial", "minimum", "maximum"]
+    expected_requested_us: float
+    settled_and_clear: Literal[True]
+    notes: str = Field(default="", max_length=2000)
+
+
+class CommissionStop(Contract):
+    trial_id: str
+
+
+class CommissionFinish(CommissionStop):
+    power_off_and_supported: Literal[True]
+    observations_reviewed: bool = False
+
+
+class CommissionExport(Contract):
+    telemetry: list[dict] = Field(default_factory=list)
+    record: CommissionDraft
+    manual_config: dict
+
+
 class WorkbenchStatus(Contract):
+    neutral_evidence: NeutralEvidence | None = None
+    claw_current: ClawCurrentStatus | None = None
     mode: str
     profile: str = "workbench"
     retrieval_enabled: bool = True
     operation: Operation | None
     recovery_required: bool
     message: str = ""
+    manual: ManualStatus | None = None
+    commissioning: CommissionStatus | None = None
 
 
 class Recovery(Contract):
@@ -134,6 +422,7 @@ class Diagnostic(Contract):
 
 
 class DiagnosticsReport(Contract):
+    neutral_evidence: NeutralEvidence | None = None
     checked_at: datetime = Field(default_factory=now)
     mode: str
     profile: str

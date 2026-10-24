@@ -1,6 +1,9 @@
+import sys
 from contextlib import AsyncExitStack
+from types import SimpleNamespace
 
 import httpx
+import pytest
 import pytest_asyncio
 from workbench_arm_controller.app import create_app as arm_app
 from workbench_assistant.app import create_app as assistant_app
@@ -45,3 +48,13 @@ async def stack(tmp_path):
         yield bus, config, calls, faults, stores
     for store in stores:
         store.close()
+
+
+@pytest.fixture(autouse=True)
+def no_physical_i2c(monkeypatch):
+    """Hardware tests must explicitly inject a fake; never touch the powered bench."""
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Physical I2C access is forbidden in automated tests")
+
+    monkeypatch.setitem(sys.modules, "smbus2", SimpleNamespace(SMBus=forbidden))

@@ -1,3 +1,4 @@
+import { renderNeutral } from "./neutral";
 import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
 
@@ -8,7 +9,7 @@ const api = createClient<paths>({ baseUrl: "/api" });
 export function mountDiagnostics(root: HTMLElement) {
   root.innerHTML = `
     <div class="intro diagnostics-intro"><p class="eyebrow">HARDWARE / DIAGNOSTICS</p>
-      <h1>Your bench, connected.</h1>
+      <h1>Device checks</h1>
       <p>Live inputs and device checks from the Raspberry Pi.</p>
       <div class="diagnostic-toolbar"><span id="diagnostic-mode" class="badge">Connecting…</span>
         <button id="diagnostic-refresh" class="secondary">Refresh checks</button>
@@ -33,6 +34,7 @@ export function mountDiagnostics(root: HTMLElement) {
         <audio id="diagnostic-audio" controls hidden></audio>
       </section>
     </div>
+    <div id="diagnostic-neutral" hidden></div>
     <div id="diagnostic-checks" class="diagnostic-grid" aria-live="polite"></div>`;
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!;
   const refreshButton = el<HTMLButtonElement>("diagnostic-refresh");
@@ -52,12 +54,13 @@ export function mountDiagnostics(root: HTMLElement) {
   const checks = new Map<string, { check: Check; stale: boolean }>();
   const labels: Record<string, string> = {
     pi: "Raspberry Pi", camera: "Camera capture", recognition: "Tool recognition",
+    claw_current: "Claw INA219", neutral_reference: "Neutral commissioning reference",
     microphone: "Pi microphone", hat: "Servo HAT", voice: "Speech model", assistant: "Language model",
   };
   const format = (value: unknown): string => {
     if (value === null) return "Unknown / unavailable";
     if (typeof value === "boolean") return value ? "Yes" : "No";
-    return typeof value === "number" ? String(Math.round(value * 100) / 100) : String(value);
+    return typeof value === "number" ? String(Number(value.toFixed(4))) : String(value);
   };
   function renderChecks() {
     el("diagnostic-checks").replaceChildren(...[...checks.values()].map(({ check, stale }) => {
@@ -69,7 +72,7 @@ export function mountDiagnostics(root: HTMLElement) {
       title.textContent = labels[check.component] ?? check.component.replace("service:", "Service · ");
       const badge = document.createElement("span");
       badge.className = `badge diagnostic-status ${stale ? "warning" : check.status}`;
-      badge.textContent = stale ? "STALE" : check.status.toUpperCase();
+      badge.textContent = stale ? "◷ STALE" : `${check.status === "ok" ? "✓" : check.status === "warning" ? "!" : "✕"} ${check.status.toUpperCase()}`;
       heading.append(title, badge);
       const summary = document.createElement("p");
       summary.textContent = check.summary;
@@ -115,6 +118,7 @@ export function mountDiagnostics(root: HTMLElement) {
       const { data, error } = await api.GET("/coordinator/diagnostics", { signal: AbortSignal.timeout(10000) });
       if (error || !data) throw new Error("Diagnostics unavailable");
       report = data;
+      renderNeutral(el("diagnostic-neutral"), data.neutral_evidence, undefined, true);
       for (const value of checks.values()) value.stale = true;
       for (const check of data.checks) checks.set(check.component, { check, stale: false });
       el("diagnostic-mode").textContent = data.mode === "mock" ? "SIMULATED" : "PI HARDWARE";
@@ -124,6 +128,7 @@ export function mountDiagnostics(root: HTMLElement) {
         : "Diagnostics profile · arm motion and retrieval disabled · models not loaded.";
       downloadButton.disabled = false;
     } catch {
+      renderNeutral(el("diagnostic-neutral"), report?.neutral_evidence ? { ...report.neutral_evidence, state: "fault", detail: "Diagnostic snapshot is stale" } : null, undefined, true);
       for (const value of checks.values()) value.stale = true;
       el("diagnostic-note").textContent = "Connection lost. Retained readings are stale; retrying automatically.";
     } finally {

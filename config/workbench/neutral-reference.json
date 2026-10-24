@@ -1,0 +1,43 @@
+{
+  "trial_id": "20261024T013046Z-a56f8954",
+  "domain": "physical",
+  "i2c_bus": 1,
+  "sensor_address": 65,
+  "pwm_address": 64,
+  "targets_us": {
+    "0": 1500,
+    "1": 1500,
+    "2": 1500,
+    "3": 1500,
+    "4": 1500,
+    "5": 1500
+  },
+  "nominal_encoded_us": 1498.1599999999999,
+  "scale_verified": false,
+  "pwm_full_off_verified": true,
+  "measured_circuit": "Claw/channel 0 only; other servo currents are not measured",
+  "schema_version": 1,
+  "duration_seconds": 1800.0000665620028,
+  "sample_count": 17192,
+  "bus_v": {
+    "min": 4.956,
+    "max": 4.996,
+    "mean": 4.987898092135877,
+    "median": 4.988,
+    "stddev": 0.0009612506825550522,
+    "p95": 4.988,
+    "p99": 4.992
+  },
+  "shunt_mv": {
+    "min": -0.8500000000000001,
+    "max": -0.35000000000000003,
+    "mean": -0.7601442531409958,
+    "median": -0.75,
+    "stddev": 0.016330837968147122,
+    "p95": -0.7400000000000001,
+    "p99": -0.7200000000000001
+  },
+  "report_path": ".runtime/commissioning/neutral-holds/20261024T013046Z-a56f8954/report.json",
+  "report_sha256": "afa887885ae24471aba01c5d350a397673fd4bbcaab0e2893c5d0232d620d81c",
+  "samples_sha256": "0867c57b6090c5aa5704a0670d4645ddf547a32e51f7b30c7c0e84ad4dc7dd93"
+}

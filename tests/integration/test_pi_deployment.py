@@ -13,16 +13,20 @@ SPEC.loader.exec_module(pi)
 
 
 def runtime():
-    return pi.read_json(ROOT / "config/development/pi.json")
+    config = pi.read_json(ROOT / "config/development/pi.json")
+    config["mode"] = "mock"  # Deployment tests use an explicit snapshot, not live Pi settings.
+    return config
 
 
 def make_bundle(tmp_path):
     output = tmp_path / "bundle"
+    config_path = tmp_path / "mock-runtime.json"
+    config_path.write_text(json.dumps(runtime()))
     pi.prepare(
         output,
         "/home/operator/workbench",
         "operator",
-        ROOT / "config/development/pi.json",
+        config_path,
         ROOT / "config/workbench/default.json",
     )
     return output

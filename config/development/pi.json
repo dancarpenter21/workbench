@@ -1,5 +1,5 @@
 {
-  "mode": "mock",
+  "mode": "hardware",
   "services": {
     "vision": "http://127.0.0.1:8101",
     "voice": "http://127.0.0.1:8102",
@@ -28,9 +28,26 @@
     "context_size": 2048
   },
   "arm": {
+    "commissioning_enabled": false,
+    "claw_current": {
+      "scale_verified": false,
+      "shunt_ohms": null,
+      "verification_evidence": "",
+      "off_baseline": {
+        "baseline_id": "20261023T214233Z-journal-97c7c90c",
+        "domain": "physical",
+        "i2c_bus": 1,
+        "sensor_address": 65,
+        "pwm_address": 64,
+        "max_bus_v": 0.02,
+        "max_abs_shunt_mv": 0.12,
+        "evidence": ".runtime/commissioning/off-baselines/20261023T214233Z-journal-97c7c90c/report.json"
+      }
+    },
     "backend": "pca9685",
     "i2c_bus": 1,
     "i2c_address": 64,
-    "mock_step_seconds": 0.4
+    "mock_step_seconds": 0.4,
+    "neutral_reference": "config/workbench/neutral-reference.json"
   }
 }

@@ -1,0 +1,53 @@
+import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
+const reference = JSON.parse(readFileSync("config/workbench/neutral-reference.json", "utf8"));
+
+for (const state of ["not_neutral", "within_reference", "outside_reference", "fault"]) {
+  test(`neutral evidence in control and diagnostics: ${state}`, async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 480 });
+    const evidence = { reference, state, detail: state === "not_neutral" ? "Neutral targets not established; advisory only" : "Recorded-range comparison", commanded_neutral: state !== "not_neutral" };
+    await page.addInitScript(({ evidence, state }) => {
+      class FixtureEvents {
+        onmessage: ((event: { data: string }) => void) | null = null;
+        onerror: (() => void) | null = null;
+        constructor() {
+          setInterval(() => this.onmessage?.({ data: JSON.stringify({
+            mode: "hardware", profile: "workbench", retrieval_enabled: false, operation: null,
+            recovery_required: false, message: "", manual: null, commissioning: null,
+            neutral_evidence: evidence,
+            claw_current: { simulated: false, healthy: state !== "fault", fault: state === "fault" ? "Sensor failed" : "",
+              age_seconds: 0.01, bus_v: 4.988, shunt_mv: -0.75, scale_verified: false, power_state: "energized" },
+          }) }), 75);
+        }
+      }
+      (window as any).EventSource = FixtureEvents;
+    }, { evidence, state });
+    await page.route("**/api/coordinator/diagnostics", route => route.fulfill({ json: {
+      mode: "hardware", profile: "workbench", retrieval_enabled: false, checked_at: new Date().toISOString(),
+      neutral_evidence: evidence,
+      checks: [{ component: "neutral_reference", status: "ok", checked_at: new Date().toISOString(),
+        summary: "Neutral hold reference", measurements: { bus_min_v: 4.956, sample_count: 17192, scale_verified: false } }],
+    } }));
+    await page.goto("/");
+    const panel = page.locator("#neutral-reference");
+    await expect(panel).toHaveAttribute("data-state", state);
+    await expect(panel).toContainText("17,192 samples");
+    await panel.locator("summary").click();
+    await expect(panel).toContainText("4.956–4.996 V");
+    await expect(panel).toContainText("UNVERIFIED");
+    if (state === "not_neutral") await expect(panel).toContainText("advisory");
+    await page.screenshot({ path: `test-results/neutral-reference-${state}-800.png` });
+    await page.locator("#diagnostics-tab").click();
+    await expect(page.locator("#diagnostic-neutral")).toContainText("17,192 samples");
+    await expect(page.getByRole("heading", { name: "Neutral commissioning reference", exact: true })).toBeVisible();
+    await expect(page.locator("#diagnostic-checks")).toContainText("4.956");
+    const download = page.waitForEvent("download");
+    await page.locator("#diagnostic-download").click();
+    const stream = await (await download).createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream!) chunks.push(chunk);
+    const report = JSON.parse(Buffer.concat(chunks).toString());
+    expect(report.neutral_evidence.reference.samples_sha256).toBe(reference.samples_sha256);
+    expect(report.neutral_evidence.reference.scale_verified).toBe(false);
+  });
+}

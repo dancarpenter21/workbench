@@ -28,6 +28,9 @@ def settings() -> dict:
         raise ValueError("WORKBENCH_PROFILE must be workbench or diagnostics")
     bench = Path(os.environ.get("WORKBENCH_CALIBRATION", ROOT / "config/workbench/default.json"))
     data["workbench"] = json.loads(bench.read_text())
+    manual = os.environ.get("WORKBENCH_MANUAL_CONFIG")
+    if manual:
+        data["manual"] = json.loads(Path(manual).read_text())
     return data
 
 
@@ -105,6 +108,11 @@ class Store:
         self.db.execute(
             "CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
         )
+        self.db.execute(
+            "CREATE TABLE IF NOT EXISTS journal "
+            "(id INTEGER PRIMARY KEY, stream TEXT NOT NULL, payload TEXT NOT NULL)"
+        )
+        self.db.execute("CREATE INDEX IF NOT EXISTS journal_stream ON journal(stream, id)")
         self.db.commit()
         self.values = dict(self.db.execute("SELECT key, value FROM state"))
 
@@ -135,6 +143,21 @@ class Store:
 
     async def aput(self, key, value):
         await self.aput_many({key: value})
+
+    def append(self, stream, payload):
+        """Durably append telemetry without rewriting a growing record."""
+        encoded = json.dumps(payload, allow_nan=False)
+        with self.lock, self.db:
+            self.db.execute("INSERT INTO journal(stream, payload) VALUES (?, ?)", (stream, encoded))
+
+    def journal(self, stream):
+        with self.lock:
+            return [
+                json.loads(row[0])
+                for row in self.db.execute(
+                    "SELECT payload FROM journal WHERE stream = ? ORDER BY id", (stream,)
+                )
+            ]
 
     def close(self):
         self.db.close()

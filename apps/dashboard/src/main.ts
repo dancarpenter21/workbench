@@ -1,23 +1,31 @@
 import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
 import { record } from "./audio";
+import { renderNeutral } from "./neutral";
+import { renderCurrent, renderPowerIndicator } from "./current";
 import "./style.css";
 import { mountDiagnostics } from "./diagnostics";
+import { mountCommissioning } from "./commissioning";
+import { mountManual } from "./manual";
 
 type Status = components["schemas"]["WorkbenchStatus"];
 const api = createClient<paths>({ baseUrl: "/api" });
 const root = document.querySelector<HTMLDivElement>("#app")!;
 root.innerHTML = `
   <header><a href="/" class="wordmark"><span class="mark">W</span> WORKBENCH</a>
-    <span id="connection" class="badge">Connecting…</span></header>
+    <div class="header-status"><span id="power-indicator" class="power-indicator" role="status">… Current</span><span id="connection" class="badge" data-state="waiting">Connecting…</span>
+      <button id="stop" class="danger">■ Stop arm</button></div></header>
   <nav class="view-navigation" aria-label="Workbench views">
-    <button id="workbench-tab" class="secondary" aria-pressed="true">Workbench</button>
-    <button id="diagnostics-tab" class="secondary" aria-pressed="false">Diagnostics</button>
+    <button id="workbench-tab" class="secondary" aria-pressed="true">⌂ Workbench</button>
+    <button id="pulse-tab" class="secondary" aria-pressed="false">↔ Pulse test</button>
+    <button id="jog-tab" class="secondary" aria-pressed="false">✥ Jog</button>
+    <button id="diagnostics-tab" aria-label="Diagnostics" class="secondary" aria-pressed="false">⚙ Diagnostics</button>
   </nav>
+  <div id="shared-recovery"></div>
+  <div id="neutral-reference" hidden></div>
   <main id="workbench-view">
-    <div class="intro"><p class="eyebrow">ROBOTIC ASSISTANT / 01</p>
-      <h1>A little help<br>at the bench.</h1>
-      <p>Choose a tool. Your assistant will bring it to the delivery tray.</p></div>
+    <div id="tools-view">
+    <div id="workbench-current" aria-label="Claw supply monitoring"></div>
     <section class="workspace">
       <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><span id="mode" class="badge">—</span></div>
         <img id="camera" alt="Overhead view of the workbench" />
@@ -26,20 +34,23 @@ root.innerHTML = `
       </div>
       <div class="command-panel"><p class="eyebrow">YOUR NEXT TOOL</p><h2>What do you need?</h2>
         <form id="request-form"><label for="request">Request a tool</label>
-          <textarea id="request" rows="3" maxlength="1000" placeholder="Grab me the crescent wrench" required></textarea>
+          <textarea id="request" rows="2" maxlength="1000" placeholder="Grab me the crescent wrench" required></textarea>
           <div class="actions"><button id="submit" type="submit">Retrieve tool <span>↗</span></button>
             <button id="record" type="button" class="secondary">Speak</button></div></form>
         <p id="voice-note" class="caption">Click Speak, say your request, then finish and review it.</p>
         <div class="operation" aria-live="polite"><span id="operation-state" class="eyebrow">READY</span>
           <p id="operation-message">Waiting for your first request.</p><small id="operation-id"></small></div>
         <p id="error" role="alert"></p>
-        <div class="controls"><button id="stop" class="danger">Stop arm</button>
-          <button id="reset" class="secondary" hidden>Reset mock scene</button></div>
+        <div class="controls"><button id="reset" class="secondary" hidden>Reset mock scene</button></div>
         <div id="recovery" hidden><p id="recovery-message"></p>
+          <p id="recovery-error" role="alert"></p>
           <label class="ack"><input type="checkbox" id="ack" /> I have checked the arm and cleared the workbench.</label>
           <button id="recover" class="secondary" disabled>Recover</button></div>
       </div>
     </section>
+    </div>
+    <section id="commissioning-panel" class="manual-panel"></section>
+    <section id="manual-panel" class="manual-panel"></section>
     <footer><span>LOCAL PROCESSING</span><div id="services">Checking applications…</div></footer>
   </main><main id="diagnostics-view" hidden></main>`;
 
@@ -56,17 +67,30 @@ const terminal = new Set([
 ]);
 const diagnosticsView = el("diagnostics-view");
 mountDiagnostics(diagnosticsView);
+const commissioning = mountCommissioning(el("commissioning-panel"));
+const manual = mountManual(el("manual-panel"), () => button("stop").click());
 let selectedView = false;
-function showView(diagnostics: boolean) {
-  diagnosticsView.hidden = !diagnostics;
-  el("workbench-view").hidden = diagnostics;
-  button("diagnostics-tab").setAttribute("aria-pressed", String(diagnostics));
-  button("workbench-tab").setAttribute("aria-pressed", String(!diagnostics));
+type View = "workbench" | "pulse" | "jog" | "diagnostics";
+function showView(view: View) {
+  manual.setVisible(view === "jog");
+  commissioning.setVisible(view === "pulse");
+  diagnosticsView.hidden = view !== "diagnostics";
+  el("workbench-view").hidden = view === "diagnostics";
+  el("tools-view").hidden = view !== "workbench";
+  el("commissioning-panel").hidden = view !== "pulse";
+  el("manual-panel").hidden = view !== "jog";
+  for (const name of ["workbench", "pulse", "jog", "diagnostics"] as const) {
+    button(`${name}-tab`).setAttribute("aria-pressed", String(name === view));
+  }
 }
-button("diagnostics-tab").onclick = () => { selectedView = true; showView(true); };
-button("workbench-tab").onclick = () => { selectedView = true; showView(false); };
+for (const view of ["workbench", "pulse", "jog", "diagnostics"] as const) {
+  button(`${view}-tab`).onclick = () => { selectedView = true; showView(view); };
+}
+el("shared-recovery").append(el("recovery"));
+showView("workbench");
 let connected = false;
 let latest: Status | null = null;
+let currentReceivedAt = performance.now();
 let submitting = false;
 let microphoneBusy = false;
 let finishRecording: (() => Promise<Blob>) | null = null;
@@ -89,12 +113,16 @@ function updateControls() {
 
 function render(status: Status) {
   latest = status;
-  if (!selectedView && status.profile === "diagnostics") showView(true);
-  el("mode").textContent = status.mode === "mock" ? "SIMULATED" : "LIVE CAMERA";
+  currentReceivedAt = performance.now();
+  refreshCurrent();
+  manual.updateWorkbench(status);
+  commissioning.updateWorkbench(status);
+  if (!selectedView && status.profile === "diagnostics") showView("diagnostics");
+  el("mode").textContent = status.mode === "mock" ? "SIMULATED" : "HARDWARE";
   button("reset").hidden = status.mode !== "mock";
   el("voice-note").textContent =
     status.mode === "mock"
-      ? "Mock voice returns “Grab me the screwdriver”. Review the text before sending."
+      ? "Mock voice · review the transcript."
       : "Click Speak, say your request, then finish and review it.";
   const operation = status.operation;
   if (operation) {
@@ -133,6 +161,8 @@ el("request-form").addEventListener("submit", async (event) => {
 });
 
 button("stop").onclick = async () => {
+  manual.end();
+  void commissioning.end();
   try {
     const { data, error } = await api.POST("/coordinator/stop");
     if (error) throw new Error(error.message);
@@ -148,6 +178,7 @@ el<HTMLInputElement>("ack").onchange = () => {
   button("recover").disabled = !el<HTMLInputElement>("ack").checked;
 };
 button("recover").onclick = async () => {
+  el("recovery-error").textContent = "";
   try {
     const { data, error } = await api.POST("/coordinator/recover", {
       body: { acknowledged: true },
@@ -158,7 +189,7 @@ button("recover").onclick = async () => {
     button("recover").disabled = true;
     el("error").textContent = "";
   } catch (error) {
-    failure(error);
+    el("recovery-error").textContent = error instanceof Error ? error.message : "Recovery failed";
   }
 };
 button("reset").onclick = async () => {
@@ -205,15 +236,31 @@ button("record").onclick = async () => {
   }
 };
 
+function refreshCurrent() {
+  const source = connected ? latest?.claw_current : null;
+  const elapsed = (performance.now() - currentReceivedAt) / 1000;
+  const sample = source ? { ...source, age_seconds: (source.age_seconds ?? 0.3) + elapsed } : null;
+  renderCurrent(el("workbench-current"), sample);
+  renderPowerIndicator(el("power-indicator"), sample);
+  renderNeutral(el("neutral-reference"), connected ? latest?.neutral_evidence : null, sample);
+}
+refreshCurrent();
+setInterval(refreshCurrent, 100);
+
 const events = new EventSource("/api/coordinator/events");
 events.onmessage = (event) => {
   connected = true;
   el("connection").textContent = "CONNECTED";
+  el("connection").dataset.state = "ok";
   render(JSON.parse(event.data) as Status);
 };
 events.onerror = () => {
+  manual.updateWorkbench(null);
+  commissioning.updateWorkbench(null);
   connected = false;
+  refreshCurrent();
   el("connection").textContent = "RECONNECTING";
+  el("connection").dataset.state = "error";
   updateControls();
 };
 
@@ -228,10 +275,12 @@ camera.onerror = () => {
   el("camera-note").textContent =
     "Camera unavailable — check the vision application.";
 };
-setInterval(() => {
-  if (el("workbench-view").hidden) return;
+function refreshCamera() {
+  if (el("workbench-view").hidden || el("tools-view").hidden) return;
   camera.src = `/api/coordinator/camera/preview?t=${Date.now()}`;
-}, 1000);
+}
+refreshCamera();
+setInterval(refreshCamera, 1000);
 
 async function refreshServices() {
   try {

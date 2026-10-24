@@ -13,3 +13,4 @@ config/workbench/local.json
 config/workbench/references/
 test-results/
 playwright-report/
+config/workbench/manual.local.json

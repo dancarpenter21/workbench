@@ -1,7 +1,7 @@
 """Fake-bus tests only; never connect to I2C."""
 
 import pytest
-from workbench_arm_controller.base_servo_test import encode_pulse, prepare, write_pulse
+from workbench_arm_controller.base_servo_test import encode_pulse, main, prepare, write_pulse
 
 
 class FakeBus:
@@ -54,6 +54,28 @@ def test_only_channel_five_is_enabled_by_pulse():
     write_pulse(bus, 0x40, 1500)
     assert [register for register, _ in bus.writes[before:]] == list(range(0x1A, 0x1E))
     assert all(bus.registers[0x09 + 4 * channel] == 0x10 for channel in range(16) if channel != 5)
+
+
+def test_only_channel_four_is_enabled_at_midpoint():
+    bus = FakeBus()
+    prepare(bus, 0x40)
+    before = len(bus.writes)
+    write_pulse(bus, 0x40, 1500, channel=4)
+    assert [register for register, _ in bus.writes[before:]] == list(range(0x16, 0x1A))
+    assert all(bus.registers[0x09 + 4 * channel] == 0x10 for channel in range(16) if channel != 4)
+
+
+def test_channel_four_offline_plan(capsys):
+    assert main(["--channel", "4"]) == 0
+    output = capsys.readouterr().out
+    assert "Channel 4; start 1500 us" in output
+    assert "No I2C access" in output
+
+
+def test_cli_rejects_other_channels():
+    with pytest.raises(SystemExit) as exc:
+        main(["--channel", "3"])
+    assert exc.value.code == 2
 
 
 def test_external_clock_is_rejected_before_writes():

@@ -1,7 +1,7 @@
 """ROB0036 pulse-output primitives and an offline pose checker.
 
 This is not a retrieval driver. PWM commands do not measure joint position.
-The hardware class is for future supervised commissioning; the CLI never opens I2C.
+The hardware class supplies supervised manual control; the CLI never opens I2C.
 """
 
 import argparse
@@ -11,10 +11,12 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from .device_lock import DeviceLock
+
 AUTOMATION_UNAVAILABLE = (
     "PCA9685 automatic retrieval is disabled: starting-pose confirmation, "
     "motion completion and stop/recovery without measured joint feedback "
-    "have not been commissioned. Use mock mode or the offline pulse checker."
+    "have not been commissioned. Use mock retrieval or separately commissioned manual controls."
 )
 
 
@@ -118,7 +120,12 @@ class Pca9685Output:
         self.closed = False
         self.faulted = False
         self.commanded = None
-        self.bus = bus_factory(bus_number)
+        self.device_lock = DeviceLock(bus_number, address)
+        try:
+            self.bus = bus_factory(bus_number)
+        except Exception:
+            self.device_lock.close()
+            raise
         try:
             # ALL_LED_OFF_H propagates full-off to every channel, including stale outputs.
             self.bus.write_byte_data(address, 0xFD, 0x10)
@@ -129,7 +136,10 @@ class Pca9685Output:
             time.sleep(0.005)  # Oscillator stabilization exceeds the specified 500 us.
         except Exception:
             self.faulted = self.closed = True
-            self.bus.close()
+            try:
+                self.bus.close()
+            finally:
+                self.device_lock.close()
             raise
 
     def write_pose(self, pose):
@@ -154,6 +164,13 @@ class Pca9685Output:
         self.commanded = tuple(commands)  # Sent pulses only, never measured position.
         return self.commanded
 
+    def disable(self):
+        self.bus.write_byte_data(self.address, 0xFD, 0x10)
+        for channel in range(16):
+            if not self.bus.read_byte_data(self.address, 0x09 + 4 * channel) & 0x10:
+                raise OSError("PWM full-off verification failed; CUT SERVO POWER")
+        self.commanded = None
+
     def close(self):
         if self.closed:
             return
@@ -162,7 +179,19 @@ class Pca9685Output:
         try:
             self.bus.write_byte_data(self.address, 0xFD, 0x10)
         finally:
-            self.bus.close()
+            try:
+                self.bus.close()
+            finally:
+                self.device_lock.close()
+
+    def close_preserving_pwm(self):
+        """Release the bus handle without releasing a supported or powered load."""
+        if not self.closed:
+            self.closed = True
+            try:
+                self.bus.close()
+            finally:
+                self.device_lock.close()
 
 
 def main():

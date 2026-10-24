@@ -4,6 +4,7 @@
   "workspaces": ["apps/dashboard", "packages/contracts"],
   "scripts": {
     "dev": "uv run python scripts/dev.py",
+    "dev:mock": "uv run python scripts/dev.py --mode mock",
     "build": "npm run build --workspace @workbench/dashboard",
     "contracts": "uv run python scripts/export_contracts.py && openapi-typescript packages/contracts/openapi.json -o packages/contracts/src/api.d.ts",
     "check": "npm run check --workspace @workbench/dashboard",

@@ -17,7 +17,7 @@ accessories, price checks and pending purchases for this Pi/DFRobot build.
 | Overhead | Raspberry Pi Camera Module 3 | Standard versus wide lens; final mounting height and focus |
 | Overhead | Waveshare PCA9685 Servo Driver HAT, regular SKU 15275 | Pi 5 mechanical fit, I2C settings and output behavior on the actual board |
 | Camera to Pi | Official Standard–Mini camera cable, approximately 300 mm | 15-pin camera end to 22-pin Pi 5 end; actual routing and orientation |
-| Table | DFRobot ROB0036 V2 arm | Six channel assignments, assembled-joint limits, reach and usable payload |
+| Table | DFRobot ROB0036 V2 arm | Assembled-joint limits, reach and usable payload (base channel 5 through claw channel 0 confirmed) |
 | Table | ServoCity 3108-2827-0801 eight-channel power distribution board (PDB) | Connector polarity, protection and measured load |
 | Power enclosure | Mean Well LRS-100-5, 5 V / 18 A / 90 W | Enclosure, ventilation, wiring and accessible cutoff |
 | Overhead to table | Six approximately 4–6-foot PWM/ground pairs | Mating contacts, routing and signal quality under motor load |
@@ -408,3 +408,16 @@ WORKBENCH_CALIBRATION="$PWD/config/workbench/local.json" uv run --no-sync python
 Keep the work area clear, inspect the arm, acknowledge recovery, and test a single tool.
 Stopping or an uncertain outcome requires manual inspection and recovery; nothing replays.
 Physical acceptance remains **unperformed** until the hardware is available.
+
+## Manual controls
+
+The Workbench tab supports single-joint jogging with keyboard, Xbox controller, and
+on-screen controls. Wiring follows base channel 5 through claw channel 0. See
+[manual controls](manual-controls.md) for the dedicated commissioning gate and
+disconnected-power preparation procedure. PCA9685 automatic retrieval stays disabled.
+
+For the unchanged factory arm, use [guided joint trials](joint-trials.md) to
+observe one isolated servo before defining a combined starting pose. The physical
+gate is `arm.commissioning_enabled` (false by default); the Workbench panel does
+not require a completed manual calibration. Never infer an upright or safe pose
+from the manufacturer's midpoint pulse alone.
