@@ -3,14 +3,23 @@ import type { components } from "@workbench/contracts";
 type Status = components["schemas"]["CommissionStatus"];
 type Draft = components["schemas"]["CommissionDraft"];
 type Bounds = components["schemas"]["CommissionBounds"];
+type Checklist = components["schemas"]["CommissionChecklist"];
 type Session = components["schemas"]["CommissionSession"];
 type Workbench = components["schemas"]["WorkbenchStatus"];
 const joints = ["base", "joint_2", "joint_3", "joint_4", "joint_5", "claw"];
 const label = (id: string) => id === "base" ? "Base" : id === "claw" ? "Claw" : id.replace("joint_", "Joint ");
+const reviews = [
+  ["hardware", "Hardware, support and cutoff", "Confirm the six channel assignments (base 5 through claw 0), wiring, secure supports, clearance and accessible physical power cutoff. Keep the claw INA219 at 0x41 reading before output and continuously during movement and powered holding."],
+  ["startup", "Safe starting pulses and power-on procedure", "Review the starting pulse for every joint and the supported starting arrangement. The first move here commands all six joints to 1500 μs; verify that this neutral startup is safe before using it."],
+  ["directions", "Observed movement directions", "For every joint, record what increasing the pulse does physically, using a clear viewing direction. Servo numbering does not establish movement direction."],
+  ["speeds", "Tested movement speeds", "Establish and record a safe maximum pulse rate (μs/s) for each joint under its intended load. A 40 μs test step does not establish a safe continuous jog speed."],
+  ["recovery", "Stop, disconnect and recovery checks", "Review control release, Stop, browser/network loss, service restart, sensor faults and power removal. Verify support and recovery procedures. Use injected tests for sensor loss, overcurrent and write failures; do not deliberately stall a servo or create powered wiring faults."],
+  ["configuration", "Reviewed Jog configuration", "Transfer the six joints’ bounds, starting pulses, directions and tested rates into the manual-control configuration, with a reference to the physical evidence. Enable manual control only after physical review. This checklist does not change that configuration."],
+] as const;
 
 export function mountCommissioning(root: HTMLElement) {
   root.innerHTML = `
-    <div class="panel-heading"><h2>Joint pulse bounds</h2><span id="trial-domain" class="caption"></span></div>
+    <div class="panel-heading"><h2>Initialization</h2><a id="trial-checklist-link" href="#initialization-checklist">Checklist</a><span id="trial-domain" class="caption"></span></div>
     <div id="trial-joints" class="manual-joints pulse-joints" aria-label="Choose joint"></div>
     <p id="trial-message" role="status"></p>
     <div id="trial-motion" hidden>
@@ -49,12 +58,35 @@ export function mountCommissioning(root: HTMLElement) {
       <button id="trial-reset" class="secondary">Reset sensor fault</button>
     </div>
     <p id="trial-error" role="alert"></p>
-    <p class="caption pulse-help">The first move initializes all six servos to 1500 μs. Other joints hold their last command. Stop holds position; Not OK attempts PWM shutdown. Cut physical servo power if unsafe. Pulses are commands, not measured angles; PWM resolution is approximately 4.88 μs, so small changes may produce the same output. Saved bounds do not enable automated motion.</p>`;
+    <p class="caption pulse-help">The first move initializes all six servos to 1500 μs. Other joints hold their last command. Stop holds position; Not OK attempts PWM shutdown. Cut physical servo power if unsafe. Pulses are commands, not measured angles; PWM resolution is approximately 4.88 μs, so small changes may produce the same output. Saved bounds do not enable automated motion.</p>
+    <section id="initialization-checklist" aria-labelledby="trial-checklist-heading">
+      <h3 id="trial-checklist-heading">Commissioning checklist</h3>
+      <p id="trial-checklist-progress" role="status">Loading checklist…</p>
+      <p class="caption">Complete these steps before enabling physical Jog control. Automatic checks use saved bounds and sensor status. Tick the review items after completing and recording the physical checks; finish powered trials before updating them. Progress is saved for this setup. Uncheck and repeat affected reviews after changing the assembly, load, bounds or procedure.</p>
+      <p id="trial-checklist-domain" class="caption"></p>
+      <div class="commissioning-checklist-item">
+        <label class="ack"><input id="trial-check-scale" type="checkbox" disabled /> Verified claw current scale <span class="checklist-source">Automatic</span></label>
+        <p>Externally verify the sensor’s shunt resistance and record it under <button id="trial-open-diagnostics" class="checklist-link" type="button">Diagnostics → Current-scale verification</button>. Without verification, raw shunt readings are mandatory and amperes and the 2.5 A cutoff remain unverified. With a verified scale, |current| ≥ 2.5 A aborts testing. Polling and PWM shutdown are not a physical current limiter.</p>
+        <p id="trial-scale-progress" class="caption"></p>
+      </div>
+      <div class="commissioning-checklist-item">
+        <label class="ack"><input id="trial-check-bounds" type="checkbox" disabled /> Usable bounds for all six joints <span class="checklist-source">Automatic</span></label>
+        <p>Select each joint above, move to a safe position, confirm OK, then Set minimum or Set maximum. Extend the exploration range only after checking clearance. Recapturing replaces an endpoint without moving. Individual joint bounds do not establish collision clearance for combined poses.</p>
+        <p id="trial-bounds-progress" class="caption"></p>
+      </div>
+      ${reviews.map(([id, title, description]) => `<div class="commissioning-checklist-item">
+        <label class="ack"><input id="trial-check-${id}" type="checkbox" /> ${title} <span class="checklist-source">Physical review</span></label>
+        <p>${description}</p></div>`).join("")}
+      <p id="trial-checklist-result" role="status"></p>
+      <h3>Before automatic tool retrieval</h3>
+      <p>Automatic retrieval remains disabled for the PCA9685 arm. It also needs reviewed pickup/delivery/home paths, full transition clearance, reach and grip/payload checks, reliable starting-pose and motion-completion detection, validated stop/recovery behavior, and physical acceptance testing. Completing this checklist does not enable retrieval.</p>
+    </section>`;
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#trial-${id}`)!;
   const button = (id: string) => el<HTMLButtonElement>(id);
   const input = (id: string) => el<HTMLInputElement>(id);
   let status: Status | null = null;
   let bounds: Bounds | null = null;
+  let checklist: Checklist | null = null;
   let selected = "base";
   let token: string | null = null;
   let sequence = 0;
@@ -160,6 +192,28 @@ export function mountCommissioning(root: HTMLElement) {
     button("extend-high").hidden = high - pulse > 40 || high >= 2500;
     input("window-ack").parentElement!.hidden = button("extend-low").hidden && button("extend-high").hidden;
     for (const side of ["low", "high"]) button(`extend-${side}`).disabled = disabled || !ready || !input("window-ack").checked;
+    const completeBounds = joints.filter(id => {
+      const saved = bounds?.joints[id];
+      return saved?.minimum && saved.maximum && saved.minimum.requested_us < saved.maximum.requested_us;
+    }).length;
+    const verified = status?.claw_current?.scale_verified === true;
+    input("check-bounds").checked = completeBounds === joints.length;
+    input("check-scale").checked = verified;
+    let complete = Number(verified) + Number(completeBounds === joints.length);
+    for (const [id] of reviews) {
+      input(`check-${id}`).checked = checklist?.completed?.[id] === true;
+      input(`check-${id}`).disabled = disabled || !checklist || !!status?.reserved;
+      complete += Number(input(`check-${id}`).checked);
+    }
+    const total = reviews.length + 2;
+    el("checklist-progress").textContent = `${complete} of ${total} steps complete`;
+    el("checklist-link").textContent = `Checklist ${complete}/${total}`;
+    el("bounds-progress").textContent = `${completeBounds} of 6 joints have both bounds saved.`;
+    el("scale-progress").textContent = verified ? "Scale verified. Live monitoring remains required during every powered test." : "Scale unverified. Record an external measurement in Diagnostics.";
+    el("checklist-domain").textContent = status?.simulated ? "SIMULATED — checklist progress and bounds are simulated; they do not establish physical acceptance." : status ? "Physical setup — checked review items record your confirmation, not an independent hardware measurement." : "Waiting for setup information…";
+    el("checklist-result").textContent = complete === total
+      ? status?.simulated ? "Simulation checklist complete. Physical commissioning is still required." : "Checklist complete. Confirm the reviewed Jog configuration and startup procedure before use. Automatic retrieval remains disabled."
+      : "Complete the remaining steps and retain the supporting bench evidence. Checking a box never enables motion.";
   }
   function clearAcks() { for (const id of ["finish-ack", "window-ack", "reset-off"]) input(id).checked = false; }
   async function end() {
@@ -221,6 +275,26 @@ export function mountCommissioning(root: HTMLElement) {
     if (!button("apply").disabled) move(input("target").valueAsNumber);
   };
   input("target").oninput = render;
+  button("open-diagnostics").onclick = () => {
+    document.getElementById("diagnostics-tab")!.click();
+    const section = document.getElementById("diagnostic-current-scale")!;
+    section.querySelector<HTMLDetailsElement>("details")!.open = true;
+    section.scrollIntoView({ block: "center" });
+  };
+  for (const [id] of reviews) {
+    input(`check-${id}`).onchange = () => {
+      const completed = input(`check-${id}`).checked;
+      if (!checklist || pending || status?.reserved) { render(); return; }
+      const previous = checklist;
+      generation++; // Discard checklist reads that started before this edit.
+      checklist = { ...checklist, completed: { ...checklist.completed, [id]: completed } };
+      void action(async () => {
+        try {
+          checklist = await request<Checklist>("checklist", { context_key: previous.context_key, step: id, completed });
+        } catch (error) { checklist = previous; throw error; }
+      });
+    };
+  }
   for (const [id, outcome] of [["settled", "settled_clear"], ["unsafe", "unsafe"]] as const) {
     button(id).onclick = () => void action(async () => {
       const commandId = status!.pending_command!.command_id;
@@ -271,9 +345,9 @@ export function mountCommissioning(root: HTMLElement) {
     if (polling || token || pending || !visible) return;
     polling = true; const epoch = generation;
     try {
-      const [result, saved] = await Promise.all([request<Status>("status"), request<Bounds>("bounds")]);
+      const [result, saved, progress] = await Promise.all([request<Status>("status"), request<Bounds>("bounds"), request<Checklist>("checklist")]);
       if (epoch !== generation || token || pending) return;
-      status = result; bounds = saved;
+      status = result; bounds = saved; checklist = progress;
       if (status.reserved && status.joint_id) selected = status.joint_id;
       render();
     } catch (error) { fail(error); }

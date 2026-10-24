@@ -31,7 +31,7 @@ test("brief late updates keep ammeter status steady, but actual read failures sh
   await page.evaluate(() => { (window as any).__meterPaused = true; });
   await page.waitForTimeout(450); // Beyond the controller deadline; still within the UI grace.
   await expect(meter).toHaveAttribute("data-device-state", "ok");
-  await expect(page.locator("#servo-power")).toContainText("Powered down");
+  await expect(page.locator("#servo-power")).toContainText("Powered off");
   await expect(meter).toContainText("Updates delayed", { timeout: 2000 });
   await expect(meter).toHaveAttribute("data-device-state", "waiting");
   await expect(meter.locator(".current-fault")).toBeEmpty();

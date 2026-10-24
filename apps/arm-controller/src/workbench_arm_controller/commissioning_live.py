@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from workbench_contracts import (
     CommissionAttempt,
     CommissionBounds,
+    CommissionChecklist,
     CommissionDraft,
     CommissionEvent,
     CommissionExport,
@@ -150,6 +151,26 @@ class LiveCommissioning:
         context = self.bounds_context()
         saved = self.store.get(self.bounds_key(context))
         return CommissionBounds.model_validate(saved) if saved else context
+
+    def checklist(self):
+        key = self.bounds_key(self.bounds_context()) + ":checklist"
+        saved = self.store.get(key)
+        return (
+            CommissionChecklist.model_validate(saved)
+            if saved
+            else CommissionChecklist(context_key=key)
+        )
+
+    def update_checklist(self, request):
+        if self.reserved:
+            raise HTTPException(409, "Finish the powered trial before recording checklist reviews")
+        checklist = self.checklist()
+        if request.context_key != checklist.context_key:
+            raise HTTPException(409, "Hardware setup changed; reload the checklist")
+        checklist.completed[request.step] = request.completed
+        checklist.updated_at = now()
+        self.store.put(checklist.context_key, checklist.model_dump(mode="json"))
+        return checklist
 
     @property
     def max_move_us(self):

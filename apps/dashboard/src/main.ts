@@ -1,7 +1,7 @@
 import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
 import { record } from "./audio";
-import { CURRENT_DISPLAY_GRACE_SECONDS, renderCurrent, renderHatPresence, renderServoPower } from "./current";
+import { ageCurrent, renderCurrent, renderHatPresence, renderServoPower } from "./current";
 import "./style.css";
 import { mountDiagnostics } from "./diagnostics";
 import { mountCommissioning } from "./commissioning";
@@ -17,7 +17,7 @@ root.innerHTML = `
     <div class="header-status"><span id="connection" class="device-pill" aria-label="Servo HAT status" data-state="waiting">Servo HAT · checking</span></div></header>
   <nav class="view-navigation" aria-label="Workbench views">
     <button id="workbench-tab" class="secondary" aria-pressed="true">⌂ Workbench</button>
-    <button id="pulse-tab" class="secondary" aria-pressed="false">↔ Pulse test</button>
+    <button id="pulse-tab" class="secondary" aria-pressed="false">↔ Initialization</button>
     <button id="jog-tab" class="secondary" aria-pressed="false">✥ Jog</button>
     <button id="diagnostics-tab" aria-label="Diagnostics" class="secondary" aria-pressed="false">⚙ Diagnostics</button>
   </nav>
@@ -240,9 +240,7 @@ button("record").onclick = async () => {
 
 function refreshCurrent() {
   const elapsed = (performance.now() - currentReceivedAt) / 1000;
-  // Keep the last reading through a brief transport interruption; never extend its age.
-  const source = connected || elapsed < CURRENT_DISPLAY_GRACE_SECONDS ? latest?.claw_current : null;
-  const sample = source ? { ...source, age_seconds: (source.age_seconds ?? 0.3) + elapsed } : null;
+  const sample = ageCurrent(latest?.claw_current, elapsed, connected);
   renderCurrent(el("header-current"), sample);
   renderServoPower(el("servo-power"), sample);
   renderHatPresence(el("connection"), connected ? latest?.servo_hat : null, elapsed, connected);

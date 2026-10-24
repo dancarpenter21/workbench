@@ -34,7 +34,8 @@ for (const state of ["not_neutral", "within_reference", "outside_reference", "fa
     await page.locator("#diagnostics-tab").click();
     await expect(page.locator("#diagnostic-neutral, .neutral-heading")).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Neutral commissioning reference", exact: true })).toBeVisible();
-    await expect(page.locator("#diagnostic-checks")).toContainText("4.956");
+    await page.locator("#diagnostic-neutral-record > summary").click();
+    await expect(page.locator("#diagnostic-neutral-measurements")).toContainText("4.956");
     const download = page.waitForEvent("download");
     await page.locator("#diagnostic-download").click();
     const stream = await (await download).createReadStream();

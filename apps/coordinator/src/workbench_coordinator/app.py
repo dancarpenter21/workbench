@@ -11,10 +11,13 @@ from workbench_common.diagnostics import host_check
 from workbench_contracts import (
     TERMINAL,
     WAV_REQUEST_BODY,
+    ArmHardwareStatus,
     ArmStatus,
     CommissionAcquire,
     CommissionAttemptSelect,
     CommissionBounds,
+    CommissionChecklist,
+    CommissionChecklistUpdate,
     CommissionCommand,
     CommissionCreate,
     CommissionDraft,
@@ -78,7 +81,14 @@ def check_observations(obs: Observations, cfg, tool_id: str, location: str):
 
 def create_app(config=None, store=None, client=None):
     cfg = config or settings()
-    state = {"store": store, "client": client, "task": None, "manual": None, "commissioning": None}
+    state = {
+        "store": store,
+        "client": client,
+        "task": None,
+        "manual": None,
+        "commissioning": None,
+        "hardware": None,
+    }
     gate = asyncio.Lock()
 
     def current():
@@ -101,7 +111,9 @@ def create_app(config=None, store=None, client=None):
         )
 
     def snapshot():
+        hardware = state["hardware"]
         return WorkbenchStatus(
+            hardware=hardware,
             mode=cfg["mode"],
             profile=cfg.get("profile", "workbench"),
             retrieval_enabled=retrieval_enabled()
@@ -116,9 +128,9 @@ def create_app(config=None, store=None, client=None):
                 if state["manual"] and state["manual"].recovery_required
                 else ""
             ),
-            claw_current=(state["manual"].claw_current if state["manual"] else None),
-            servo_hat=(state["manual"].servo_hat if state["manual"] else None),
-            neutral_evidence=(state["manual"].neutral_evidence if state["manual"] else None),
+            claw_current=(hardware.claw_current if hardware else None),
+            servo_hat=(hardware.servo_hat if hardware else None),
+            neutral_evidence=(hardware.neutral_evidence if hardware else None),
             manual=state["manual"],
             commissioning=state["commissioning"],
         )
@@ -173,11 +185,18 @@ def create_app(config=None, store=None, client=None):
 
     @app.get("/diagnostics", response_model=DiagnosticsReport)
     async def diagnostics():
+        hardware = None
+
         async def inspect(name):
+            nonlocal hardware
             started = time.monotonic()
             try:
-                response = await call(name, "GET", "/diagnostics", timeout=3.5)
-                checks = [Diagnostic.model_validate(value) for value in response.json()]
+                if name == "arm-controller":
+                    hardware = await read_hardware()
+                    checks = list(hardware.checks)
+                else:
+                    response = await call(name, "GET", "/diagnostics", timeout=3.5)
+                    checks = [Diagnostic.model_validate(value) for value in response.json()]
                 health = Health.model_validate(
                     (await call(name, "GET", "/health", timeout=1)).json()
                 )
@@ -198,6 +217,8 @@ def create_app(config=None, store=None, client=None):
                 )
                 return checks
             except Exception:
+                if name == "arm-controller":
+                    hardware = None
                 return [
                     Diagnostic(
                         component=f"service:{name}",
@@ -210,9 +231,9 @@ def create_app(config=None, store=None, client=None):
             *(inspect(name) for name in cfg["services"] if name != "coordinator")
         )
         host = await host_check(mock=cfg["mode"] == "mock")
-        await refresh_manual()
         return DiagnosticsReport(
-            neutral_evidence=(state["manual"].neutral_evidence if state["manual"] else None),
+            hardware=hardware,
+            neutral_evidence=(hardware.neutral_evidence if hardware else None),
             mode=cfg["mode"],
             profile=cfg.get("profile", "workbench"),
             retrieval_enabled=retrieval_enabled(),
@@ -297,6 +318,21 @@ def create_app(config=None, store=None, client=None):
         except (httpx.RequestError, ValueError) as exc:
             raise HTTPException(503, "Arm controller unavailable; manual control ended") from exc
 
+    async def read_hardware():
+        hardware = ArmHardwareStatus.model_validate(
+            (await call("arm-controller", "GET", "/hardware/status", timeout=1)).json()
+        )
+        if hardware.mode != cfg["mode"] or hardware.profile != cfg.get("profile", "workbench"):
+            raise ValueError("Arm hardware identity or mode mismatch")
+        return hardware
+
+    @app.get("/hardware/status", response_model=ArmHardwareStatus)
+    async def hardware_status():
+        try:
+            return await read_hardware()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise HTTPException(503, "Arm hardware status unavailable") from exc
+
     async def refresh_manual():
         try:
             state["commissioning"] = CommissionStatus.model_validate(
@@ -314,7 +350,28 @@ def create_app(config=None, store=None, client=None):
             state["manual"] = ManualStatus(
                 simulated=cfg["mode"] == "mock", message="Arm controller unavailable"
             )
+        try:
+            state["hardware"] = await read_hardware()
+        except (httpx.HTTPError, ValueError):
+            state["hardware"] = None
+        hardware = state["hardware"]
+        if hardware:
+            if state["manual"]:
+                state["manual"].claw_current = hardware.claw_current
+                state["manual"].servo_hat = hardware.servo_hat
+                state["manual"].neutral_evidence = hardware.neutral_evidence
+            if state["commissioning"]:
+                state["commissioning"].claw_current = hardware.claw_current
         return state["manual"]
+
+    @app.get("/commissioning/checklist", response_model=CommissionChecklist)
+    async def commissioning_checklist():
+        return await manual_call("checklist", prefix="commissioning")
+
+    @app.post("/commissioning/checklist", response_model=CommissionChecklist)
+    async def commissioning_checklist_update(value: CommissionChecklistUpdate):
+        async with gate:
+            return await manual_call("checklist", value, prefix="commissioning")
 
     @app.get("/commissioning/bounds", response_model=CommissionBounds)
     async def commissioning_bounds():

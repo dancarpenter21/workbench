@@ -1,6 +1,7 @@
 import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
 import { mountCurrentScale } from "./current-scale";
+import { ageCurrent, currentPresentation, renderCurrent, renderHatPresence, renderServoPower } from "./current";
 
 type Report = components["schemas"]["DiagnosticsReport"];
 type Check = components["schemas"]["Diagnostic"];
@@ -29,6 +30,19 @@ export function mountDiagnostics(root: HTMLElement) {
         <audio id="diagnostic-audio" controls hidden></audio>
       </section>
     </div>
+    <div id="diagnostic-hardware" class="diagnostic-grid" aria-label="Live arm hardware">
+      <section class="diagnostic-card" data-component="claw_current"><h2>Claw INA219</h2>
+        <p id="diagnostic-sensor-state" role="status"></p><div id="diagnostic-live-current"></div>
+        <div id="diagnostic-servo-power"></div></section>
+      <section class="diagnostic-card" data-component="hat"><h2>Servo HAT</h2>
+        <div id="diagnostic-live-hat"></div><p id="diagnostic-hat-detail"></p></section>
+      <section class="diagnostic-card" data-component="motion_interlock"><h2>Motion interlock</h2>
+        <p id="diagnostic-interlock-state" role="status"></p><p id="diagnostic-interlock-reason"></p></section>
+      <section class="diagnostic-card" data-component="neutral_reference"><h2>Neutral commissioning reference</h2>
+        <p id="diagnostic-neutral-state" role="status"></p>
+        <details id="diagnostic-neutral-record" hidden><summary>Recorded neutral reference</summary>
+          <dl id="diagnostic-neutral-measurements"></dl></details></section>
+    </div>
     <div id="diagnostic-checks" class="diagnostic-grid" aria-live="polite"></div>
     <section id="diagnostic-current-scale" class="diagnostic-card"></section>`;
   const scales = mountCurrentScale(root.querySelector<HTMLElement>("#diagnostic-current-scale")!);
@@ -43,6 +57,47 @@ export function mountDiagnostics(root: HTMLElement) {
   let devicesBusy = false;
   let capture: AbortController | null = null;
   let audioUrl: string | null = null;
+  let workbench: components["schemas"]["WorkbenchStatus"] | null = null;
+  let receivedAt = performance.now();
+  let connected = false;
+  const hardwareComponents = new Set(["claw_current", "hat", "motion_interlock", "neutral_reference"]);
+  function renderHardware() {
+    const elapsed = (performance.now() - receivedAt) / 1000;
+    const sample = ageCurrent(workbench?.claw_current, elapsed, connected);
+    const view = currentPresentation(sample);
+    renderCurrent(el("diagnostic-live-current"), sample);
+    renderServoPower(el("diagnostic-servo-power"), sample);
+    renderHatPresence(el("diagnostic-live-hat"), workbench?.servo_hat, elapsed, connected);
+    el("diagnostic-sensor-state").textContent = view.sensorLabel;
+    el("diagnostic-hat-detail").textContent = el("diagnostic-live-hat").title;
+    el("diagnostic-interlock-state").textContent = view.resetRequired ? "Motion inhibited — reset required" : !sample ? "Interlock status unavailable" : "No latched current-monitor fault";
+    el("diagnostic-interlock-reason").textContent = sample?.fault ?? "";
+    el("diagnostic-neutral-state").textContent = !view.fresh
+      ? "Current readings unavailable; neutral comparison inactive."
+      : workbench?.neutral_evidence?.detail ?? "Neutral reference not configured";
+    const reference = workbench?.neutral_evidence?.reference;
+    el("diagnostic-neutral-record").hidden = !reference;
+    const recorded = el("diagnostic-neutral-measurements");
+    const key = reference ? `${reference.trial_id}:${reference.samples_sha256}` : "";
+    if (recorded.dataset.reference !== key) {
+      recorded.replaceChildren(); recorded.dataset.reference = key;
+      if (reference) {
+        for (const [name, value] of [
+          ["Trial", reference.trial_id], ["Samples", reference.sample_count],
+          ["Duration (s)", reference.duration_seconds], ["Supply minimum (V)", reference.bus_v.min],
+          ["Supply maximum (V)", reference.bus_v.max], ["Shunt minimum (mV)", reference.shunt_mv.min],
+          ["Shunt maximum (mV)", reference.shunt_mv.max], ["Recorded scale verified", reference.scale_verified],
+          ["Measured circuit", reference.measured_circuit],
+        ]) {
+          const term = document.createElement("dt"); term.textContent = String(name);
+          const detail = document.createElement("dd"); detail.textContent = String(value);
+          recorded.append(term, detail);
+        }
+      }
+    }
+    root.querySelector<HTMLElement>('[data-component="claw_current"]')!.dataset.state = view.reading;
+    root.querySelector<HTMLElement>('[data-component="motion_interlock"]')!.dataset.state = view.resetRequired ? "warning" : !sample ? "unavailable" : "ok";
+  }
   const checks = new Map<string, { check: Check; stale: boolean }>();
   const labels: Record<string, string> = {
     pi: "Raspberry Pi", camera: "Camera capture", recognition: "Tool recognition",
@@ -55,7 +110,7 @@ export function mountDiagnostics(root: HTMLElement) {
     return typeof value === "number" ? String(Number(value.toFixed(4))) : String(value);
   };
   function renderChecks() {
-    el("diagnostic-checks").replaceChildren(...[...checks.values()].map(({ check, stale }) => {
+    el("diagnostic-checks").replaceChildren(...[...checks.values()].filter(({ check }) => !hardwareComponents.has(check.component)).map(({ check, stale }) => {
       const card = document.createElement("section");
       card.className = "diagnostic-card";
       const heading = document.createElement("div");
@@ -113,9 +168,9 @@ export function mountDiagnostics(root: HTMLElement) {
       for (const value of checks.values()) value.stale = true;
       for (const check of data.checks) checks.set(check.component, { check, stale: false });
       el("diagnostic-mode").textContent = data.mode === "mock" ? "SIMULATED" : "PI HARDWARE";
-      el("diagnostic-note").textContent = data.retrieval_enabled
-        ? "Updated every five seconds. Hardware checks do not establish motion readiness."
-        : "Diagnostics profile · arm motion and retrieval disabled · models not loaded.";
+      el("diagnostic-note").textContent = data.profile === "diagnostics"
+        ? "Diagnostics profile · arm motion and retrieval disabled. Live arm status updates continuously; other checks every five seconds."
+        : `Workbench profile · ${data.mode === "mock" ? "SIMULATED" : "Pi hardware"} · ${data.retrieval_enabled ? "hardware checks do not establish motion readiness" : "automatic retrieval disabled"}. Live arm status updates continuously; other checks every five seconds.`;
       downloadButton.disabled = false;
     } catch {
       for (const value of checks.values()) value.stale = true;
@@ -176,8 +231,13 @@ export function mountDiagnostics(root: HTMLElement) {
   void refresh();
   void refreshDevices();
   setInterval(() => { if (!root.hidden) { void refresh(); void refreshDevices(); } }, 5000);
+  setInterval(() => { if (!root.hidden) renderHardware(); }, 100);
+  renderHardware();
   return {
     updateWorkbench(value: components["schemas"]["WorkbenchStatus"] | null) {
+      connected = value !== null;
+      if (value) { workbench = value; receivedAt = performance.now(); }
+      if (!root.hidden) renderHardware();
       scales.update(value?.commissioning ?? null);
     },
   };

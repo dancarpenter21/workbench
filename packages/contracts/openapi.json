@@ -941,6 +941,64 @@
         }
       }
     },
+    "/arm-controller/hardware/status": {
+      "get": {
+        "summary": "Hardware Status",
+        "operationId": "arm_controller_hardware_status_hardware_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArmHardwareStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/arm-controller/diagnostics": {
       "get": {
         "summary": "Diagnostics",
@@ -1130,6 +1188,130 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ArmStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/arm-controller/commissioning/checklist": {
+      "get": {
+        "summary": "Commissioning Checklist",
+        "operationId": "arm_controller_commissioning_checklist_commissioning_checklist_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionChecklist"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Commissioning Checklist Update",
+        "operationId": "arm_controller_commissioning_checklist_update_commissioning_checklist_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionChecklistUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionChecklist"
                 }
               }
             }
@@ -3706,6 +3888,188 @@
                   },
                   "type": "array",
                   "title": "Response Tools Tools Get"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coordinator/hardware/status": {
+      "get": {
+        "summary": "Hardware Status",
+        "operationId": "coordinator_hardware_status_hardware_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArmHardwareStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coordinator/commissioning/checklist": {
+      "get": {
+        "summary": "Commissioning Checklist",
+        "operationId": "coordinator_commissioning_checklist_commissioning_checklist_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionChecklist"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Commissioning Checklist Update",
+        "operationId": "coordinator_commissioning_checklist_update_commissioning_checklist_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommissionChecklistUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionChecklist"
                 }
               }
             }
@@ -6763,6 +7127,49 @@
         ],
         "title": "ArmCommand"
       },
+      "ArmHardwareStatus": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "profile": {
+            "type": "string",
+            "title": "Profile",
+            "default": "workbench"
+          },
+          "checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Checked At"
+          },
+          "claw_current": {
+            "$ref": "#/components/schemas/ClawCurrentStatus"
+          },
+          "servo_hat": {
+            "$ref": "#/components/schemas/PeripheralStatus"
+          },
+          "neutral_evidence": {
+            "$ref": "#/components/schemas/NeutralEvidence"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/Diagnostic"
+            },
+            "type": "array",
+            "title": "Checks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "mode",
+          "claw_current",
+          "servo_hat",
+          "neutral_evidence"
+        ],
+        "title": "ArmHardwareStatus"
+      },
       "ArmStatus": {
         "properties": {
           "state": {
@@ -6819,6 +7226,28 @@
       },
       "ClawCurrentStatus": {
         "properties": {
+          "reading_state": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ok",
+                  "error",
+                  "stale",
+                  "unavailable"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reading State"
+          },
+          "reset_required": {
+            "type": "boolean",
+            "title": "Reset Required",
+            "default": false
+          },
           "reading_healthy": {
             "anyOf": [
               {
@@ -7208,6 +7637,81 @@
           "joints"
         ],
         "title": "CommissionBounds"
+      },
+      "CommissionChecklist": {
+        "properties": {
+          "context_key": {
+            "type": "string",
+            "title": "Context Key"
+          },
+          "completed": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "propertyNames": {
+              "enum": [
+                "hardware",
+                "startup",
+                "directions",
+                "speeds",
+                "recovery",
+                "configuration"
+              ]
+            },
+            "type": "object",
+            "title": "Completed"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "context_key"
+        ],
+        "title": "CommissionChecklist"
+      },
+      "CommissionChecklistUpdate": {
+        "properties": {
+          "context_key": {
+            "type": "string",
+            "title": "Context Key"
+          },
+          "step": {
+            "type": "string",
+            "enum": [
+              "hardware",
+              "startup",
+              "directions",
+              "speeds",
+              "recovery",
+              "configuration"
+            ],
+            "title": "Step"
+          },
+          "completed": {
+            "type": "boolean",
+            "title": "Completed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "context_key",
+          "step",
+          "completed"
+        ],
+        "title": "CommissionChecklistUpdate"
       },
       "CommissionCommand": {
         "properties": {
@@ -9143,6 +9647,16 @@
       },
       "DiagnosticsReport": {
         "properties": {
+          "hardware": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArmHardwareStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "neutral_evidence": {
             "anyOf": [
               {
@@ -9275,6 +9789,16 @@
       },
       "WorkbenchStatus": {
         "properties": {
+          "hardware": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArmHardwareStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "servo_hat": {
             "anyOf": [
               {

@@ -1,16 +1,19 @@
-# Pulse test acceptance
+# Initialization acceptance
 
 Run physical checks only with an operator at the bench and continuous claw INA219
 monitoring. Software tests use fake devices or mock mode and do not satisfy physical
 acceptance. Preserve actual setup, observations and failures in internal API records
-and associated bench notes. Read [Pulse test](../../docs/joint-trials.md) first.
+and associated bench notes. Read [Initialization](../../docs/joint-trials.md) first.
 
 1. Secure/support the assembly, clear the established neutral path, arrange immediate
    physical power cutoff and verify fresh raw INA219 readings. Verify current scale
    and cutoff are explicitly unverified unless externally verified for this setup.
-2. Open Pulse test. Verify opening the tab sends no motion. Select a joint and enter
+2. Open Initialization. Verify opening the tab sends no motion. Select a joint and enter
    a small pulse request. Verify no operator, history or export forms are present.
-   Current-scale verification must remain accessible in Diagnostics.
+   Current-scale verification must remain accessible through the checklist’s Diagnostics link.
+   Verify the Initialization checklist tracks saved bounds and verified scale automatically,
+   retains physical-review checkboxes after reload, and blocks review edits during a trial.
+   Ticking reviews must never enable motion or count simulated progress as physical evidence.
 3. Press Move. Verify all six outputs are initialized at the established 1500 μs
    neutral request, with current checks before and throughout output writes, followed
    by the selected joint's requested change. This is not measured position feedback.

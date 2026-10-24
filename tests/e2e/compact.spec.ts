@@ -36,14 +36,14 @@ for (const state of ["off", "noise", "voltage", "on", "fault", "stale", "missing
     const current = page.locator("#header-current");
     await expect(current).toHaveAttribute("data-state", state === "off" || state === "noise" ? "off" : state === "on" || state === "voltage" ? "ok" : state === "missing" || state === "stale" ? "waiting" : "error");
     if (state === "off" || state === "noise") {
-      await expect(page.locator("#servo-power")).toContainText("Powered down");
-      await expect(current).not.toContainText("Powered down");
+      await expect(page.locator("#servo-power")).toContainText("Powered off");
+      await expect(current).not.toContainText("Powered off");
       await expect(current.locator(".current-fault")).toBeEmpty();
       await expect(current.locator(".current-scale")).toBeHidden();
       await current.locator("summary").click();
       await expect(current.locator(".current-scale")).toContainText("2.5 A cutoff UNVERIFIED");
     } else {
-      await expect(current).not.toContainText("Powered down");
+      await expect(current).not.toContainText("Powered off");
     }
   });
 }

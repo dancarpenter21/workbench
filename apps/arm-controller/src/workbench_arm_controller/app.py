@@ -1,17 +1,17 @@
 import asyncio
-import json
-import sys
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException
 from workbench_common import Store, app_base, settings
-from workbench_common.diagnostics import command
 from workbench_contracts import (
     ArmCommand,
+    ArmHardwareStatus,
     ArmStatus,
     CommissionAcquire,
     CommissionAttemptSelect,
     CommissionBounds,
+    CommissionChecklist,
+    CommissionChecklistUpdate,
     CommissionCommand,
     CommissionCreate,
     CommissionDraft,
@@ -49,6 +49,7 @@ from workbench_arm_controller.claw_current import ClawCurrentMonitor
 from workbench_arm_controller.commissioning_live import LiveCommissioning
 from workbench_arm_controller.current_scale import CurrentScaleRecords
 from workbench_arm_controller.driver import SerialArm
+from workbench_arm_controller.hardware_status import HardwareStatus
 from workbench_arm_controller.hat_presence import HatPresence
 from workbench_arm_controller.manual import ManualControl
 from workbench_arm_controller.neutral_reference import NeutralReference
@@ -65,6 +66,7 @@ def create_app(config=None, store=None):
     manual = ManualControl(cfg, monitor=monitor)
     commissioning = LiveCommissioning(cfg, monitor=monitor)
     neutral_reference = NeutralReference(cfg)
+    hardware = HardwareStatus(cfg, monitor, hat_presence, neutral_reference)
 
     def busy():
         return bool(state["task"] and not state["task"].done())
@@ -81,14 +83,16 @@ def create_app(config=None, store=None):
         return len(targets) == 6 and all(abs(value - 1500) < 1e-9 for value in targets.values())
 
     def neutral_snapshot():
-        return neutral_reference.assess(monitor.status(), commanded_neutral=commanded_neutral())
+        return hardware.snapshot(commanded_neutral=commanded_neutral()).neutral_evidence
 
     def manual_snapshot():
         snapshot = manual.status(
             busy=busy() or commissioning.reserved, recovery=current().recovery_required
         )
-        snapshot.neutral_evidence = neutral_snapshot()
-        snapshot.servo_hat = hat_presence.status()
+        status = hardware.snapshot(commanded_neutral=commanded_neutral())
+        snapshot.claw_current = status.claw_current
+        snapshot.neutral_evidence = status.neutral_evidence
+        snapshot.servo_hat = status.servo_hat
         return snapshot
 
     async def manual_io(function, *args):
@@ -283,72 +287,15 @@ def create_app(config=None, store=None):
 
     app = app_base("arm-controller", lifespan)
 
-    diagnostic_lock = asyncio.Lock()
-
-    async def hat_diagnostics():
-        if cfg["mode"] == "mock":
-            return [
-                Diagnostic(
-                    component="hat",
-                    status="ok",
-                    summary="Simulated HAT",
-                    measurements={"simulated": True, "physical_position": None},
-                )
-            ]
-        if cfg["arm"].get("backend") != "pca9685":
-            return [
-                Diagnostic(
-                    component="hat", status="unavailable", summary="PCA9685 backend not selected"
-                )
-            ]
-        if diagnostic_lock.locked():
-            return [Diagnostic(component="hat", status="unavailable", summary="Check busy")]
-        async with diagnostic_lock:
-            try:
-                data = json.loads(
-                    (
-                        await command(
-                            sys.executable,
-                            "-m",
-                            "workbench_arm_controller.hat_check",
-                            "--bus",
-                            str(cfg["arm"].get("i2c_bus", 1)),
-                            "--address",
-                            str(cfg["arm"].get("i2c_address", 0x40)),
-                            timeout=2,
-                        )
-                    ).decode()
-                )
-                return [
-                    Diagnostic(
-                        component="hat",
-                        status="ok",
-                        summary="Register communication verified; physical position unknown",
-                        measurements={
-                            **{k: v for k, v in data.items() if k != "status"},
-                            "physical_position": None,
-                            "retrieval_enabled": False,
-                            "calibrated": cfg["workbench"]["arm"].get("calibrated", False),
-                        },
-                    )
-                ]
-            except (OSError, ValueError, RuntimeError, TimeoutError) as exc:
-                return [
-                    Diagnostic(
-                        component="hat", status="error", summary=str(exc) or "HAT check timed out"
-                    )
-                ]
+    @app.get("/hardware/status", response_model=ArmHardwareStatus)
+    async def hardware_status():
+        async with lock:
+            return hardware.snapshot(commanded_neutral=commanded_neutral())
 
     @app.get("/diagnostics", response_model=list[Diagnostic])
     async def diagnostics():
-        hat = await hat_diagnostics()
         async with lock:
-            return [
-                *hat,
-                *neutral_reference.diagnostics(
-                    monitor.status(), commanded_neutral=commanded_neutral()
-                ),
-            ]
+            return hardware.snapshot(commanded_neutral=commanded_neutral()).checks
 
     @app.get("/commissioning/evidence", response_model=NeutralEvidence)
     async def commissioning_evidence():
@@ -389,6 +336,16 @@ def create_app(config=None, store=None):
                     status.state, status.recovery_required = "fault", True
                     status.message = f"{exc}. {await stop_driver()}"
                     await save(status)
+
+    @app.get("/commissioning/checklist", response_model=CommissionChecklist)
+    async def commissioning_checklist():
+        async with lock:
+            return commissioning.checklist()
+
+    @app.post("/commissioning/checklist", response_model=CommissionChecklist)
+    async def commissioning_checklist_update(value: CommissionChecklistUpdate):
+        async with lock:
+            return await manual_io(commissioning.update_checklist, value)
 
     @app.get("/commissioning/bounds", response_model=CommissionBounds)
     async def commissioning_bounds():

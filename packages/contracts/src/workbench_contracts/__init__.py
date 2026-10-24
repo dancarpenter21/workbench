@@ -100,6 +100,8 @@ class OffCurrentBounds(Contract):
 
 
 class ClawCurrentStatus(Contract):
+    reading_state: Literal["ok", "error", "stale", "unavailable"] | None = None
+    reset_required: bool = False
     reading_healthy: bool | None = None
     monitor_session_id: str | None = None
     sample_sequence: int = 0
@@ -194,6 +196,24 @@ class PeripheralStatus(Contract):
     checked_at: datetime | None = None
     age_seconds: float | None = None
     detail: str = ""
+
+
+class Diagnostic(Contract):
+    component: str
+    status: Literal["ok", "warning", "error", "unavailable"]
+    checked_at: datetime = Field(default_factory=now)
+    summary: str
+    measurements: dict[str, str | float | bool | None] = Field(default_factory=dict)
+
+
+class ArmHardwareStatus(Contract):
+    mode: str
+    profile: str = "workbench"
+    checked_at: datetime = Field(default_factory=now)
+    claw_current: ClawCurrentStatus
+    servo_hat: PeripheralStatus
+    neutral_evidence: NeutralEvidence
+    checks: list[Diagnostic] = Field(default_factory=list)
 
 
 class ManualStatus(Contract):
@@ -343,6 +363,23 @@ class CommissionBounds(Contract):
     assembly_id: str
     setup: CommissionSetup
     joints: dict[str, CommissionJointBounds]
+
+
+CommissionChecklistStep = Literal[
+    "hardware", "startup", "directions", "speeds", "recovery", "configuration"
+]
+
+
+class CommissionChecklist(Contract):
+    context_key: str
+    completed: dict[CommissionChecklistStep, bool] = Field(default_factory=dict)
+    updated_at: datetime | None = None
+
+
+class CommissionChecklistUpdate(Contract):
+    context_key: str
+    step: CommissionChecklistStep
+    completed: bool
 
 
 class CommissionDraft(Contract):
@@ -528,6 +565,7 @@ class CommissionExport(Contract):
 
 
 class WorkbenchStatus(Contract):
+    hardware: ArmHardwareStatus | None = None
     servo_hat: PeripheralStatus | None = None
     neutral_evidence: NeutralEvidence | None = None
     claw_current: ClawCurrentStatus | None = None
@@ -545,15 +583,8 @@ class Recovery(Contract):
     acknowledged: Literal[True]
 
 
-class Diagnostic(Contract):
-    component: str
-    status: Literal["ok", "warning", "error", "unavailable"]
-    checked_at: datetime = Field(default_factory=now)
-    summary: str
-    measurements: dict[str, str | float | bool | None] = Field(default_factory=dict)
-
-
 class DiagnosticsReport(Contract):
+    hardware: ArmHardwareStatus | None = None
     neutral_evidence: NeutralEvidence | None = None
     checked_at: datetime = Field(default_factory=now)
     mode: str

@@ -168,3 +168,42 @@ test("current-scale verification is available in Diagnostics", async ({ page }) 
   await expect(page.locator("#scale-attest")).toBeVisible();
   await expect(page.locator("#scale-save")).toBeDisabled();
 });
+
+test("Initialization contains a persistent commissioning checklist and guidance", async ({ page, request }) => {
+  await expect(page.getByRole("button", { name: "Initialization" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Pulse test" })).toHaveCount(0);
+  await page.locator("#trial-checklist-link").click();
+  await expect(page.locator("#initialization-checklist")).toContainText("Safe starting pulses and power-on procedure");
+  await expect(page.locator("#initialization-checklist")).toContainText("Tested movement speeds");
+  await expect(page.locator("#trial-checklist-domain")).toContainText("SIMULATED");
+  await expect(page.locator("#trial-check-bounds")).toBeDisabled();
+  await expect(page.locator("#trial-check-scale")).toBeDisabled();
+  const before = await (await request.get("/api/coordinator/commissioning/status")).json();
+  await page.locator("#trial-check-startup").check();
+  await expect.poll(async () => (await (await request.get("/api/coordinator/commissioning/checklist")).json()).completed.startup).toBe(true);
+  const after = await (await request.get("/api/coordinator/commissioning/status")).json();
+  expect(after.reserved).toBe(before.reserved);
+  expect(after.targets).toEqual(before.targets);
+  await page.reload();
+  await page.locator("#pulse-tab").click();
+  await page.locator("#trial-checklist-link").click();
+  await expect(page.locator("#trial-check-startup")).toBeChecked();
+  await page.locator("#trial-check-startup").uncheck();
+  await expect.poll(async () => (await (await request.get("/api/coordinator/commissioning/checklist")).json()).completed.startup).toBe(false);
+  await page.setViewportSize({ width: 1100, height: 1000 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: "test-results/initialization-checklist.png", fullPage: true });
+  await page.locator("#trial-open-diagnostics").click();
+  await expect(page.locator("#diagnostics-tab")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#scale-resistance")).toBeVisible();
+});
+
+test("checklist reviews are disabled while a trial owns the arm", async ({ page }) => {
+  await move(page, 1490);
+  await page.locator("#trial-settled").click();
+  await page.locator("#trial-checklist-link").click();
+  await expect(page.locator("#trial-check-hardware")).toBeDisabled();
+  await expect(page.locator("#trial-check-startup")).toBeDisabled();
+  await finish(page);
+  await expect(page.locator("#trial-check-hardware")).toBeEnabled();
+});

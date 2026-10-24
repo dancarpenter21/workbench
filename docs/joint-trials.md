@@ -1,4 +1,21 @@
-# Joint pulse bounds in Pulse test
+# Initialization and commissioning checklist
+
+The **Initialization** tab combines pulse-bound controls with a commissioning checklist.
+Open **Checklist** beside the heading to read the guidance and track progress.
+
+The checklist automatically checks externally verified current scale and saved minimum/
+maximum bounds for all six joints. Tick the remaining review items after documenting:
+hardware/support/cutoff; safe starting pulses and power-on procedure; observed directions;
+tested per-joint rates; stop/disconnect/recovery behavior; and the reviewed Jog configuration.
+Review checkboxes are editable only after powered trials are finished. They persist across
+browsers/restarts for the current domain, assembly identity and hardware setup, independently
+of temporary trial observations. You can uncheck a review when it needs repeating.
+
+Checked reviews record your confirmation, not independent measurements. The checklist does
+not modify motion configuration or enable Jog or retrieval. Simulated progress is labelled
+and never establishes physical acceptance. Repeat relevant physical reviews after changing
+the assembly, load or procedure. Current-scale setup is linked directly to Diagnostics.
+The automatic-retrieval section explains the additional motion design and acceptance work.
 
 Choose a joint and use **Move** or a **±1, ±10, ±20, ±40 μs** button. Each step
 button commands its full change immediately. The first move in each session initializes

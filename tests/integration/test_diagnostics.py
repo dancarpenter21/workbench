@@ -25,7 +25,6 @@ async def test_mock_diagnostics_report_and_audio(stack, monkeypatch):
         raise AssertionError("Mock diagnostics accessed hardware")
 
     monkeypatch.setattr(microphone, "command", forbidden)
-    monkeypatch.setattr(arm_module, "command", forbidden)
     url = cfg["services"]["coordinator"]
     report = (await bus.get(url + "/diagnostics")).json()
     assert report["mode"] == "mock"
@@ -182,29 +181,44 @@ async def test_bounded_command_timeout_and_missing_program():
         await command("workbench-missing-program")
 
 
-async def test_hat_diagnostics_only_calls_readonly_checker(tmp_path, monkeypatch):
+async def test_hat_diagnostics_reuses_cached_presence(tmp_path, monkeypatch):
+    from workbench_contracts import PeripheralStatus
+
     cfg = settings()
-    cfg.update(mode="hardware", profile="diagnostics")
-    cfg["arm"]["backend"] = "pca9685"
+    cfg.update(mode="mock", profile="workbench")
     calls = []
 
-    async def fake_command(*args, **kwargs):
-        calls.append(args)
-        return b'{"status":"pass","channels_read":16}'
+    class CachedHat:
+        def __init__(self, *args):
+            pass
 
-    monkeypatch.setattr(arm_module, "command", fake_command)
+        def poll(self):
+            calls.append("poll")
+
+        def status(self):
+            return PeripheralStatus(
+                state="detected",
+                simulated=True,
+                address=64,
+                age_seconds=0.01,
+                detail="Cached register reads succeeded",
+            )
+
+    monkeypatch.setattr(arm_module, "HatPresence", CachedHat)
     store = Store("arm", tmp_path)
     app = arm_module.create_app(cfg, store)
     async with app.router.lifespan_context(app):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app), base_url="http://test"
         ) as c:
-            data = (await c.get("/diagnostics")).json()
+            before = len(calls)
+            for _ in range(3):
+                data = (await c.get("/diagnostics")).json()
+                assert data[0]["status"] == "ok"
+                assert data[0]["summary"] == "Cached register reads succeeded"
+                assert data[0]["measurements"]["physical_position"] is None
+            assert len(calls) == before  # These requests never poll a device.
     store.close()
-    assert data[0]["status"] == "ok"
-    assert data[0]["measurements"]["physical_position"] is None
-    assert "--register-test" not in calls[0]
-    assert calls[0][2] == "workbench_arm_controller.hat_check"
 
 
 async def test_camera_preview_without_references(monkeypatch):
@@ -257,18 +271,26 @@ async def test_report_rejects_mismatched_service_mode(stack):
     assert "camera" not in checks
 
 
-@pytest.mark.parametrize(
-    "error", [PermissionError("I2C denied"), TimeoutError(), RuntimeError("No response")]
-)
-async def test_hat_failure_is_reported_without_hiding_status(tmp_path, monkeypatch, error):
+@pytest.mark.parametrize("detail", ["I2C denied", "Check timed out", "No response"])
+async def test_hat_failure_is_reported_without_hiding_status(tmp_path, monkeypatch, detail):
+    from workbench_contracts import PeripheralStatus
+
     cfg = settings()
-    cfg.update(mode="hardware", profile="diagnostics")
-    cfg["arm"]["backend"] = "pca9685"
+    cfg.update(mode="mock", profile="diagnostics")
 
-    async def failed(*args, **kwargs):
-        raise error
+    class FailedHat:
+        def __init__(self, *args):
+            pass
 
-    monkeypatch.setattr(arm_module, "command", failed)
+        def poll(self):
+            pass
+
+        def status(self):
+            return PeripheralStatus(
+                state="error", simulated=True, address=64, age_seconds=0.01, detail=detail
+            )
+
+    monkeypatch.setattr(arm_module, "HatPresence", FailedHat)
     store = Store("arm", tmp_path)
     app = arm_module.create_app(cfg, store)
     async with app.router.lifespan_context(app):
@@ -278,6 +300,7 @@ async def test_hat_failure_is_reported_without_hiding_status(tmp_path, monkeypat
             response = await c.get("/diagnostics")
             assert response.status_code == 200
             assert response.json()[0]["status"] == "error"
+            assert response.json()[0]["summary"] == detail
             assert (await c.get("/status")).status_code == 200
     store.close()
 

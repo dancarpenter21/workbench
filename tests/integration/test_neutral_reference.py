@@ -104,10 +104,13 @@ async def test_coordinator_diagnostic_export_includes_neutral_reference(stack):
     evidence = catalog.assess(sample(), commanded_neutral=False).model_dump(mode="json")
     arm = cfg["services"]["arm-controller"]
 
-    async def manual(request):
-        return httpx.Response(200, json={"simulated": True, "neutral_evidence": evidence})
+    hardware = (await client.get(arm + "/hardware/status")).json()
+    hardware["neutral_evidence"] = evidence
 
-    faults[("GET", arm + "/manual/status")] = manual
+    async def status(request):
+        return httpx.Response(200, json=hardware)
+
+    faults[("GET", arm + "/hardware/status")] = status
     root = cfg["services"]["coordinator"]
     assert (await client.get(root + "/status")).json()["neutral_evidence"] == evidence
     exported = (await client.get(root + "/diagnostics")).json()

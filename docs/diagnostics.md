@@ -67,16 +67,17 @@ For independent service launches, use `WORKBENCH_MODE=hardware` and
   browser; peak/RMS values and clipping indicate captured signal, not speech
   recognition accuracy. This uses the Pi's USB input, not your laptop microphone.
   Cancel aborts the request; capture is bounded and concurrent tests are rejected.
-- **Servo HAT:** reads the configured individual I²C address (defaults: bus 1,
-  `0x40`) using the existing checker. It never requests the optional register-write
-  test or constructs the PWM output driver. Register communication does not measure
+- **Servo HAT:** uses the arm service’s cached read-only presence check at the configured
+  individual I²C address (defaults: bus 1, `0x40`). Opening or refreshing Diagnostics
+  does not launch the standalone checker or construct a PWM output driver. Register communication does not measure
   servo position, power, movement, or mechanical calibration.
 - **Models:** installed dependency/model-path presence is reported without loading
   models. The diagnostics profile deliberately skips model loading.
 - **Report:** downloads the latest complete diagnostic response as JSON. Audio is
   excluded. Recordings are transient in server/browser memory, not written to disk.
 
-Status refreshes every five seconds, preview every second. A missing service leaves
+Live arm hardware follows the coordinator status stream; other checks refresh every
+five seconds and preview every second. A missing service leaves
 other checks usable and marks retained readings stale. A service response means its
 API is reachable; it does not establish hardware readiness. Mock checks and audio
 are explicitly labeled simulated.
@@ -134,3 +135,12 @@ These checks do not qualify physical arm operation.
   the workbench could own the camera. The dashboard is running manually; this
   verification does not install boot services or establish remote-computer audio
   quality or physical arm acceptance.
+
+## Shared arm status
+
+Live arm hardware cards and the shared header use the same coordinator event stream.
+Fresh readings with servo power off are normal; a prior motion interlock is shown
+separately as **Motion inhibited — reset required**. Manual-control configuration and
+neutral-reference availability do not determine whether the sensor is responding.
+See [shared arm hardware status](hardware-status.md) for service ownership, data flow,
+staleness and diagnostic-export behavior.

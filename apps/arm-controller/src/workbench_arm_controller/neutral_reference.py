@@ -7,6 +7,8 @@ from pathlib import Path
 from workbench_common import ROOT
 from workbench_contracts import Diagnostic, NeutralEvidence, NeutralHoldReference
 
+from .claw_current import reading_is_healthy
+
 
 class NeutralReference:
     def __init__(self, config):
@@ -35,13 +37,7 @@ class NeutralReference:
         result = NeutralEvidence(reference=ref, commanded_neutral=commanded_neutral)
         if not ref:
             result.detail = self.error
-        elif (
-            sample is None
-            or not sample.healthy
-            or sample.fault
-            or sample.age_seconds is None
-            or not 0 <= sample.age_seconds < 0.3
-        ):
+        elif not reading_is_healthy(sample):
             result.state, result.detail = (
                 "fault",
                 "No healthy current sample; neutral comparison unavailable",
@@ -83,23 +79,6 @@ class NeutralReference:
 
     def diagnostics(self, sample, *, commanded_neutral=False):
         evidence = self.assess(sample, commanded_neutral=commanded_neutral)
-        current = Diagnostic(
-            component="claw_current",
-            status="ok" if sample and sample.healthy and not sample.fault else "error",
-            summary="Claw INA219 monitoring"
-            if sample and sample.healthy
-            else "Claw sensor unavailable or faulted",
-            measurements={
-                "bus_v": sample.bus_v if sample else None,
-                "raw_shunt_mv": sample.shunt_mv if sample else None,
-                "current_a": sample.current_a if sample else None,
-                "scale_verified": sample.scale_verified if sample else False,
-                "ampere_scale_and_2_5_a_cutoff": "verified"
-                if sample and sample.scale_verified
-                else "UNVERIFIED",
-                "power_state": sample.power_state if sample else "unknown",
-            },
-        )
         ref = self.reference
         recorded = Diagnostic(
             component="neutral_reference",
@@ -125,4 +104,4 @@ class NeutralReference:
                 "measured_circuit": "Claw/channel 0 only",
             },
         )
-        return [current, recorded]
+        return [recorded]

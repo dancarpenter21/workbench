@@ -610,3 +610,20 @@ header #servo-power[data-pill-state="off"] { background: #f3f8fc; border-color: 
 #trial-window-panel { border-top: 1px solid #d4e5f3; margin: 8px 0; padding-top: 6px; }
 #commissioning-panel .pulse-help { font-size: 11px; line-height: 1.45; color: #526475; }
 #trial-message:empty, #trial-error:empty { display: none; }
+
+#trial-checklist-link { font-size: 11px; color: #075ca3; }
+#initialization-checklist { border-top: 1px solid #d4e5f3; margin-top: 16px; padding-top: 4px; scroll-margin-top: calc(var(--header-height, 58px) + 70px); }
+#initialization-checklist > p { font-size: 12px; }
+.commissioning-checklist-item { padding: 10px 0; border-bottom: 1px solid #e0eaf3; }
+.commissioning-checklist-item .ack { align-items: start; flex-wrap: wrap; font-weight: 600; }
+.commissioning-checklist-item p { margin: 5px 0 0 28px; font-size: 12px; color: #526475; }
+.checklist-source { font-size: 10px; font-weight: 400; color: #61798d; }
+.checklist-link { display: inline; min-height: 0; padding: 0; border-radius: 0; background: none; color: #075ca3; text-decoration: underline; font-weight: 400; font-size: inherit; }
+.checklist-link:hover { background: none; color: #034a80; }
+
+.current-interlock:empty { display: none; }
+.current-interlock { flex-basis: 100%; color: #8a5900; font-size: 10px; font-weight: 600; }
+#diagnostic-hardware .current-status { display: flex; flex-wrap: wrap; width: 100%; }
+#diagnostic-hardware .current-main, #diagnostic-hardware .current-raw { display: flex; flex-wrap: wrap; gap: 6px; }
+#diagnostic-hardware .current-reading { white-space: nowrap; }
+#diagnostic-hardware [data-state="warning"] { border-color: #ddb355; }

@@ -176,7 +176,7 @@ for unverified-scale labels, verified-shunt configuration, and physical acceptan
 
 ## Typed pulse testing before limits are commissioned
 
-Use the **Pulse test** tab to find and save minimum/maximum pulse commands. It
+Use the **Initialization** tab to find and save minimum/maximum pulse commands. It
 initializes all six outputs at 1500 μs on the first explicit move, then changes one
 selected joint at a time by up to 40 μs with OK/Not OK feedback after each move. See
 [joint trials](joint-trials.md) for range extensions, persistent bounds, the power-off

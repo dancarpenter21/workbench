@@ -297,6 +297,6 @@ async def test_main_workbench_forwards_current_and_clears_it_when_arm_unavailabl
     async def fail(request):
         return httpx.Response(503, json={"message": "offline"})
 
-    faults[("GET", cfg["services"]["arm-controller"] + "/manual/status")] = fail
+    faults[("GET", cfg["services"]["arm-controller"] + "/hardware/status")] = fail
     response = await client.get(url + "/status")
     assert response.json()["claw_current"] is None

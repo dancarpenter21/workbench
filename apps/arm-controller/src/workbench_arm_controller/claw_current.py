@@ -39,6 +39,19 @@ def check_current(sample, limit=2.5):
         raise ValueError(f"Current limit reached or invalid: {current} A; cutoff {limit} A")
 
 
+def reading_is_healthy(sample):
+    """Reading validity is independent of a previously latched motion interlock."""
+    return (
+        sample is not None
+        and (sample.reading_healthy if sample.reading_healthy is not None else sample.healthy)
+        and sample.age_seconds is not None
+        and 0 <= sample.age_seconds < 0.3
+        and all(
+            value is not None and math.isfinite(value) for value in (sample.bus_v, sample.shunt_mv)
+        )
+    )
+
+
 class ClawCurrentMonitor:
     """Called under the arm I/O lock, including while no browser owns motion."""
 
@@ -200,7 +213,20 @@ class ClawCurrentMonitor:
                 )
                 else "energized"
             )
+        elif reading_healthy and self.simulated:
+            power_state = "off" if self.sample["shunt_mv"] == 0 else "energized"
+        reading_state = (
+            "unavailable"
+            if self.last_attempt is None
+            else "error"
+            if not self.last_read_ok
+            else "stale"
+            if not reading_healthy
+            else "ok"
+        )
         return ClawCurrentStatus(
+            reading_state=reading_state,
+            reset_required=bool(self.fault),
             monitor_session_id=self.session_id,
             sample_sequence=self.sample_sequence,
             i2c_bus=None if self.simulated else self.bus_number,

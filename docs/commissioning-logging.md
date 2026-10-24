@@ -141,7 +141,7 @@ The arm service computes `claw_current.power_state` as `off`, `energized`, or
 `unknown`. The coordinator includes `claw_current` directly in Workbench status
 and live events, even when manual control is uncommissioned. The main Workbench
 view shows raw readings and baseline details, and a compact header indicator
-remains visible across Workbench, Pulse test, Jog and Diagnostics. Fresh healthy
+remains visible across Workbench, Initialization, Jog and Diagnostics. Fresh healthy
 readings within both bounds show Powered down; readings outside either bound
 show Powered. Faults/stale readings never show Powered down. Missing telemetry
 shows Power unknown. The browser also expires cached status if live updates stop.

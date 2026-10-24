@@ -32,7 +32,7 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
     }, { state });
     await page.goto("/");
     const badge = page.locator("#servo-power");
-    const label = state === "off" || state === "recovered_off" ? "Powered down" : state === "energized" || state === "recovered_powered" ? "Powered" : "Power unknown";
+    const label = state === "off" || state === "recovered_off" ? "Powered off" : state === "energized" || state === "recovered_powered" ? "Powered" : "Power unknown";
     await expect(badge).toContainText(label);
     if (state.startsWith("recovered")) {
       await expect(badge).toHaveAttribute("data-state", state === "recovered_off" ? "off" : "ok");
@@ -42,7 +42,7 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
       if (state === "recovered_off") await page.screenshot({ path: "test-results/powered-off-normal.png" });
     }
     if (state === "off") {
-      await expect(page.locator("#servo-power .power-label")).toHaveText("Powered down");
+      await expect(page.locator("#servo-power .power-label")).toHaveText("Powered off");
       await expect(page.locator("#header-current .current-raw")).toContainText("-0.06 mV");
       await page.locator("#header-current summary").click();
       await expect(page.locator("#header-current .current-baseline")).toContainText("0.120 mV");
@@ -50,7 +50,7 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
       await page.screenshot({ path: "test-results/workbench-current-off-800.png" });
       await page.locator("#header-current summary").click();
       await page.locator("#jog-tab").click();
-      await expect(badge).toContainText("Powered down");
+      await expect(badge).toContainText("Powered off");
       await page.evaluate(() => { (window as any).__pauseCurrent = true; });
       await expect(badge).toContainText("Power unknown");
     }

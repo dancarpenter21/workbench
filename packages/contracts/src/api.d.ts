@@ -259,6 +259,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/arm-controller/hardware/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hardware Status */
+        get: operations["arm_controller_hardware_status_hardware_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/arm-controller/diagnostics": {
         parameters: {
             query?: never;
@@ -321,6 +338,24 @@ export interface paths {
         get: operations["arm_controller_status_status_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/arm-controller/commissioning/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Commissioning Checklist */
+        get: operations["arm_controller_commissioning_checklist_commissioning_checklist_get"];
+        put?: never;
+        /** Commissioning Checklist Update */
+        post: operations["arm_controller_commissioning_checklist_update_commissioning_checklist_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -936,6 +971,41 @@ export interface paths {
         get: operations["coordinator_tools_tools_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/hardware/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hardware Status */
+        get: operations["coordinator_hardware_status_hardware_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/commissioning/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Commissioning Checklist */
+        get: operations["coordinator_commissioning_checklist_commissioning_checklist_get"];
+        put?: never;
+        /** Commissioning Checklist Update */
+        post: operations["coordinator_commissioning_checklist_update_commissioning_checklist_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1740,6 +1810,26 @@ export interface components {
             /** Tool Id */
             tool_id: string;
         };
+        /** ArmHardwareStatus */
+        ArmHardwareStatus: {
+            /** Mode */
+            mode: string;
+            /**
+             * Profile
+             * @default workbench
+             */
+            profile: string;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at?: string;
+            claw_current: components["schemas"]["ClawCurrentStatus"];
+            servo_hat: components["schemas"]["PeripheralStatus"];
+            neutral_evidence: components["schemas"]["NeutralEvidence"];
+            /** Checks */
+            checks?: components["schemas"]["Diagnostic"][];
+        };
         /** ArmStatus */
         ArmStatus: {
             /**
@@ -1764,6 +1854,13 @@ export interface components {
         };
         /** ClawCurrentStatus */
         ClawCurrentStatus: {
+            /** Reading State */
+            reading_state?: ("ok" | "error" | "stale" | "unavailable") | null;
+            /**
+             * Reset Required
+             * @default false
+             */
+            reset_required: boolean;
             /** Reading Healthy */
             reading_healthy?: boolean | null;
             /** Monitor Session Id */
@@ -1928,6 +2025,29 @@ export interface components {
             joints: {
                 [key: string]: components["schemas"]["CommissionJointBounds"];
             };
+        };
+        /** CommissionChecklist */
+        CommissionChecklist: {
+            /** Context Key */
+            context_key: string;
+            /** Completed */
+            completed?: {
+                [key: string]: boolean;
+            };
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** CommissionChecklistUpdate */
+        CommissionChecklistUpdate: {
+            /** Context Key */
+            context_key: string;
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "hardware" | "startup" | "directions" | "speeds" | "recovery" | "configuration";
+            /** Completed */
+            completed: boolean;
         };
         /** CommissionCommand */
         CommissionCommand: {
@@ -2770,6 +2890,7 @@ export interface components {
         };
         /** DiagnosticsReport */
         DiagnosticsReport: {
+            hardware?: components["schemas"]["ArmHardwareStatus"] | null;
             neutral_evidence?: components["schemas"]["NeutralEvidence"] | null;
             /**
              * Checked At
@@ -2824,6 +2945,7 @@ export interface components {
         };
         /** WorkbenchStatus */
         WorkbenchStatus: {
+            hardware?: components["schemas"]["ArmHardwareStatus"] | null;
             servo_hat?: components["schemas"]["PeripheralStatus"] | null;
             neutral_evidence?: components["schemas"]["NeutralEvidence"] | null;
             claw_current?: components["schemas"]["ClawCurrentStatus"] | null;
@@ -3717,6 +3839,62 @@ export interface operations {
             };
         };
     };
+    arm_controller_hardware_status_hardware_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmHardwareStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     arm_controller_diagnostics_diagnostics_get: {
         parameters: {
             query?: never;
@@ -3901,6 +4079,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ArmStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_checklist_commissioning_checklist_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionChecklist"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_commissioning_checklist_update_commissioning_checklist_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionChecklistUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionChecklist"];
                 };
             };
             /** @description Bad Request */
@@ -6197,6 +6491,178 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Tool"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_hardware_status_hardware_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArmHardwareStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_commissioning_checklist_commissioning_checklist_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionChecklist"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_commissioning_checklist_update_commissioning_checklist_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommissionChecklistUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommissionChecklist"];
                 };
             };
             /** @description Bad Request */
