@@ -7,15 +7,18 @@ import "./style.css";
 import { mountDiagnostics } from "./diagnostics";
 import { mountCommissioning } from "./commissioning";
 import { mountManual } from "./manual";
+import { mountNetwork } from "./network";
 
 type Status = components["schemas"]["WorkbenchStatus"];
 const api = createClient<paths>({ baseUrl: "/api" });
 const root = document.querySelector<HTMLDivElement>("#app")!;
 root.innerHTML = `
   <header><a href="/" class="wordmark"><span class="mark">W</span> WORKBENCH</a>
+    <aside id="network-status" class="device-pill" aria-label="Client connection to Pi server"></aside>
     <span id="servo-power" class="device-pill" role="status" aria-label="Servo power"></span>
     <div id="header-current" aria-label="Claw current monitor"></div>
-    <div class="header-status"><span id="connection" class="device-pill" aria-label="Servo HAT status" data-state="waiting">Servo HAT · checking</span></div></header>
+    <div class="header-status"><span id="connection" class="device-pill" aria-label="Servo HAT status" data-state="waiting">Servo HAT · checking</span></div>
+  </header>
   <nav class="view-navigation" aria-label="Workbench views">
     <button id="workbench-tab" class="secondary" aria-pressed="true">⌂ Workbench</button>
     <button id="pulse-tab" class="secondary" aria-pressed="false">↔ Initialization</button>
@@ -264,6 +267,8 @@ setInterval(refreshCurrent, 100);
 let events: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let lastEventAt = performance.now();
+let lastStatusAt: number | null = null;
+mountNetwork(el("network-status"), () => lastStatusAt === null ? null : (performance.now() - lastStatusAt) / 1000);
 
 function reconnectEvents() {
   const previous = events;
@@ -291,6 +296,7 @@ function connectEvents() {
     try { status = JSON.parse(event.data) as Status; }
     catch { reconnectEvents(); return; }
     lastEventAt = performance.now();
+    lastStatusAt = lastEventAt;
     connected = true;
     render(status);
     if (source.readyState === WebSocket.OPEN) source.send("ack");

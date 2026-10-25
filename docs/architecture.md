@@ -130,3 +130,21 @@ vision, and simulated motion. A completed mock arm operation updates the mock vi
 scene. It does not demonstrate real recognition, transcription or physical manipulation.
 Mock mutation endpoints are not registered in hardware mode. The coordinator refuses
 retrieval if vision or arm reports a different mode.
+
+### Client-to-Pi connection heartbeat
+
+The dashboard displays a Pi link indicator independently of the status WebSocket
+and hardware telemetry. It probes the coordinator's existing `/health` endpoint
+through the dashboard proxy with caching disabled, waits at most 1.5 seconds for
+headers and body, then schedules another probe one second after completion.
+Details report the last successful round trip, time since the last reply, failed
+probes among the last 20 attempts, consecutive failures, and status-stream age.
+The link is degraded after a failed probe, a round trip of at least 500 ms, or
+missing/status updates at least one second old. Three consecutive failures or
+five seconds without a previously successful reply mark it offline. A successful
+probe restores reachability; fresh telemetry is also required for connected status.
+These measurements cover browser → dashboard proxy → Pi coordinator, including
+server and proxy delays; they do not identify WiFi signal strength or prove that
+WiFi caused a delay. The heartbeat issues no hardware commands and does not change
+ammeter freshness, servo power inference, or motion authorization. Mock-stack
+heartbeats measure the local simulated server route rather than a physical Pi.

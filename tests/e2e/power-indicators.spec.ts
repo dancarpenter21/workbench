@@ -41,6 +41,13 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
     const badge = page.locator("#servo-power");
     const label = state === "off" || state === "recovered_off" ? "Powered off" : state === "energized" || state === "recovered_powered" ? "Powered" : "Power unknown";
     await expect(badge).toContainText(label);
+    if (state === "off" || state === "recovered_off") {
+      const offBackground = await badge.evaluate(node => getComputedStyle(node).backgroundColor);
+      for (const selector of ["#header-current", "#connection"]) {
+        await expect(page.locator(selector)).toHaveCSS("background-color", offBackground);
+        await expect(page.locator(`${selector} .status-light`)).toHaveCSS("background-color", "rgb(41, 41, 41)");
+      }
+    }
     if (state.startsWith("recovered")) {
       await expect(badge).toHaveAttribute("data-state", state === "recovered_off" ? "off" : "ok");
       await expect(page.locator("#header-current .current-fault")).toBeEmpty();
@@ -75,6 +82,7 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
       await expect(badge).toContainText("Powered off");
       await page.evaluate(() => { (window as any).__pauseCurrent = true; });
       await expect(badge).toContainText("Power unknown");
+      await expect(page.locator("#connection .status-light")).not.toHaveCSS("background-color", "rgb(41, 41, 41)");
     }
   });
 }
