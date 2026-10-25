@@ -348,7 +348,7 @@ async def test_service_keeps_sampling_after_release_and_sensor_fault_disables_pw
     outputs = []
 
     class Output:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             self.disabled = False
             outputs.append(self)
 
@@ -443,12 +443,18 @@ async def test_service_keeps_sampling_after_release_and_sensor_fault_disables_pw
 
 
 def test_all_output_register_mapping_and_partial_fault_shutdown(tmp_path):
+    from movement_fixtures import movement_session
     from test_base_servo_test import FakeBus
     from workbench_arm_controller.servo_trial import SingleServoOutput
 
     bus = FakeBus()
     bus.close = lambda: None
-    output = SingleServoOutput(bus_number=986, bus_factory=lambda _: bus)
+    output = SingleServoOutput(
+        bus_number=986,
+        bus_factory=lambda _: bus,
+        movement=movement_session(),
+        check_current=lambda: None,
+    )
     try:
         assert set(output.prepare_all()) == set(JOINT_ORDER)
         for channel in range(6):

@@ -10,6 +10,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     <div class="panel-heading"><div><p class="eyebrow">DIRECT ARM CONTROL</p>
       <h2 id="manual-title">Manual joints</h2></div><span id="manual-mode" class="badge">Connecting…</span></div>
     <p id="manual-message" role="status">Connecting to arm controller…</p>
+    <p id="manual-clearance">Free play · table-clearance checks off · claw-current monitoring active.</p>
     <div id="manual-joints" class="manual-joints" aria-label="Select joint"></div>
     <div class="manual-readout"><strong id="manual-selected">Select a joint</strong>
       <output id="manual-value">—</output><span id="manual-limits"></span></div>
@@ -22,7 +23,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     </div>
     <p id="manual-controller-note" class="caption"></p>
     <div id="manual-preparation" hidden>
-      <p>Before preparation, disconnect servo power and support the arm. Preparation programs the reviewed initial targets.</p>
+      <p>Before preparation, disconnect servo power and support the arm. Preparation programs 1500 µs on all six servos.</p>
       <label class="ack"><input id="manual-power-off" type="checkbox" /> Servo power is disconnected and the arm is supported.</label>
       <button id="manual-prepare" class="secondary" disabled>Prepare outputs</button>
     </div>
@@ -34,7 +35,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     <div class="manual-jog"><button id="manual-minus" class="secondary" disabled>− Hold</button>
       <button id="manual-plus" class="secondary" disabled>+ Hold</button></div>
     <p id="manual-help" class="caption">Click this panel to focus. Select 1–6 or Up/Down; hold Space + Left/Right to jog. Hold Shift for precision. Escape stops the arm.</p>
-    <p class="caption">Commanded pulses only · physical position unknown. Stop retains the last PWM target; verify the arm is stationary.</p>
+    <p class="caption">V1 assumes successful movement after each PWM write. Stop retains the last target. Saved pulse limits are optional; no capsule measurements are required for Jog.</p>
     <p id="manual-error" role="alert"></p>`;
   root.tabIndex = 0;
   root.setAttribute("aria-labelledby", "manual-title");
@@ -149,7 +150,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
   function render() {
     const active = token !== null;
     const anotherOwner = !!status?.active && !active;
-    el("manual-mode").textContent = status?.simulated ? "SIMULATED" : "PULSE CONTROL";
+    el("manual-mode").textContent = status?.simulated ? "SIMULATED FREE PLAY" : "FREE PLAY";
     el("manual-message").textContent = active ? "Manual control enabled · hold enable and direction to jog."
       : anotherOwner ? "Another session owns manual control."
       : blocked ? blockedMessage

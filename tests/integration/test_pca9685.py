@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from movement_fixtures import movement_session
 from workbench_arm_controller.app import create_app
 from workbench_arm_controller.pca9685 import Pca9685Output, PulsePlan, main
 from workbench_common import Store, settings
@@ -21,6 +22,13 @@ def calibration():
 
 def pose():
     return {f"joint_{i}": 1500 for i in range(6)}
+
+
+def guarded_output(**kwargs):
+    # Explicit synthetic geometry and current check; never accesses real hardware.
+    return Pca9685Output(
+        calibration(), movement=movement_session(), check_current=lambda: None, **kwargs
+    )
 
 
 class FakeBus:
@@ -74,7 +82,7 @@ def test_bad_calibration_never_opens_bus(change):
 
 
 def test_output_initializes_off_and_only_reports_sent_pulses():
-    output = Pca9685Output(calibration(), bus_factory=FakeBus)
+    output = guarded_output(bus_factory=FakeBus)
     assert output.bus.writes[0] == (0x40, 0xFD, [0x10])
     assert not any(0x06 <= register <= 0x45 for _, register, _ in output.bus.writes)
     commands = output.write_pose(pose())
@@ -92,7 +100,7 @@ def test_output_initializes_off_and_only_reports_sent_pulses():
 
 @pytest.mark.parametrize("bad", [0, 2500, float("nan"), float("inf"), True])
 def test_last_invalid_target_prevents_all_pose_writes(bad):
-    output = Pca9685Output(calibration(), bus_factory=FakeBus)
+    output = guarded_output(bus_factory=FakeBus)
     before = list(output.bus.writes)
     invalid = {**pose(), "joint_5": bad}
     with pytest.raises(ValueError, match="limits"):
@@ -102,7 +110,7 @@ def test_last_invalid_target_prevents_all_pose_writes(bad):
 
 
 def test_partial_write_fault_invalidates_command_cache_and_never_retries():
-    output = Pca9685Output(calibration(), bus_factory=FakeBus)
+    output = guarded_output(bus_factory=FakeBus)
     output.write_pose(pose())
     output.bus.fail_channel = 0x06 + 4 * 2
     with pytest.raises(RuntimeError, match="unknown"):
@@ -141,7 +149,7 @@ def test_cli_is_offline_and_labels_output_as_commands(tmp_path, monkeypatch, cap
 
 
 @pytest.mark.parametrize("backend", ["pca9685", "misspelled"])
-async def test_unsupported_hardware_is_unready_and_cannot_move_or_recover(
+async def test_free_play_availability_does_not_enable_automatic_movement(
     backend, tmp_path, monkeypatch
 ):
     cfg = settings()
@@ -164,9 +172,11 @@ async def test_unsupported_hardware_is_unready_and_cannot_move_or_recover(
             transport=httpx.ASGITransport(app), base_url="http://test"
         ) as client:
             health = (await client.get("/health")).json()
-            assert not health["ready"]
+            assert health["ready"] is (backend == "pca9685")
             status = (await client.get("/status")).json()
-            assert status["state"] == "fault" and status["recovery_required"]
+            assert status["state"] == ("stopped" if backend == "pca9685" else "fault")
+            assert status["recovery_required"]
+            refusal = 409 if backend == "pca9685" else 503
             assert (
                 await client.post(
                     "/execute",
@@ -175,8 +185,10 @@ async def test_unsupported_hardware_is_unready_and_cannot_move_or_recover(
                         "tool_id": "pliers",
                     },
                 )
-            ).status_code == 503
-            assert (await client.post("/recover", json={"acknowledged": True})).status_code == 503
+            ).status_code == refusal
+            assert (
+                await client.post("/recover", json={"acknowledged": True})
+            ).status_code == refusal
             stopped = (await client.post("/stop")).json()
             assert "Simulated" not in stopped["message"]
     store.close()

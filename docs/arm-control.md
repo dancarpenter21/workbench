@@ -1,5 +1,13 @@
 # DFRobot arm control: design and offline rehearsal
 
+The [standalone movement module](movement.md) guards all-holding commissioning
+output. Manual Jog is explicitly free play without geometry configuration or
+table-clearance checking; its current interlock remains active. Initialization
+has a separate capsule-measurement draft/activation step. For v1 the module uses the owner-verified all-1500-us
+startup and explicitly assumes successful movement after a complete successful
+PWM write. That assumption is not measured feedback and does not remove the
+automated-retrieval gate described below.
+
 **Automated ROB0036/PCA9685 retrieval remains disabled.** This document defines
 software decisions we can exercise before assembly, and the evidence still needed
 to choose a physical implementation. It does not supply a home pose, joint limits,

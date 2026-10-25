@@ -14,7 +14,7 @@
     "device": 0,
     "width": 640,
     "height": 480,
-    "interval_seconds": 0.25,
+    "fps": 30, "interval_seconds": 0,
     "backend": "picamera2"
   },
   "speech": {

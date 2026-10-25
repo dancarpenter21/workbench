@@ -4,6 +4,7 @@ import math
 import time
 
 from .device_lock import DeviceLock
+from .movement import ClearanceResult, MovementRejected, MovementSession
 
 MIN_US = 1450
 MAX_US = 1550
@@ -50,6 +51,14 @@ def prepare(bus, address):
 
 
 def write_pulse(bus, address, pulse_us, channel=5, *, minimum=MIN_US, maximum=MAX_US):
+    """Legacy neutral-only primitive. Other movement requires a complete guarded session."""
+    encode_pulse(pulse_us, minimum, maximum)
+    if pulse_us != START_US:
+        raise MovementRejected(ClearanceResult(False, "use_guarded_all_holding_movement"))
+    return _write_pulse(bus, address, pulse_us, channel, minimum=minimum, maximum=maximum)
+
+
+def _write_pulse(bus, address, pulse_us, channel=5, *, minimum=MIN_US, maximum=MAX_US):
     if type(channel) is not int or not 0 <= channel <= 5:
         raise ValueError("Trial channel must be 0–5")
     ticks, actual_us = encode_pulse(pulse_us, minimum, maximum)
@@ -63,7 +72,9 @@ def write_pulse(bus, address, pulse_us, channel=5, *, minimum=MIN_US, maximum=MA
 
 
 class SingleServoOutput:
-    def __init__(self, bus_number=1, address=0x40, *, bus_factory=None):
+    def __init__(
+        self, bus_number=1, address=0x40, *, bus_factory=None, movement=None, check_current=None
+    ):
         if (
             type(bus_number) is not int
             or bus_number < 0
@@ -77,6 +88,9 @@ class SingleServoOutput:
         self.faulted = False
         self.address = address
         self.channel = None
+        self.movement = movement if movement is not None else MovementSession()
+        self.check_current = check_current
+        self.movement.check_current = self._require_current
         try:
             if bus_factory is None:
                 from smbus2 import SMBus
@@ -95,64 +109,100 @@ class SingleServoOutput:
         try:
             prepare(self.bus, self.address)
             self.channel = channel
-            return self.write(START_US)
+            if channel == 0:
+                self._require_current()
+            result = write_pulse(self.bus, self.address, START_US, channel)
+            if channel == 0:
+                self._require_current()
+            return result
         except Exception:
             self.faulted = True
+            self.movement.invalidate()
+            try:
+                self.disable()
+            except Exception:
+                pass
             raise
 
     def write(self, pulse_us):
         if self.closed or self.faulted or self.channel is None:
             raise RuntimeError("Trial output unavailable; inspect and prepare again")
-        try:
-            return write_pulse(self.bus, self.address, pulse_us, self.channel)
-        except Exception:
-            self.faulted = True
-            raise
+        return self.write_joint(self.channel, pulse_us, MIN_US, MAX_US)
+
+    def _require_current(self):
+        if self.check_current is None:
+            raise RuntimeError("Claw current monitor required for powered claw output")
+        self.check_current()
 
     def prepare_all(self):
-        if self.closed or self.faulted or self.channel is not None:
-            raise RuntimeError("Fresh power-off preparation required")
-        prepare(self.bus, self.address)
-        self.channel = 5
-        return {
-            name: self.write_joint(index, START_US, MIN_US, MAX_US)
-            for index, name in enumerate(
-                ("claw", "joint_5", "joint_4", "joint_3", "joint_2", "base")
-            )
-        }
+        if self.check_current is None:
+            raise RuntimeError("Claw current monitor required for all-holding startup")
+        return self.initialize_neutral(self.check_current)
 
     def initialize_neutral(self, check_current):
         """Explicit operator initialization of all six outputs, with live ammeter checks."""
         if self.closed or self.faulted or self.channel is not None:
             raise RuntimeError("Fresh output owner required for neutral initialization")
-        try:
+        # Retain this monitor for subsequent movement as well as startup.
+        if self.check_current is None:
+            self.check_current = check_current
+        targets = {}
+
+        def dispatch():
             check_current()
             prepare(self.bus, self.address)
             self.channel = 5
-            targets = {}
             for channel, name in enumerate(
                 ("claw", "joint_5", "joint_4", "joint_3", "joint_2", "base")
             ):
                 check_current()
-                targets[name] = self.write_joint(channel, START_US, MIN_US, MAX_US)
+                targets[name] = _write_pulse(self.bus, self.address, START_US, channel)
                 check_current()
+
+        try:
+            self.movement.move(
+                dict.fromkeys(range(6), START_US),
+                dict.fromkeys(range(6), encode_pulse(START_US)[1]),
+                dispatch,
+            )
             return targets
+        except MovementRejected:
+            raise
         except Exception:
             self.faulted = True
+            self.movement.invalidate()
+            try:
+                self.disable()
+            except Exception:
+                pass
             raise
 
     def write_joint(self, channel, target, minimum, maximum):
         if self.closed or self.faulted or self.channel is None:
             raise RuntimeError("Trial output unavailable")
+        actual = encode_pulse(target, minimum, maximum)[1]
+
+        def dispatch():
+            self._require_current()
+            _write_pulse(self.bus, self.address, target, channel, minimum=minimum, maximum=maximum)
+            self._require_current()
+
         try:
-            return write_pulse(
-                self.bus, self.address, target, channel, minimum=minimum, maximum=maximum
-            )
+            self.movement.move({channel: target}, {channel: actual}, dispatch)
+            return actual
+        except MovementRejected:
+            raise
         except Exception:
             self.faulted = True
+            self.movement.invalidate()
+            try:
+                self.disable()
+            except Exception:
+                pass
             raise
 
     def disable(self):
+        self.movement.invalidate()
         # Caller has confirmed disconnected servo power and supported links.
         self.bus.write_byte_data(self.address, 0xFD, 0x10)
         for channel in range(16):
@@ -163,6 +213,7 @@ class SingleServoOutput:
         # Stop/shutdown retains PWM. Only acknowledged finish calls disable().
         if not self.closed:
             self.closed = True
+            self.movement.invalidate()
             try:
                 self.bus.close()
             finally:

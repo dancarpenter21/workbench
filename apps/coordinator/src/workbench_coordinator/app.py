@@ -43,6 +43,8 @@ from workbench_contracts import (
     CurrentScaleVerification,
     Diagnostic,
     DiagnosticsReport,
+    GeometryMeasurements,
+    GeometryMeasurementsUpdate,
     Health,
     Intent,
     ManualAcquire,
@@ -383,6 +385,15 @@ def create_app(config=None, store=None, client=None):
     @app.get("/commissioning/bounds", response_model=CommissionBounds)
     async def commissioning_bounds():
         return await manual_call("bounds", prefix="commissioning")
+
+    @app.get("/commissioning/geometry", response_model=GeometryMeasurements)
+    async def geometry_measurements():
+        return await manual_call("geometry", prefix="commissioning")
+
+    @app.post("/commissioning/geometry", response_model=GeometryMeasurements)
+    async def geometry_measurements_save(value: GeometryMeasurementsUpdate):
+        async with gate:
+            return await manual_call("geometry", value, prefix="commissioning")
 
     @app.post("/commissioning/bounds", response_model=CommissionBounds)
     async def commissioning_save_bounds(value: CommissionBoundsUpdate):
@@ -769,13 +780,19 @@ def create_app(config=None, store=None, client=None):
         )
 
     @app.get("/camera/preview")
-    async def preview():
+    async def preview(after: str | None = None):
         try:
-            result = await call("vision", "GET", "/preview")
+            result = await call(
+                "vision", "GET", "/preview", params={"after": after} if after is not None else {}
+            )
             return Response(
                 result.content,
-                media_type=result.headers["content-type"],
-                headers={"Cache-Control": "no-store"},
+                status_code=result.status_code,
+                media_type=result.headers.get("content-type"),
+                headers={
+                    "Cache-Control": "no-store",
+                    **{k: v for k, v in result.headers.items() if k.startswith("x-frame-")},
+                },
             )
         except httpx.HTTPError as exc:
             raise HTTPException(503, "Camera unavailable") from exc

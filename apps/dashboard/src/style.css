@@ -597,6 +597,10 @@ header #servo-power[data-pill-state="off"] { background: #f3f8fc; border-color: 
 .workbench-layout > .camera-panel > .panel-heading { flex-wrap: wrap; }
 .workbench-layout > .camera-panel > .panel-heading h2 { margin: 0; }
 #camera-status { flex: 1; font-size: 10px; color: #61798d; text-align: center; font-variant-numeric: tabular-nums; }
+.camera-view { position: relative; }
+#camera-timing { position: absolute; bottom: 8px; left: 8px; right: 8px; padding: 5px 8px; border-radius: 4px; background: #102330e6; color: #dcfce7; font: 11px monospace; font-variant-numeric: tabular-nums; pointer-events: none; }
+#camera-timing[data-state="delayed"] { color: #fde68a; }
+#camera-timing[data-state="stale"] { color: #fecaca; background: #4c1010ed; }
 .workbench-layout > .camera-panel > .panel-heading {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, .9fr) auto;
@@ -618,3 +622,16 @@ header #servo-power[data-pill-state="off"] { background: #f3f8fc; border-color: 
 
 .init-row input, .init-row button { height: 32px; min-height: 32px; padding: 5px 4px; }
 #init-save { min-height: 32px; padding: 7px 12px; }
+
+#geometry-panel { border-bottom: 1px solid #ccd6de; padding-bottom: 16px; margin-bottom: 16px; }
+#geometry-panel p, #geometry-panel label, #geometry-panel summary { font-size: 12px; }
+#geometry-panel input, #geometry-panel select, #geometry-panel textarea { width: 100%; min-width: 0; padding: 6px; box-sizing: border-box; }
+#geometry-panel label { display: grid; gap: 4px; }
+.geometry-card { margin: 10px 0; padding: 10px; border: 1px solid #ccd6de; border-radius: 8px; display: grid; gap: 8px; }
+.geometry-vector { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; border: 0; padding: 0; min-width: 0; }
+.geometry-vector legend { font-size: 12px; padding-bottom: 5px; }
+.geometry-vector label { font-size: 10px !important; }
+.geometry-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#geometry-joint-details { margin: 12px 0; }
+#geometry-error { color: #a12b23; }
+#manual-clearance { font-size: 12px; color: #8a5900; }

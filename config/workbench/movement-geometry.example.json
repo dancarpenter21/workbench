@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "revision": "replace-with-measurement-revision",
+  "domain": "physical",
+  "calibrated": false,
+  "reference_pulse_us": 1500,
+  "base_axis_perpendicular_to_table": true,
+  "claw_envelope": "full_opening_range",
+  "clearance_mm": null,
+  "geometry_error_mm": null,
+  "max_boxes": 4096,
+  "joints": [
+    {"channel": 4, "origin_mm": null, "axis": null, "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null},
+    {"channel": 3, "origin_mm": null, "axis": null, "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null},
+    {"channel": 2, "origin_mm": null, "axis": null, "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null},
+    {"channel": 1, "origin_mm": null, "axis": null, "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null}
+  ],
+  "capsules": [
+    {"name": "link_4", "parent_channel": 4, "a_mm": null, "b_mm": null, "radius_mm": null},
+    {"name": "link_3", "parent_channel": 3, "a_mm": null, "b_mm": null, "radius_mm": null},
+    {"name": "link_2", "parent_channel": 2, "a_mm": null, "b_mm": null, "radius_mm": null},
+    {"name": "link_1", "parent_channel": 1, "a_mm": null, "b_mm": null, "radius_mm": null},
+    {"name": "claw", "parent_channel": 1, "a_mm": null, "b_mm": null, "radius_mm": null}
+  ]
+}

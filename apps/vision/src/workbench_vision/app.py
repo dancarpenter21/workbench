@@ -3,7 +3,7 @@ import html
 import threading
 import time
 from contextlib import asynccontextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from fastapi import HTTPException, Response
 from workbench_common import ROOT, app_base, settings
@@ -29,6 +29,8 @@ class Camera:
         self.error = "Camera starting"
         self.references = {}
         self.frame_at = None
+        self.frame_id = None
+        self.timestamp_source = "capture"
         self.frame_size = None
         self.frame_rate = 0.0
         self.previous_frame_time = None
@@ -116,8 +118,12 @@ class Camera:
             cap = open_capture(camera, self.cv)
             failures = 0
             while not self.stop.is_set():
+                started = time.monotonic()
                 try:
                     frame = cap.read()
+                    captured_at = getattr(cap, "captured_at", None)
+                    if not isinstance(captured_at, datetime):
+                        captured_at = now()
                     failures = 0
                     observations = None
                     recognition_error = getattr(self, "recognition_error", "")
@@ -131,7 +137,13 @@ class Camera:
                         raise ValueError("Camera encoding failed")
                     with self.lock:
                         self.jpeg = jpeg.tobytes()
-                        self.frame_at = now()
+                        self.frame_at = captured_at
+                        self.frame_id = captured_at.isoformat()
+                        self.timestamp_source = (
+                            "sensor"
+                            if getattr(cap, "timestamp_source", "") == "sensor"
+                            else "capture"
+                        )
                         self.frame_size = (frame.shape[1], frame.shape[0])
                         tick = time.monotonic()
                         previous = getattr(self, "previous_frame_time", None)
@@ -147,7 +159,9 @@ class Camera:
                     failures += 1
                     if failures >= 3:
                         break
-                self.stop.wait(camera["interval_seconds"])
+                # Capture and encoding count toward the interval, rather than adding
+                # another full delay after each frame. Never queue catch-up frames.
+                self.stop.wait(max(0, camera["interval_seconds"] - (time.monotonic() - started)))
         except Exception as exc:
             self.record_error(exc)
         finally:
@@ -220,6 +234,8 @@ def create_app(config=None):
                         "width": camera.frame_size[0] if camera.frame_size else None,
                         "height": camera.frame_size[1] if camera.frame_size else None,
                         "capture_fps": camera.frame_rate,
+                        "target_fps": cfg["camera"].get("fps", 30),
+                        "timestamp_source": camera.timestamp_source,
                     },
                 ),
                 Diagnostic(
@@ -252,8 +268,16 @@ def create_app(config=None):
             return state["camera"].observations.model_copy(deep=True)
 
     @app.get("/preview")
-    async def preview():
+    async def preview(after: str | None = None):
         if cfg["mode"] == "mock":
+            fps = cfg["camera"].get("fps", 30)
+            tick = time.monotonic()
+            frame_id = f"simulated-{int(tick * fps)}"
+            if after == frame_id:
+                await asyncio.sleep((int(tick * fps) + 1) / fps - tick)
+                tick = time.monotonic()
+                frame_id = f"simulated-{int(tick * fps)}"
+            stamp = (now() - timedelta(seconds=tick % (1 / fps))).isoformat()
             lines = "".join(
                 f'<text x="30" y="{100 + i * 65}" fill="#dae9e4" font-size="22">'
                 f"{html.escape(t.tool_id)}: {t.location}</text>"
@@ -266,9 +290,28 @@ def create_app(config=None):
                 + lines
                 + "</svg>"
             )
-            return Response(svg, media_type="image/svg+xml", headers={"Cache-Control": "no-store"})
+            return Response(
+                svg,
+                media_type="image/svg+xml",
+                headers={
+                    "Cache-Control": "no-store",
+                    "X-Frame-Id": frame_id,
+                    "X-Frame-Captured-At": stamp,
+                    "X-Frame-Age-Ms": "0",
+                    "X-Frame-Time-Source": "simulated",
+                },
+            )
         camera = state["camera"]
         if camera:
+            # Long polling returns only a new, latest frame. No per-client frame queue.
+            deadline = time.monotonic() + 1
+            while after is not None:
+                with camera.lock:
+                    if camera.frame_id != after or camera.error:
+                        break
+                if time.monotonic() >= deadline:
+                    return Response(status_code=204, headers={"Cache-Control": "no-store"})
+                await asyncio.sleep(0.002)
             with camera.lock:
                 if (
                     camera.jpeg
@@ -277,7 +320,17 @@ def create_app(config=None):
                     <= cfg["observation_max_age_seconds"]
                 ):
                     return Response(
-                        camera.jpeg, media_type="image/jpeg", headers={"Cache-Control": "no-store"}
+                        camera.jpeg,
+                        media_type="image/jpeg",
+                        headers={
+                            "Cache-Control": "no-store",
+                            "X-Frame-Id": camera.frame_id,
+                            "X-Frame-Captured-At": camera.frame_at.isoformat(),
+                            "X-Frame-Age-Ms": str(
+                                max(0, (now() - camera.frame_at).total_seconds() * 1000)
+                            ),
+                            "X-Frame-Time-Source": camera.timestamp_source,
+                        },
                     )
         raise HTTPException(503, "Camera preview unavailable")
 

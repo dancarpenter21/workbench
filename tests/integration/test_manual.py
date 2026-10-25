@@ -21,17 +21,19 @@ def controller():
     return ManualControl(cfg, clock=lambda: now[0]), now
 
 
-def test_saved_limits_enable_jog_and_changed_assembly_requires_new_limits(tmp_path):
+def test_jog_needs_no_configuration_and_saved_limits_are_optional(tmp_path):
     cfg = settings()
     cfg["mode"] = "hardware"
+    cfg["arm"]["backend"] = "pca9685"
     control = ManualControl(cfg)
-    assert not control.status().available
+    assert control.status().available
+    assert all(j.min_us == 500 and j.max_us == 2500 for j in control.joints)
     store = Store("limits", tmp_path)
     commissioning = LiveCommissioning(cfg)
     commissioning.attach(store)
     bounds = commissioning.bounds()
     control.use_bounds(bounds)
-    assert not control.status().available
+    assert control.status().available
     for name in JOINT_ORDER:
         for kind, pulse in (("minimum", 1450), ("maximum", 1550)):
             setattr(
@@ -51,7 +53,8 @@ def test_saved_limits_enable_jog_and_changed_assembly_requires_new_limits(tmp_pa
     bounds.assembly_id = "replacement arm"
     bounds.joints["claw"].maximum = None
     control.use_bounds(bounds)
-    assert not control.status().available
+    assert control.status().available
+    assert control.joints[-1].max_us == 2500
     store.close()
 
 
@@ -271,6 +274,10 @@ class Bus:
 
 
 async def test_hardware_preparation_failure_and_pwm_shutdown(tmp_path, monkeypatch):
+    import json
+
+    from movement_fixtures import geometry_data
+
     # Synthetic buses must not contend with the running physical controller's lock.
     monkeypatch.setattr(
         "workbench_arm_controller.device_lock.Path", lambda name: tmp_path / Path(name).name
@@ -278,6 +285,9 @@ async def test_hardware_preparation_failure_and_pwm_shutdown(tmp_path, monkeypat
     cfg = settings()
     cfg["mode"] = "hardware"
     cfg["arm"]["backend"] = "pca9685"
+    geometry = tmp_path / "geometry.json"
+    geometry.write_text(json.dumps(geometry_data(domain="physical")))
+    cfg["arm"]["movement_geometry"] = str(geometry)
     cfg["manual"] = mock_configuration()  # Synthetic fixture only; never a physical calibration.
     bus = Bus(1)
     from test_claw_servo_test import SensorBus
@@ -357,7 +367,7 @@ async def test_hardware_preparation_failure_and_pwm_shutdown(tmp_path, monkeypat
     store.close()
 
 
-@pytest.mark.parametrize("change", ["mapping", "limits", "rate", "initial", "evidence"])
+@pytest.mark.parametrize("change", ["mapping", "limits", "rate", "initial", "type"])
 def test_invalid_manual_configuration_is_unavailable_without_hardware(change, monkeypatch):
     cfg = settings()
     cfg["mode"] = "hardware"
@@ -365,8 +375,8 @@ def test_invalid_manual_configuration_is_unavailable_without_hardware(change, mo
     cfg["manual"] = mock_configuration()
     if change == "mapping":
         cfg["manual"]["channels"]["base"]["channel"] = 0
-    elif change == "evidence":
-        cfg["manual"]["evidence"] = ""
+    elif change == "type":
+        cfg["manual"] = "invalid configuration"
     else:
         field, value = {
             "limits": ("min_us", 2501),

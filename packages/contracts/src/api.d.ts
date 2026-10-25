@@ -380,6 +380,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/arm-controller/commissioning/geometry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Geometry Measurements */
+        get: operations["arm_controller_geometry_measurements_commissioning_geometry_get"];
+        put?: never;
+        /** Geometry Measurements Save */
+        post: operations["arm_controller_geometry_measurements_save_commissioning_geometry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/arm-controller/commissioning/ready": {
         parameters: {
             query?: never;
@@ -1060,6 +1078,24 @@ export interface paths {
         put?: never;
         /** Commissioning Save Bounds */
         post: operations["coordinator_commissioning_save_bounds_commissioning_bounds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/commissioning/geometry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Geometry Measurements */
+        get: operations["coordinator_geometry_measurements_commissioning_geometry_get"];
+        put?: never;
+        /** Geometry Measurements Save */
+        post: operations["coordinator_geometry_measurements_save_commissioning_geometry_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2733,6 +2769,53 @@ export interface components {
              */
             externally_verified: true;
         };
+        /** GeometryMeasurements */
+        GeometryMeasurements: {
+            /** Context Key */
+            context_key: string;
+            /**
+             * Domain
+             * @enum {string}
+             */
+            domain: "physical" | "simulated";
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+            /** Geometry */
+            geometry: {
+                [key: string]: unknown;
+            };
+            /**
+             * Valid
+             * @default false
+             */
+            valid: boolean;
+            /**
+             * Validation Error
+             * @default
+             */
+            validation_error: string;
+            /** Active Revision */
+            active_revision?: number | null;
+        };
+        /** GeometryMeasurementsUpdate */
+        GeometryMeasurementsUpdate: {
+            /** Context Key */
+            context_key: string;
+            /** Revision */
+            revision: number;
+            /** Geometry */
+            geometry: {
+                [key: string]: unknown;
+            };
+            /**
+             * Activate
+             * @default false
+             */
+            activate: boolean;
+        };
         /** ManualAcquire */
         ManualAcquire: {
             /**
@@ -3247,7 +3330,9 @@ export interface operations {
     };
     vision_preview_preview_get: {
         parameters: {
-            query?: never;
+            query?: {
+                after?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4407,6 +4492,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommissionBounds"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_geometry_measurements_commissioning_geometry_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeometryMeasurements"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_geometry_measurements_save_commissioning_geometry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeometryMeasurementsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeometryMeasurements"];
                 };
             };
             /** @description Bad Request */
@@ -7151,6 +7352,122 @@ export interface operations {
             };
         };
     };
+    coordinator_geometry_measurements_commissioning_geometry_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeometryMeasurements"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_geometry_measurements_save_commissioning_geometry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeometryMeasurementsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeometryMeasurements"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     coordinator_current_scale_status_commissioning_current_scale_get: {
         parameters: {
             query?: never;
@@ -9399,7 +9716,9 @@ export interface operations {
     };
     coordinator_preview_camera_preview_get: {
         parameters: {
-            query?: never;
+            query?: {
+                after?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;

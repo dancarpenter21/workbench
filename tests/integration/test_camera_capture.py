@@ -1,3 +1,4 @@
+import asyncio
 import builtins
 import sys
 import threading
@@ -9,6 +10,7 @@ import pytest
 from workbench_common import settings
 from workbench_contracts import Observations, now
 from workbench_vision import app as vision_app
+from workbench_vision import capture as capture_module
 from workbench_vision.capture import OpenCVCapture, Picamera2Capture, open_capture
 
 
@@ -22,6 +24,8 @@ def cv():
     module = MagicMock()
     module.CAP_PROP_FRAME_WIDTH = 3
     module.CAP_PROP_FRAME_HEIGHT = 4
+    module.CAP_PROP_FPS = 5
+    module.CAP_PROP_BUFFERSIZE = 38
     module.VideoCapture.return_value.isOpened.return_value = True
     return module
 
@@ -41,7 +45,7 @@ def test_default_backend_keeps_opencv_capture_and_releases_device(camera_config,
     assert isinstance(capture, OpenCVCapture)
     assert capture.read() is frame
     cv.VideoCapture.assert_called_once_with(0)
-    assert device.set.call_args_list == [call(3, 640), call(4, 480)]
+    assert device.set.call_args_list == [call(3, 640), call(4, 480), call(5, 30), call(38, 1)]
     capture.close()
     capture.close()
     device.release.assert_called_once()
@@ -69,18 +73,23 @@ def test_picamera2_selects_bgr_bytes_and_preserves_frame(camera_config, cv, pica
     camera_config["backend"] = "picamera2"
     device = picamera.Picamera2.return_value
     frame = object()
-    device.wait.return_value = frame
+    request = MagicMock()
+    request.make_array.return_value = frame
+    request.get_metadata.return_value = {}
+    device.wait.return_value = request
     capture = open_capture(camera_config, cv)
     assert isinstance(capture, Picamera2Capture)
     picamera.Picamera2.assert_called_once_with(camera_num=0)
     device.create_video_configuration.assert_called_once_with(
-        main={"size": (640, 480), "format": "RGB888"}, queue=False
+        main={"size": (640, 480), "format": "RGB888"}, controls={"FrameRate": 30}, queue=False
     )
     device.configure.assert_called_once_with(device.create_video_configuration.return_value)
     device.start.assert_called_once()
     assert capture.read() is frame
-    device.capture_array.assert_called_once_with("main", wait=False)
-    device.wait.assert_called_once_with(device.capture_array.return_value, timeout=1.0)
+    request.release.assert_called_once()
+    assert capture.timestamp_source == "capture"
+    device.capture_request.assert_called_once_with(wait=False)
+    device.wait.assert_called_once_with(device.capture_request.return_value, timeout=1.0)
     cv.VideoCapture.assert_not_called()
     capture.close()
     capture.close()
@@ -96,6 +105,29 @@ def test_picamera2_initialization_failure_closes_device(camera_config, picamera)
     device.close.assert_called_once()
 
 
+def test_picamera2_uses_sensor_boot_timestamp_and_releases_request(
+    camera_config, picamera, monkeypatch
+):
+    request = MagicMock()
+    request.get_metadata.return_value = {"SensorTimestamp": 9_950_000_000}
+    picamera.Picamera2.return_value.wait.return_value = request
+    stamp = now()
+    monkeypatch.setattr(capture_module, "now", lambda: stamp)
+    monkeypatch.setattr(capture_module.time, "clock_gettime", lambda clock: 10)
+    capture = Picamera2Capture(camera_config)
+    try:
+        capture.read()
+        assert capture.timestamp_source == "sensor"
+        assert (stamp - capture.captured_at).total_seconds() == pytest.approx(0.05)
+        request.release.assert_called_once()
+        request.make_array.side_effect = ValueError("bad buffer")
+        with pytest.raises(ValueError, match="bad buffer"):
+            capture.read()
+        assert request.release.call_count == 2
+    finally:
+        capture.close()
+
+
 def test_picamera2_timeout_does_not_queue_more_jobs_and_cleanup_flushes(camera_config, picamera):
     device = picamera.Picamera2.return_value
     device.wait.side_effect = TimeoutError()
@@ -103,7 +135,7 @@ def test_picamera2_timeout_does_not_queue_more_jobs_and_cleanup_flushes(camera_c
     for _ in range(2):
         with pytest.raises(TimeoutError, match="frame capture timed out"):
             capture.read()
-    device.capture_array.assert_called_once_with("main", wait=False)
+    device.capture_request.assert_called_once_with(wait=False)
     capture.close()
     device.cancel_all_and_flush.assert_called_once()
     device.close.assert_called_once()
@@ -113,16 +145,19 @@ def test_picamera2_timeout_does_not_queue_more_jobs_and_cleanup_flushes(camera_c
 def test_picamera2_failed_job_allows_new_capture(camera_config, picamera, failure):
     device = picamera.Picamera2.return_value
     failed_job, healthy_job, frame = object(), object(), object()
-    device.capture_array.side_effect = [failed_job, healthy_job]
-    device.wait.side_effect = [failure, frame]
+    device.capture_request.side_effect = [failed_job, healthy_job]
+    request = MagicMock()
+    request.make_array.return_value = frame
+    request.get_metadata.return_value = {}
+    device.wait.side_effect = [failure, request]
     capture = Picamera2Capture(camera_config)
     try:
         with pytest.raises(type(failure), match=str(failure)):
             capture.read()
         assert capture.read() is frame
-        assert device.capture_array.call_args_list == [
-            call("main", wait=False),
-            call("main", wait=False),
+        assert device.capture_request.call_args_list == [
+            call(wait=False),
+            call(wait=False),
         ]
         assert device.wait.call_args_list == [
             call(failed_job, timeout=1.0),
@@ -239,6 +274,31 @@ def test_worker_closes_device_when_service_stops(camera_config, cv, monkeypatch)
     capture.close.assert_called_once()
 
 
+@pytest.mark.parametrize("processing_seconds, expected_wait", [(0.04, 0.06), (0.15, 0)])
+def test_worker_counts_processing_toward_frame_interval(
+    camera_config, cv, monkeypatch, processing_seconds, expected_wait
+):
+    camera = worker(camera_config | {"interval_seconds": 0.1}, cv)
+    frame = MagicMock(shape=(480, 640, 3))
+    capture = MagicMock()
+    capture.read.return_value = frame
+    cv.imencode.return_value = True, SimpleNamespace(tobytes=lambda: b"jpeg")
+    monkeypatch.setattr(vision_app, "open_capture", lambda cfg, cv: capture)
+    ticks = iter([0, processing_seconds, processing_seconds])
+    monkeypatch.setattr(vision_app.time, "monotonic", lambda: next(ticks))
+    waits = []
+
+    def after_frame(delay):
+        waits.append(delay)
+        camera.stop.set()
+
+    monkeypatch.setattr(camera.stop, "wait", after_frame)
+    camera.run()
+    assert waits == pytest.approx([expected_wait])
+    assert camera.jpeg == b"jpeg"
+    capture.close.assert_called_once()
+
+
 async def test_mock_service_does_not_import_camera_libraries(monkeypatch):
     original_import = builtins.__import__
 
@@ -259,3 +319,54 @@ async def test_mock_service_does_not_import_camera_libraries(monkeypatch):
             assert (await client.get("/health")).json()["ready"]
             assert (await client.get("/observations")).json()["camera_ok"]
             assert (await client.get("/preview")).headers["content-type"] == "image/svg+xml"
+
+
+async def test_preview_waits_for_new_frame_and_times_out_without_repeating(monkeypatch):
+    cfg = settings()
+    cfg["mode"] = "hardware"
+    stamp = now()
+    camera = SimpleNamespace(
+        lock=threading.Lock(),
+        frame_at=stamp,
+        frame_id="first",
+        jpeg=b"first jpeg",
+        timestamp_source="sensor",
+        error="",
+        close=lambda: None,
+    )
+    monkeypatch.setattr(vision_app, "Camera", lambda cfg: camera)
+    app = vision_app.create_app(cfg)
+    async with app.router.lifespan_context(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app), base_url="http://test"
+        ) as client:
+            pending = asyncio.create_task(client.get("/preview", params={"after": "first"}))
+            await asyncio.sleep(0.02)
+            assert not pending.done()
+            with camera.lock:
+                camera.frame_id = "second"
+                camera.jpeg = b"second jpeg"
+            response = await asyncio.wait_for(pending, timeout=0.5)
+            assert response.content == b"second jpeg"
+            assert response.headers["x-frame-id"] == "second"
+            assert response.headers["x-frame-time-source"] == "sensor"
+            assert (await client.get("/preview", params={"after": "second"})).status_code == 204
+
+
+async def test_coordinator_forwards_frame_timing_and_no_new_frame(stack):
+    bus, cfg, calls, faults, _ = stack
+    base = cfg["services"]["coordinator"]
+    first = await bus.get(base + "/camera/preview")
+    assert first.headers["x-frame-time-source"] == "simulated"
+    assert first.headers["x-frame-id"].startswith("simulated-")
+    assert first.headers["x-frame-captured-at"]
+
+    async def no_new_frame(request):
+        return httpx.Response(204)
+
+    upstream = cfg["services"]["vision"] + "/preview?after=frozen"
+    faults[("GET", upstream)] = no_new_frame
+    response = await bus.get(base + "/camera/preview", params={"after": "frozen"})
+    assert response.status_code == 204
+    assert response.content == b""
+    assert ("GET", upstream) in calls

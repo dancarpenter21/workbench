@@ -26,7 +26,9 @@ from workbench_contracts import (
 )
 
 from .claw_current import ClawCurrentMonitor
+from .geometry_setup import GeometrySetup
 from .manual import JOINT_ORDER
+from .movement import MovementRejected, MovementSession
 from .servo_trial import TICK_US, SingleServoOutput, encode_pulse
 
 
@@ -57,6 +59,7 @@ class LiveCommissioning:
 
     def attach(self, store):
         self.store = store
+        self.geometry = GeometrySetup(self.config, store, self.bounds_context, self.bounds_key)
         self.trial = store.get(self.prefix + "trial")
         if self.trial:
             draft = self.read(self.trial["draft_id"])
@@ -323,7 +326,7 @@ class LiveCommissioning:
             },
             message=(
                 f"Trial settings: 1500 us initial, {window[0]}–{window[1]} us selected window, at most {self.max_move_us} us per move. "
-                "Physical position unknown."
+                "V1 position is assumed from successful PWM writes, not measured."
                 if self.available
                 else "Commissioning requires the PCA9685 backend."
             ),
@@ -455,8 +458,18 @@ class LiveCommissioning:
             raise HTTPException(409, "Trial is not in the required stage")
 
     def open_output(self):
+        self.geometry.apply_active()
         arm = self.config["arm"]
-        return self.factory(arm.get("i2c_bus", 1), arm.get("i2c_address", 0x40))
+        return self.factory(
+            arm.get("i2c_bus", 1),
+            arm.get("i2c_address", 0x40),
+            movement=MovementSession.from_config(self.config),
+            check_current=self.check_current,
+        )
+
+    def check_current(self):
+        self.monitor.poll()
+        self.monitor.require()
 
     def emergency_disable(self):
         if self.output:
@@ -612,6 +625,19 @@ class LiveCommissioning:
                 if direct_limits is not None
                 else f"Target must be inside trial window and within {self.max_move_us} us of current request",
             )
+        # Geometry rejection is a normal refusal, not an output fault. Check before
+        # persisting intent or changing the currently held/confirmed command.
+        if not self.simulated:
+            channel = 5 - JOINT_ORDER.index(joint)
+            try:
+                result = self.output.movement.check(
+                    {channel: target}, {channel: encode_pulse(target, low, high)[1]}
+                )
+            except Exception as exc:
+                self.fault(exc)
+            if not result.accepted:
+                self.event("movement_rejected", str(MovementRejected(result)))
+                raise HTTPException(409, str(MovementRejected(result)))
         try:
             self.monitor.require()
             self.trial.setdefault("confirmed_commands", {}).pop(joint, None)

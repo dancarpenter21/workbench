@@ -1,4 +1,5 @@
 import type { components } from "@workbench/contracts";
+import { mountGeometry } from "./geometry";
 
 type Bounds = components["schemas"]["CommissionBounds"];
 type Status = components["schemas"]["CommissionStatus"];
@@ -10,6 +11,8 @@ const label = (id: string) => id === "base" ? "Base" : id === "claw" ? "Claw" : 
 export function mountCommissioning(root: HTMLElement) {
   root.innerHTML = `
     <div class="panel-heading"><h2>Initialization</h2><span id="init-domain" class="caption"></span></div>
+    <section id="geometry-panel"></section>
+    <h3>Optional pulse limits</h3>
     <form id="init-form" novalidate>
       <div class="init-values" role="table" aria-label="Joint pulse values in microseconds">
         <div class="init-row init-head" role="row"><span>Joint</span><span>Pulse μs</span><span>Min μs</span><span>Max μs</span><span></span></div>
@@ -24,6 +27,7 @@ export function mountCommissioning(root: HTMLElement) {
       <button id="init-save" type="submit">Save limits</button>
     </form>
     <p id="init-error" role="alert" hidden></p>`;
+  const geometry = mountGeometry(root.querySelector<HTMLElement>("#geometry-panel")!);
   const input = (id: string, kind: string) => root.querySelector<HTMLInputElement>(`#init-${id}-${kind}`)!;
   const error = root.querySelector<HTMLElement>("#init-error")!;
   let bounds: Bounds | null = null;
@@ -54,7 +58,7 @@ export function mountCommissioning(root: HTMLElement) {
     error.hidden = false;
   }
   function render() {
-    root.querySelectorAll<HTMLButtonElement>("button").forEach(button => { button.disabled = pending || !bounds || (!!button.dataset.move && Date.now() < nextMove); });
+    root.querySelectorAll<HTMLButtonElement>("#init-form button").forEach(button => { button.disabled = pending || !bounds || (!!button.dataset.move && Date.now() < nextMove); });
     root.querySelector<HTMLElement>("#init-domain")!.textContent = bounds?.domain === "simulated" ? "SIMULATED" : "";
   }
   function loadLimits(value: Bounds) {
@@ -166,7 +170,7 @@ export function mountCommissioning(root: HTMLElement) {
   render();
   return {
     end,
-    setVisible(value: boolean) { visible = value; if (!value && token) void end(); else if (value) void poll(); },
+    setVisible(value: boolean) { visible = value; geometry.setVisible(value); if (!value && token) void end(); else if (value) void poll(); },
     updateWorkbench(value: Workbench | null) { if (!value && token) void end(); },
   };
 }

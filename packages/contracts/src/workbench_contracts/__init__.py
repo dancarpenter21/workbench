@@ -400,6 +400,23 @@ class CommissionReadiness(Contract):
     ready: bool
 
 
+class GeometryMeasurements(Contract):
+    context_key: str
+    domain: Literal["physical", "simulated"]
+    revision: int = 0
+    geometry: dict
+    valid: bool = False
+    validation_error: str = ""
+    active_revision: int | None = None
+
+
+class GeometryMeasurementsUpdate(Contract):
+    context_key: str
+    revision: int = Field(ge=0)
+    geometry: dict
+    activate: bool = False
+
+
 class CommissionChecklistUpdate(Contract):
     context_key: str
     step: CommissionChecklistStep

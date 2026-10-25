@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from workbench_contracts import ManualJoint, ManualSession, ManualStatus
 
 from .claw_current import ClawCurrentMonitor
+from .movement import MovementRejected, MovementSession
 from .pca9685 import Pca9685Output, PulsePlan
 
 JOINT_ORDER = ("base", "joint_2", "joint_3", "joint_4", "joint_5", "claw")
@@ -29,6 +30,13 @@ def mock_configuration():
             for index, name in enumerate(JOINT_ORDER)
         },
     }
+
+
+def free_play_configuration():
+    config = mock_configuration()
+    for joint in config["channels"].values():
+        joint.update(min_us=500, max_us=2500, direction="Positive increases pulse width")
+    return config
 
 
 class ManualControl:
@@ -54,14 +62,15 @@ class ManualControl:
         self.commanded = {}
         self.joints = []
         self.plan = None
+        self.movement = MovementSession(free_play=True)
         try:
             if not self.simulated and config["arm"].get("backend") != "pca9685":
                 raise ValueError("Manual control requires the PCA9685 backend")
-            manual = mock_configuration() if self.simulated else config.get("manual", {})
+            manual = config.get("manual") or (
+                mock_configuration() if self.simulated else free_play_configuration()
+            )
             if not isinstance(manual, dict):
                 raise ValueError("Manual configuration must be a JSON object")
-            if not self.simulated and not manual.get("bounds_context"):
-                raise ValueError("Save limits for all six joints in Initialization")
             channels = manual["channels"]
             if set(channels) != set(JOINT_ORDER):
                 raise ValueError(
@@ -79,6 +88,8 @@ class ManualControl:
                 if not isinstance(data["label"], str) or not data["label"].strip():
                     raise ValueError("Joint label required")
                 self.targets[name] = data["initial_us"]
+                if data["initial_us"] != 1500:
+                    raise ValueError("The established startup is 1500 us on every channel")
                 self.joints.append(
                     ManualJoint(
                         id=name,
@@ -109,20 +120,17 @@ class ManualControl:
             self.targets = {}
 
     def use_bounds(self, bounds):
-        """Refresh Jog limits only while no output is prepared or owned."""
+        """Saved pulse bounds are optional; use the nominal range for missing endpoints."""
         if self.simulated or self.prepared or self.token or self.output:
             return
         channels = {}
         for index, name in enumerate(JOINT_ORDER):
             joint = bounds.joints.get(name)
-            if not joint or not joint.minimum or not joint.maximum:
-                channels = {}
-                break
             channels[name] = {
                 "channel": 5 - index,
                 "label": "Base" if index == 0 else "Claw" if index == 5 else f"Joint {index + 1}",
-                "min_us": joint.minimum.requested_us,
-                "max_us": joint.maximum.requested_us,
+                "min_us": joint.minimum.requested_us if joint and joint.minimum else 500,
+                "max_us": joint.maximum.requested_us if joint and joint.maximum else 2500,
                 "initial_us": 1500,
                 "max_rate_us_per_second": 100,
                 "direction": "Increasing pulse width",
@@ -151,7 +159,8 @@ class ManualControl:
             prepared=self.prepared,
             active=self.token is not None,
             recovery_required=recovery or self.recovery_required,
-            message=message,
+            message=message
+            + " Free play: table-clearance checks are off; current monitoring remains active.",
             joints=[
                 j.model_copy(update={"commanded_us": self.commanded.get(j.id)}) for j in self.joints
             ],
@@ -179,10 +188,13 @@ class ManualControl:
         self.commanded = {}
         try:
             self.monitor.prepare()
+            self.movement = MovementSession(free_play=True)
             self.output = Pca9685Output(
                 self.calibration,
                 bus_number=self.config["arm"].get("i2c_bus", 1),
                 address=self.config["arm"].get("i2c_address", 0x40),
+                movement=self.movement,
+                check_current=self.check_current,
             )
             self.targets = {
                 name: data["initial_us"] for name, data in self.calibration["channels"].items()
@@ -245,9 +257,14 @@ class ManualControl:
         self.message = message
 
     def fault(self, message):
+        self.movement.invalidate()
         self.hold(message, recovery=True)
         self.commanded = {}
         self.prepared = False
+
+    def check_current(self):
+        self.monitor.poll()
+        self.monitor.require()
 
     def tick(self):
         now = self.clock()
@@ -268,7 +285,8 @@ class ManualControl:
         if not self.speed or not self.joint:
             return
         joint = next(j for j in self.joints if j.id == self.joint)
-        self.targets[joint.id] = max(
+        targets = dict(self.targets)
+        targets[joint.id] = max(
             joint.min_us,
             min(
                 joint.max_us,
@@ -276,11 +294,14 @@ class ManualControl:
             ),
         )
         try:
-            pulses = self.plan.encode(self.targets)
+            pulses = self.plan.encode(targets)
             if any(self.commanded.get(p.joint) != p.commanded_us for p in pulses):
                 if self.output:
-                    pulses = self.output.write_pose(self.targets)
+                    pulses = self.output.write_pose(targets)
                 self.commanded = {p.joint: p.commanded_us for p in pulses}
+            self.targets = targets
+        except MovementRejected as exc:
+            self.hold(str(exc) + ". Last PWM targets retained.")
         except Exception as exc:
             self.fault(f"{exc}. Output state unknown; use the physical cutoff and prepare again.")
 

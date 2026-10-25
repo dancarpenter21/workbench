@@ -1,4 +1,4 @@
-"""Manual channel-4/5 commissioning. Defaults to an offline plan; --live opens I2C.
+"""Legacy channel-4/5 neutral test. Defaults to an offline plan; --live opens I2C.
 
 No position/current feedback or stall detection. The first pulse can cause a large
 movement. Pulse limits here are a restricted trial window, not measured joint limits.
@@ -82,8 +82,10 @@ def run_live(bus_number, address, channel=CHANNEL):
                     if not MIN_US <= target <= MAX_US:
                         print("Trial-window limit reached; no command sent.")
                         continue
-                    write_pulse(bus, address, target, channel)
-                    pulse_us = target
+                    print(
+                        "Movement requires measured geometry and a guarded all-holding session. "
+                        "Use the application's Initialization controls; no command sent."
+                    )
             finally:
                 # Never restore old pulses or command a return-to-center movement.
                 try:

@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from .device_lock import DeviceLock
+from .movement import MovementRejected, MovementSession
 
 AUTOMATION_UNAVAILABLE = (
     "PCA9685 automatic retrieval is disabled: starting-pose confirmation, "
@@ -90,7 +91,7 @@ class PulsePlan:
 
 
 class Pca9685Output:
-    """Low-level output only; no feedback, homing, interpolation or automatic stop.
+    """Guarded PWM output; v1 assumes movement succeeds after a complete write.
 
     Opening and closing request all PWM outputs off, which may release a load.
     Use only with the arm supported and servo power disconnected during setup.
@@ -105,8 +106,13 @@ class Pca9685Output:
         address=0x40,
         reference_clock_hz=25_000_000,
         bus_factory=None,
+        movement=None,
+        check_current=None,
     ):
         self.plan = PulsePlan(calibration, reference_clock_hz)
+        self.movement = movement if movement is not None else MovementSession()
+        self.check_current = check_current
+        self.movement.check_current = check_current
         if type(bus_number) is not int or bus_number < 0:
             raise ValueError("Invalid I2C bus number")
         # Exclude reserved I2C addresses and the PCA9685 all-call address.
@@ -146,25 +152,43 @@ class Pca9685Output:
         if self.closed or self.faulted:
             raise RuntimeError("Output closed or faulted; inspect hardware before reconnecting")
         commands = self.plan.encode(pose)  # Validate every target before the first write.
-        try:
+
+        def dispatch():
+            if self.check_current is None:
+                raise RuntimeError("Claw current monitor required for six-channel output")
             for command in commands:
+                self.check_current()
                 self.bus.write_i2c_block_data(
                     self.address,
                     0x06 + 4 * command.channel,
                     [0, 0, command.ticks & 0xFF, command.ticks >> 8],
                 )
+                self.check_current()
+
+        try:
+            self.movement.move(
+                {c.channel: c.requested_us for c in commands},
+                {c.channel: c.commanded_us for c in commands},
+                dispatch,
+            )
+        except MovementRejected:
+            raise  # Ordinary refusal retains holding PWM and the assumed position.
         except Exception as exc:
-            # Some channels may already have changed; do not claim the old pose or retry.
             self.faulted = True
             self.commanded = None
+            try:
+                self.disable()
+            except Exception:
+                pass
             raise RuntimeError(
-                "I2C write failed; physical position and output state are unknown. "
-                "Use the physical cutoff and inspect the supported arm."
+                "Output/current check failed; physical position and output state are unknown. "
+                "CUT SERVO POWER and inspect the supported arm."
             ) from exc
         self.commanded = tuple(commands)  # Sent pulses only, never measured position.
         return self.commanded
 
     def disable(self):
+        self.movement.invalidate()
         self.bus.write_byte_data(self.address, 0xFD, 0x10)
         for channel in range(16):
             if not self.bus.read_byte_data(self.address, 0x09 + 4 * channel) & 0x10:
@@ -175,6 +199,7 @@ class Pca9685Output:
         if self.closed:
             return
         self.closed = True
+        self.movement.invalidate()
         self.commanded = None
         try:
             self.bus.write_byte_data(self.address, 0xFD, 0x10)
@@ -188,6 +213,7 @@ class Pca9685Output:
         """Release the bus handle without releasing a supported or powered load."""
         if not self.closed:
             self.closed = True
+            self.movement.invalidate()
             try:
                 self.bus.close()
             finally:

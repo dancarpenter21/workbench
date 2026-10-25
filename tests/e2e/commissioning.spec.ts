@@ -29,11 +29,12 @@ test.afterEach(async ({ request }) => {
   });
 });
 
-test("Initialization contains only six editable rows, Move, and Save limits", async ({ page }) => {
+test("Initialization separates capsule measurements from optional pulse limits", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 480 });
-  await expect(page.locator("#commissioning-panel input")).toHaveCount(18);
-  await expect(page.locator("#commissioning-panel button")).toHaveCount(7);
-  await expect(page.locator("#commissioning-panel details, #commissioning-panel input[type=checkbox]")).toHaveCount(0);
+  await expect(page.locator("#init-form input")).toHaveCount(18);
+  await expect(page.locator("#init-form button")).toHaveCount(7);
+  await expect(page.locator("#geometry-panel")).toBeVisible();
+  await expect(page.locator("#geometry-save")).toBeEnabled();
   await expect(page.locator("#init-error")).toBeHidden();
   await expect(page.locator("#shared-recovery")).toBeHidden();
   await expect(page.locator("#commissioning-panel")).toContainText("SIMULATED");
@@ -43,6 +44,7 @@ test("Initialization contains only six editable rows, Move, and Save limits", as
     await expect(field(page, id, "max")).toHaveValue("2000");
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator("#init-save").scrollIntoViewIfNeeded();
   await expect(page.locator("#init-save")).toBeInViewport({ ratio: 1 });
   await page.screenshot({ path: "test-results/initialization-direct-values-800.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -162,4 +164,64 @@ test("Save accepts only base limits and preserves omitted joints", async ({ page
   await expect(page.locator("#init-save")).toHaveText("Saved");
   await expect(field(page, "joint_2", "min")).toHaveValue("850");
   await expect(field(page, "joint_2", "max")).toHaveValue("2000");
+});
+
+test("capsule drafts save independently without sending movement", async ({ page, request }) => {
+  const motion: string[] = [];
+  page.on("request", req => {
+    if (req.method() === "POST" && /\/(initialize|position|input)$/.test(req.url())) motion.push(req.url());
+  });
+  const before = await (await request.get("/api/coordinator/commissioning/bounds")).json();
+  await expect(page.locator("#geometry-save")).toBeEnabled();
+  await page.locator("#capsule-0-a-0").fill("12");
+  await page.locator("#capsule-0-a-1").fill("0");
+  await page.locator("#capsule-0-a-2").fill("100");
+  await page.locator("#capsule-0-radius").fill("14");
+  await page.locator("#geometry-error-mm").fill("");
+  await page.locator("#geometry-save").click();
+  await expect(page.locator("#geometry-status")).not.toContainText("Unsaved");
+  await expect(page.locator("#geometry-error")).toBeHidden();
+  const saved = await (await request.get("/api/coordinator/commissioning/geometry")).json();
+  expect(saved.geometry.capsules[0].a_mm).toEqual([12, 0, 100]);
+  expect(saved.geometry.capsules[0].radius_mm).toBe(14);
+  expect(saved.valid).toBe(false);
+  expect(await (await request.get("/api/coordinator/commissioning/bounds")).json()).toEqual(before);
+  expect(motion).toEqual([]);
+  await page.reload();
+  await page.locator("#pulse-tab").click();
+  await expect(page.locator("#capsule-0-radius")).toHaveValue("14");
+  await page.locator("#geometry-panel").screenshot({ path: "test-results/capsule-measurements.png" });
+  await page.locator("#geometry-activate").click();
+  await expect(page.locator("#geometry-error")).toBeVisible();
+  await expect(page.locator("#capsule-0-radius")).toHaveValue("14");
+});
+
+test("complete capsule geometry activates while Jog stays free play", async ({ page, request }) => {
+  const state = await (await request.get("/api/coordinator/commissioning/geometry")).json();
+  const origins = [[0, 0, 100], [100, 0, 100], [160, 0, 100], [200, 0, 100]];
+  const geometry = {
+    schema_version: 1, domain: "simulated", revision: "synthetic-browser-test", calibrated: false,
+    reference_pulse_us: 1500, base_axis_perpendicular_to_table: true, claw_envelope: "full_opening_range",
+    clearance_mm: 10, geometry_error_mm: 1, max_boxes: 4096,
+    joints: [4, 3, 2, 1].map((channel, i) => ({ channel, origin_mm: origins[i], axis: [0, -1, 0],
+      pulse_angle_deg: [[500, -90], [1500, 0], [2500, 90]], error_deg: 0.5 })),
+    capsules: [4, 3, 2, 1].map((parent_channel, i) => ({ name: `link_${parent_channel}`, parent_channel,
+      a_mm: origins[i], b_mm: origins[i + 1] ?? [220, 0, 100], radius_mm: 5 }))
+      .concat([{ name: "claw", parent_channel: 1, a_mm: [220, 0, 100], b_mm: [240, 0, 100], radius_mm: 10 }]),
+  };
+  const seeded = await request.post("/api/coordinator/commissioning/geometry", {
+    data: { context_key: state.context_key, revision: state.revision, geometry, activate: false },
+  });
+  expect(seeded.ok()).toBe(true);
+  const nextRevision = (await seeded.json()).revision + 1;
+  await page.locator("#geometry-reload").click();
+  await expect(page.locator("#geometry-status")).toContainText("Measurements are valid");
+  await page.locator("#geometry-activate").click();
+  await expect(page.locator("#geometry-status")).toContainText(`Active geometry: revision ${nextRevision}.`);
+  await expect(page.locator("#geometry-error")).toBeHidden();
+  expect((await request.post("/api/coordinator/recover", { data: { acknowledged: true } })).ok()).toBe(true);
+  await page.locator("#jog-tab").click();
+  await expect(page.locator("#manual-clearance")).toContainText("table-clearance checks off");
+  await expect(page.locator("#manual-enable")).toBeEnabled();
+  await page.locator("#manual-panel").screenshot({ path: "test-results/manual-free-play.png" });
 });

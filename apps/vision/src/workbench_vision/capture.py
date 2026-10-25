@@ -1,5 +1,10 @@
 """Hardware capture backends. Frames use OpenCV's BGR channel order."""
 
+import time
+from datetime import timedelta
+
+from workbench_contracts import now
+
 
 class OpenCVCapture:
     def __init__(self, camera, cv):
@@ -9,6 +14,8 @@ class OpenCVCapture:
                 raise RuntimeError("OpenCV camera disconnected or unavailable")
             self.device.set(cv.CAP_PROP_FRAME_WIDTH, camera["width"])
             self.device.set(cv.CAP_PROP_FRAME_HEIGHT, camera["height"])
+            self.device.set(cv.CAP_PROP_FPS, camera.get("fps", 30))
+            self.device.set(cv.CAP_PROP_BUFFERSIZE, 1)
         except Exception:
             self.close()
             raise
@@ -17,6 +24,8 @@ class OpenCVCapture:
         ok, frame = self.device.read()
         if not ok or frame is None:
             raise RuntimeError("OpenCV camera disconnected or unavailable")
+        self.captured_at = now()
+        self.timestamp_source = "capture"
         return frame
 
     def close(self):
@@ -47,6 +56,7 @@ class Picamera2Capture:
             config = self.device.create_video_configuration(
                 # Picamera2 RGB888 stores [B, G, R]; BGR888 would swap red and blue.
                 main={"size": (camera["width"], camera["height"]), "format": "RGB888"},
+                controls={"FrameRate": camera.get("fps", 30)},
                 queue=False,
             )
             self.device.configure(config)
@@ -59,9 +69,9 @@ class Picamera2Capture:
         # Keep one outstanding job after a timeout, rather than queueing more captures.
         # The bounded wait lets Camera.close() stop a disconnected CSI camera.
         if self.pending is None:
-            self.pending = self.device.capture_array("main", wait=False)
+            self.pending = self.device.capture_request(wait=False)
         try:
-            frame = self.device.wait(self.pending, timeout=1.0)
+            request = self.device.wait(self.pending, timeout=1.0)
         except TimeoutError as exc:
             raise TimeoutError("Picamera2 frame capture timed out") from exc
         except Exception:
@@ -69,9 +79,23 @@ class Picamera2Capture:
             self.pending = None
             raise
         self.pending = None
-        if frame is None:
+        if request is None:
             raise RuntimeError("Picamera2 returned no camera frame")
-        return frame
+        try:
+            frame = request.make_array("main")
+            received_at = now()
+            sensor_ns = request.get_metadata().get("SensorTimestamp")
+            self.captured_at = received_at
+            self.timestamp_source = "capture"
+            # libcamera SensorTimestamp uses CLOCK_BOOTTIME, not browser wall time.
+            if isinstance(sensor_ns, int) and sensor_ns > 0:
+                age = time.clock_gettime(time.CLOCK_BOOTTIME) - sensor_ns / 1e9
+                if 0 <= age < 60:
+                    self.captured_at = received_at - timedelta(seconds=age)
+                    self.timestamp_source = "sensor"
+            return frame
+        finally:
+            request.release()
 
     def close(self):
         if self.device is not None:

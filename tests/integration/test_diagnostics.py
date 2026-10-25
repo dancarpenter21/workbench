@@ -94,7 +94,9 @@ async def test_uncommissioned_hardware_blocks_requests_and_reports_missing_model
                 "/execute",
                 json={"tool_id": "pliers", "operation_id": "12345678-1234-1234-1234-123456789abc"},
             )
-            assert response.status_code == 503
+            assert (
+                response.status_code == 409
+            )  # Free play is configured; automation stays disabled.
         for app in apps[2:]:
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app), base_url="http://test"
@@ -244,6 +246,11 @@ async def test_camera_preview_without_references(monkeypatch):
                     break
                 await asyncio.sleep(0.01)
             assert preview.headers["content-type"] == "image/jpeg"
+            assert preview.headers["x-frame-id"] == preview.headers["x-frame-captured-at"]
+            assert float(preview.headers["x-frame-age-ms"]) >= 0
+            newer = await c.get("/preview", params={"after": preview.headers["x-frame-id"]})
+            assert newer.status_code == 200
+            assert newer.headers["x-frame-id"] != preview.headers["x-frame-id"]
             assert not (await c.get("/observations")).json()["camera_ok"]
             checks = (await c.get("/diagnostics")).json()
             assert checks[0]["status"] == "ok"

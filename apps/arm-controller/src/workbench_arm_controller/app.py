@@ -36,6 +36,8 @@ from workbench_contracts import (
     CurrentScaleState,
     CurrentScaleVerification,
     Diagnostic,
+    GeometryMeasurements,
+    GeometryMeasurementsUpdate,
     Health,
     ManualAcquire,
     ManualInput,
@@ -355,6 +357,23 @@ def create_app(config=None, store=None):
     async def commissioning_bounds():
         async with lock:
             return commissioning.bounds()
+
+    @app.get("/commissioning/geometry", response_model=GeometryMeasurements)
+    async def geometry_measurements():
+        async with lock:
+            return commissioning.geometry.read()
+
+    @app.post("/commissioning/geometry", response_model=GeometryMeasurements)
+    async def geometry_measurements_save(value: GeometryMeasurementsUpdate):
+        async with lock:
+            if value.activate and (busy() or manual.token or commissioning.reserved):
+                raise HTTPException(
+                    409, "End active movement sessions before activating measurements"
+                )
+            try:
+                return commissioning.geometry.save(value)
+            except OSError as exc:
+                raise HTTPException(503, "Could not save capsule measurements") from exc
 
     @app.post("/commissioning/bounds", response_model=CommissionBounds)
     async def commissioning_save_bounds(value: CommissionBoundsUpdate):

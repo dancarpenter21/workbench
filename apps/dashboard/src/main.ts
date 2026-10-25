@@ -1,6 +1,7 @@
 import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
 import { record } from "./audio";
+import { mountCamera } from "./camera";
 import { ageCurrent, renderCurrent, renderHatPresence, renderServoPower } from "./current";
 import "./style.css";
 import { mountDiagnostics } from "./diagnostics";
@@ -24,8 +25,8 @@ root.innerHTML = `
   <p id="startup-status" role="status">Checking commissioning…</p>
   <main id="workbench-view" hidden>
     <div class="workbench-layout">
-      <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><span id="camera-status" role="status" title="Preview delivery rate and time since the last received frame">Connecting…</span><button id="stop" class="danger">■ Stop arm</button></div>
-        <img id="camera" alt="Overhead view of the workbench" />
+      <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><span id="camera-status" role="status" title="Rate of unique displayed frames; target 30 fps">Connecting…</span><button id="stop" class="danger">■ Stop arm</button></div>
+        <div class="camera-view"><img id="camera" alt="Overhead view of the workbench" /><span id="camera-timing" title="Age bound includes request and decode time. Sensor timing uses the first row exposure timestamp; screen scanout is excluded.">Waiting for frame timing…</span></div>
         <p id="camera-note" class="caption" role="status">Connecting to camera…</p>
       </div>
       <div class="tab-content">
@@ -295,48 +296,7 @@ setInterval(() => {
   if (events && performance.now() - lastEventAt >= 3000) reconnectEvents();
 }, 1000);
 
-const camera = el<HTMLImageElement>("camera");
-let cameraPending = false;
-let cameraRequestedAt = 0;
-let cameraFailed = false;
-let lastFrameAt: number | null = null;
-let frameTimes: number[] = [];
-function renderCameraStatus() {
-  const now = performance.now();
-  frameTimes = frameTimes.filter(time => now - time < 10_000);
-  const age = lastFrameAt === null ? null : (now - lastFrameAt) / 1000;
-  const state = cameraFailed ? "Unavailable" : age === null ? "Connecting" : age >= 3 ? "Stale" : "Live";
-  const fps = state === "Live" && frameTimes.length > 1
-    ? ((frameTimes.length - 1) * 1000 / (frameTimes.at(-1)! - frameTimes[0])).toFixed(1)
-    : "0.0";
-  el("camera-status").textContent = `${state} · ${fps} preview fps${age === null ? "" : ` · ${age.toFixed(1)}s ago`}`;
-}
-camera.onload = () => {
-  cameraPending = false;
-  cameraFailed = false;
-  lastFrameAt = performance.now();
-  frameTimes.push(lastFrameAt);
-  renderCameraStatus();
-  el("camera-note").hidden = latest?.mode !== "mock";
-  el("camera-note").textContent = "Simulated scene · reset after each delivery";
-};
-camera.onerror = () => {
-  cameraPending = false;
-  cameraFailed = true;
-  renderCameraStatus();
-  el("camera-note").hidden = false;
-  el("camera-note").textContent =
-    "Camera unavailable — check the vision application.";
-};
-function refreshCamera() {
-  if (cameraPending && performance.now() - cameraRequestedAt < 5000) return;
-  cameraPending = true;
-  cameraRequestedAt = performance.now();
-  camera.src = `/api/coordinator/camera/preview?t=${Date.now()}`;
-}
-refreshCamera();
-setInterval(refreshCamera, 1000);
-setInterval(renderCameraStatus, 250);
+mountCamera();
 
 async function refreshServices() {
   try {
