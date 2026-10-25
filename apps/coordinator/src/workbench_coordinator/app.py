@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from uuid import UUID
 
 import httpx
-from fastapi import HTTPException, Request, Response
+from fastapi import HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from workbench_common import Store, app_base, settings
 from workbench_common.diagnostics import host_check
@@ -63,9 +63,13 @@ from workbench_contracts import (
     TextRequest,
     Tool,
     Transcript,
+    VideoAnswer,
+    VideoOffer,
     WorkbenchStatus,
     now,
 )
+
+from .status_stream import StatusPublisher
 
 
 def check_observations(obs: Observations, cfg, tool_id: str, location: str):
@@ -167,6 +171,7 @@ def create_app(config=None, store=None, client=None):
             )
             await stop_arm()
         yield
+        await publisher.close()
         if state["task"] and not state["task"].done():
             await state["store"].aput("recovery", True)
             state["task"].cancel()
@@ -765,19 +770,61 @@ def create_app(config=None, store=None, client=None):
             await refresh_manual()
             return snapshot()
 
+    async def refresh_status():
+        await refresh_manual()
+        return snapshot()
+
+    publisher = StatusPublisher(refresh_status)
+
+    @app.websocket("/ws/status")
+    async def status_socket(websocket: WebSocket):
+        await websocket.accept()
+        try:
+            async with publisher.subscribe():
+                version = 0
+                while True:
+                    version, status = await asyncio.wait_for(publisher.next(version), timeout=3)
+                    await asyncio.wait_for(websocket.send_text(status.model_dump_json()), timeout=3)
+                    # Exactly one snapshot in flight. On ACK, select the latest; never replay a queue.
+                    if await asyncio.wait_for(websocket.receive_text(), timeout=3) != "ack":
+                        await websocket.close(code=1008, reason="Expected status acknowledgement")
+                        return
+        except WebSocketDisconnect:
+            pass
+        except TimeoutError:
+            await websocket.close(code=1013, reason="Status connection timed out")
+
     @app.get("/events")
     async def events(request: Request):
         async def stream():
-            while not await request.is_disconnected():
-                await refresh_manual()
-                yield f"data: {snapshot().model_dump_json()}\n\n"
-                await asyncio.sleep(0.1)
+            async with publisher.subscribe():
+                version = 0
+                while not await request.is_disconnected():
+                    version, status = await publisher.next(version)
+                    yield f"data: {status.model_dump_json()}\n\n"
 
         return StreamingResponse(
             stream(),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
+
+    @app.post("/camera/webrtc/offer", response_model=VideoAnswer)
+    async def video_offer(value: VideoOffer):
+        try:
+            result = await call(
+                "vision", "POST", "/webrtc/offer", json=value.model_dump(), timeout=15
+            )
+            return VideoAnswer.model_validate(result.json())
+        except httpx.HTTPError as exc:
+            raise HTTPException(503, "Camera video unavailable") from exc
+
+    @app.delete("/camera/webrtc/sessions/{session_id}", status_code=204)
+    async def close_video(session_id: str):
+        try:
+            await call("vision", "DELETE", f"/webrtc/sessions/{session_id}")
+        except httpx.HTTPError as exc:
+            raise HTTPException(503, "Camera video cleanup unavailable") from exc
 
     @app.get("/camera/preview")
     async def preview(after: str | None = None):

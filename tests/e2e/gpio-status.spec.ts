@@ -12,6 +12,9 @@ for (const state of ["detected", "hat_missing", "hat_stale", "ammeter_missing", 
       const hat = { state: state === "hat_missing" ? "error" : "detected", simulated: false,
         address: 64, age_seconds: state === "hat_stale" ? 4 : 0.01, detail: state === "hat_missing" ? "No response at 0x40" : "Register reads succeeded" };
       class DeviceEvents {
+      static OPEN = 1;
+      readyState = 1;
+      send(_message: string) {}
         onmessage: ((event: { data: string }) => void) | null = null;
         onerror: (() => void) | null = null;
         constructor() {
@@ -25,7 +28,11 @@ for (const state of ["detected", "hat_missing", "hat_stale", "ammeter_missing", 
           }, 75);
         }
       }
-      (window as any).EventSource = DeviceEvents;
+      (window as any).WebSocket = new Proxy(window.WebSocket, {
+      construct(native, args) {
+        return String(args[0]).includes("/ws/status") ? new DeviceEvents() : Reflect.construct(native, args);
+      },
+    });
     }, { state });
     await page.goto("/");
     const hat = page.locator("#connection");

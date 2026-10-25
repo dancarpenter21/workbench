@@ -25,8 +25,10 @@ root.innerHTML = `
   <p id="startup-status" role="status">Checking commissioning…</p>
   <main id="workbench-view" hidden>
     <div class="workbench-layout">
-      <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><span id="camera-status" role="status" title="Rate of unique displayed frames; target 30 fps">Connecting…</span><button id="stop" class="danger">■ Stop arm</button></div>
-        <div class="camera-view"><img id="camera" alt="Overhead view of the workbench" /><span id="camera-timing" title="Age bound includes request and decode time. Sensor timing uses the first row exposure timestamp; screen scanout is excluded.">Waiting for frame timing…</span></div>
+      <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><button id="stop" class="danger">■ Stop arm</button></div>
+        <div class="camera-view"><video id="camera" hidden autoplay muted playsinline aria-label="Overhead view of the workbench"></video></div>
+        <p id="camera-status" role="status">Connecting…</p>
+        <details class="camera-details"><summary>Camera diagnostics</summary><p id="camera-timing">Waiting for video…</p></details>
         <p id="camera-note" class="caption" role="status">Connecting to camera…</p>
       </div>
       <div class="tab-content">
@@ -259,7 +261,7 @@ function refreshCurrent() {
 refreshCurrent();
 setInterval(refreshCurrent, 100);
 
-let events: EventSource | null = null;
+let events: WebSocket | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let lastEventAt = performance.now();
 
@@ -278,7 +280,9 @@ function reconnectEvents() {
   }
 }
 function connectEvents() {
-  const source = new EventSource("/api/coordinator/events");
+  const address = new URL("/api/coordinator/ws/status", window.location.href);
+  address.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const source = new WebSocket(address);
   events = source;
   lastEventAt = performance.now();
   source.onmessage = event => {
@@ -289,7 +293,9 @@ function connectEvents() {
     lastEventAt = performance.now();
     connected = true;
     render(status);
+    if (source.readyState === WebSocket.OPEN) source.send("ack");
   };
+  source.onclose = () => { if (events === source) reconnectEvents(); };
   source.onerror = () => { if (events === source) reconnectEvents(); };
 }
 connectEvents();

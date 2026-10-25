@@ -20,6 +20,9 @@ for (const state of ["off", "noise", "voltage", "on", "fault", "stale", "missing
         current_a: null, scale_verified: false, cutoff_a: 2.5,
       };
       class FixtureEvents {
+      static OPEN = 1;
+      readyState = 1;
+      send(_message: string) {}
         onmessage: ((event: { data: string }) => void) | null = null;
         constructor() {
           setInterval(() => this.onmessage?.({ data: JSON.stringify({
@@ -29,7 +32,11 @@ for (const state of ["off", "noise", "voltage", "on", "fault", "stale", "missing
           }) }), 75);
         }
       }
-      (window as any).EventSource = FixtureEvents;
+      (window as any).WebSocket = new Proxy(window.WebSocket, {
+      construct(native, args) {
+        return String(args[0]).includes("/ws/status") ? new FixtureEvents() : Reflect.construct(native, args);
+      },
+    });
     }, { state });
     await page.goto("/");
     await page.locator("#pulse-tab").click();
@@ -63,7 +70,7 @@ test("small display has separate views, visible stop and no horizontal scrolling
     await expect(page.locator("#camera")).toBeVisible();
     await expect(page.locator(".camera-panel #stop")).toBeVisible();
     await expect(page.locator("#tools, #mode")).toHaveCount(0);
-    await expect.poll(() => page.locator("#camera").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    await expect.poll(() => page.locator("#camera").evaluate((image: HTMLVideoElement) => image.videoWidth)).toBeGreaterThan(0);
     await page.screenshot({ path: `test-results/compact-${view}-800.png` });
   }
   await page.setViewportSize({ width: 1024, height: 600 });

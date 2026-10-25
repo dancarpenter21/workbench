@@ -2,7 +2,12 @@
 name = "workbench-vision"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = ["workbench-common", "workbench-contracts"]
+dependencies = [
+    "aiortc>=1.14,<2",
+    "numpy>=1.26,<2.4",
+    "workbench-common",
+    "workbench-contracts",
+]
 [project.optional-dependencies]
 hardware = ["opencv-python-headless>=4.10,<5", "numpy>=1.26,<2.4"]
 [build-system]

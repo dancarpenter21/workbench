@@ -44,7 +44,7 @@ export function renderCurrent(root: HTMLElement, sample?: Current | null) {
       <span class="current-domain"></span><span class="current-label"></span>
       <span class="current-raw"><span class="current-reading current-shunt">Shunt voltage <span class="current-value"></span></span><span class="current-reading current-voltage">Supply <span class="current-value"></span></span><span class="current-reading current-amperes">Current <span class="current-value"></span></span></span></div>
       <details class="current-details"><summary aria-label="Current details">Details</summary><div class="current-details-body"><div class="current-scale"></div>
-        <div class="current-age"></div><div class="current-baseline"></div><div class="current-recovery"></div></div></details><span class="current-fault" role="alert"></span><span class="current-interlock" role="status"></span>`;
+        <div class="current-fault-detail"></div><div class="current-age"></div><div class="current-baseline"></div><div class="current-recovery"></div></div></details><span class="current-fault" role="alert"></span><span class="current-interlock" role="status"></span>`;
   }
   const set = (selector: string, text: string) => { root.querySelector<HTMLElement>(selector)!.textContent = text; };
   const presentation = currentPresentation(sample);
@@ -75,22 +75,64 @@ export function renderCurrent(root: HTMLElement, sample?: Current | null) {
   set(".current-recovery", latched ? "Current readings are available. A previous monitoring interruption still needs an explicit reset before motion. Previous interlock: " + sample?.fault : "");
   set(".current-interlock", resetRequired ? "Motion inhibited — reset required" : "");
   root.querySelector<HTMLElement>(".current-interlock")!.title = sample?.fault ?? "";
-  set(".current-fault", sample && !fresh && !delayed ? sample.fault || "No fresh sensor reading. Physical testing unavailable." : "");
+  const fault = sample && !fresh && !delayed
+    ? sample.fault || "No fresh sensor reading. Physical testing unavailable." : "";
+  set(".current-fault-detail", root.id === "header-current" ? fault : "");
+  set(".current-fault", root.id === "header-current" && fault
+    ? sample?.simulated ? "Sensor fault — testing unavailable. See Details." : "Sensor fault — CUT PHYSICAL SERVO POWER."
+    : fault);
 }
+
+// A short delivery gap may retain a confirmed supply label, never motion authorization.
+const confirmedPower = new WeakMap<HTMLElement, {
+  power: "off" | "energized";
+  expiresAt: number;
+  simulated: boolean;
+  monitorSession: string | null | undefined;
+}>();
 
 export function renderServoPower(root: HTMLElement, sample?: Current | null) {
   if (!root.querySelector(".power-label")) {
     root.innerHTML = '<span class="status-light" aria-hidden="true"></span><span class="power-label"></span>';
   }
   const presentation = currentPresentation(sample);
-  const state = presentation.power === "off" ? "off" : presentation.power === "energized" ? "ok" : "waiting";
-  const label = presentation.powerLabel;
+  const now = performance.now();
+  let power = presentation.power;
+  let cached = false;
+  if (presentation.fresh && (power === "off" || power === "energized")) {
+    confirmedPower.set(root, {
+      power,
+      expiresAt: now + (CURRENT_DISPLAY_GRACE_SECONDS - sample!.age_seconds!) * 1000,
+      simulated: sample?.simulated === true,
+      monitorSession: sample?.monitor_session_id,
+    });
+  } else {
+    const confirmed = confirmedPower.get(root);
+    const delayed = !sample || (sample.reading_state === "stale" &&
+      sample.age_seconds != null && sample.age_seconds >= 0 &&
+      sample.age_seconds < CURRENT_DISPLAY_GRACE_SECONDS &&
+      Number.isFinite(sample.bus_v) && Number.isFinite(sample.shunt_mv));
+    const sameMonitor = !sample || (sample.simulated === confirmed?.simulated &&
+      sample.monitor_session_id === confirmed?.monitorSession);
+    if (confirmed && delayed && sameMonitor && now < confirmed.expiresAt) {
+      power = confirmed.power;
+      cached = true;
+    } else {
+      confirmedPower.delete(root);
+    }
+  }
+  const state = power === "off" ? "off" : power === "energized" ? "ok" : "waiting";
+  const label = power === "off" ? "Powered off" : power === "energized" ? "Powered" : "Power unknown";
   root.dataset.state = state;
   root.dataset.pillState = state;
+  root.dataset.cached = String(cached);
   root.querySelector(".power-label")!.textContent = label;
   root.querySelector(".status-light")!.textContent = state === "off" ? "○" : state === "ok" ? "✓" : "…";
-  root.setAttribute("aria-label", `Servo power: ${label}${sample?.simulated ? " (simulated)" : ""}`);
-  root.title = "Servo supply state inferred from the ammeter; not a motion-readiness indication.";
+  const simulated = sample?.simulated ?? confirmedPower.get(root)?.simulated;
+  root.setAttribute("aria-label", `Servo power: ${label}${simulated ? " (simulated)" : ""}`);
+  root.title = cached
+    ? "Last confirmed supply state, less than one second old; awaiting an update. Not a motion-readiness indication."
+    : "Servo supply state inferred from the ammeter; not a motion-readiness indication.";
 }
 
 export function renderHatPresence(root: HTMLElement, sample: components["schemas"]["PeripheralStatus"] | null | undefined, elapsed: number, connected: boolean) {

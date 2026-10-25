@@ -353,9 +353,10 @@ def test_camera_retries_open_after_temporary_failure(monkeypatch):
         import time
 
         deadline = time.monotonic() + 4
-        while camera.jpeg is None and time.monotonic() < deadline:
+        while camera.latest() is None and time.monotonic() < deadline:
             time.sleep(0.02)
-        assert camera.jpeg is not None
+        assert camera.latest() is not None
+        assert camera.snapshot() is not None
         assert opened.call_count == 2
     finally:
         camera.close()

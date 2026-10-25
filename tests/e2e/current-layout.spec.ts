@@ -5,6 +5,9 @@ test("ammeter text is consistent and signed readings do not move its icon", asyn
   await page.addInitScript(() => {
     (window as any).__meterReading = { bus_v: 0.004, shunt_mv: 0.02, current_a: 0.001 };
     class MeterEvents {
+      static OPEN = 1;
+      readyState = 1;
+      send(_message: string) {}
       onmessage: ((event: { data: string }) => void) | null = null;
       timer: ReturnType<typeof setInterval>;
       constructor() {
@@ -19,7 +22,11 @@ test("ammeter text is consistent and signed readings do not move its icon", asyn
       }
       close() { clearInterval(this.timer); }
     }
-    (window as any).EventSource = MeterEvents;
+    (window as any).WebSocket = new Proxy(window.WebSocket, {
+      construct(native, args) {
+        return String(args[0]).includes("/ws/status") ? new MeterEvents() : Reflect.construct(native, args);
+      },
+    });
   });
   await page.goto("/");
   const meter = page.locator("#header-current");
@@ -83,3 +90,73 @@ test("hardware pills share typography and styling, and Details stays in place wh
   await details.click();
   await expect(meter.locator(".current-details-body")).toBeHidden();
 });
+
+for (const width of [1400, 800, 390]) {
+  test(`ammeter keeps its size across all text states at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.addInitScript(() => {
+      (window as any).__meterSample = null;
+      class MeterEvents {
+      static OPEN = 1;
+      readyState = 1;
+      send(_message: string) {}
+        onmessage: ((event: { data: string }) => void) | null = null;
+        timer: ReturnType<typeof setInterval>;
+        constructor() {
+          this.timer = setInterval(() => this.onmessage?.({ data: JSON.stringify({
+            mode: "mock", commissioning_ready: true, retrieval_enabled: false,
+            operation: null, recovery_required: false, message: "", manual: null,
+            commissioning: null, claw_current: (window as any).__meterSample,
+          }) }), 75);
+        }
+        close() { clearInterval(this.timer); }
+      }
+      (window as any).WebSocket = new Proxy(window.WebSocket, {
+      construct(native, args) {
+        return String(args[0]).includes("/ws/status") ? new MeterEvents() : Reflect.construct(native, args);
+      },
+    });
+    });
+    await page.goto("/");
+    const meter = page.locator("#header-current");
+    await expect(meter.locator(".current-label")).toHaveText("Sensor unavailable");
+    const initial = (await meter.boundingBox())!;
+    const initialHeader = (await page.locator("header").boundingBox())!;
+    const samples = [
+      { reading_state: "ok", age_seconds: 0.01, scale_verified: false, reset_required: false, simulated: false, fault: "" },
+      { reading_state: "ok", age_seconds: 0.01, scale_verified: true, reset_required: false, simulated: false, fault: "" },
+      { reading_state: "ok", age_seconds: 0.01, scale_verified: true, reset_required: true, simulated: true, fault: "Previous sensor interruption" },
+      { reading_state: "stale", age_seconds: 2, scale_verified: false, reset_required: true, simulated: false, fault: "Stale INA219 readings" },
+      { reading_state: "error", age_seconds: 0.01, scale_verified: true, reset_required: true, simulated: false,
+        fault: "INA219 read failed at I2C address 0x41. CUT PHYSICAL SERVO POWER; support the arm. Do not retry motion automatically after a sensor fault." },
+      { reading_state: "error", age_seconds: 0.01, scale_verified: false, reset_required: true, simulated: true, fault: "Simulated sensor disconnected" },
+    ];
+    for (const sample of samples) {
+      await page.evaluate(sample => {
+        (window as any).__meterSample = {
+          ...sample, bus_v: 12.34, shunt_mv: -123.45, current_a: -2.499,
+          power_state: "energized", shunt_ohms: 0.1,
+        };
+      }, sample);
+      await expect(meter).toHaveAttribute("data-simulated", String(sample.simulated));
+      await expect(meter.locator(".current-label")).toHaveText(
+        sample.reading_state === "ok" ? "" : sample.reading_state === "error" ? "Sensor fault" : "Updates delayed",
+      );
+      await expect(meter.locator(".current-amperes")).toHaveCSS("visibility", sample.scale_verified ? "visible" : "hidden");
+      const box = (await meter.boundingBox())!;
+      const header = (await page.locator("header").boundingBox())!;
+      expect(box).toEqual(initial);
+      expect(header).toEqual(initialHeader);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      if (sample.reading_state === "error") {
+        await expect(meter.locator(".current-fault")).toBeVisible();
+        if (!sample.simulated) await expect(meter.locator(".current-fault")).toContainText("CUT PHYSICAL SERVO POWER");
+        await meter.locator("summary").click();
+        await expect(meter.locator(".current-fault-detail")).toHaveText(sample.fault);
+        expect(await meter.boundingBox()).toEqual(initial);
+        await meter.locator("summary").click();
+      }
+    }
+    await page.screenshot({ path: `test-results/ammeter-fixed-${width}.png`, fullPage: true });
+  });
+}

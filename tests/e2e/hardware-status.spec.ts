@@ -21,6 +21,9 @@ for (const state of ["off", "energized", "latched_off", "latched_on", "error", "
         },
       };
       class HardwareEvents {
+      static OPEN = 1;
+      readyState = 1;
+      send(_message: string) {}
         onmessage: ((event: { data: string }) => void) | null = null;
         constructor() {
           setInterval(() => {
@@ -37,10 +40,14 @@ for (const state of ["off", "energized", "latched_off", "latched_on", "error", "
         }
         close() {}
       }
-      (window as any).EventSource = HardwareEvents;
+      (window as any).WebSocket = new Proxy(window.WebSocket, {
+      construct(native, args) {
+        return String(args[0]).includes("/ws/status") ? new HardwareEvents() : Reflect.construct(native, args);
+      },
+    });
     }, { state });
     const posts: string[] = [];
-    page.on("request", request => { if (request.method() === "POST") posts.push(request.url()); });
+    page.on("request", request => { if (request.method() === "POST" && !request.url().endsWith("/camera/webrtc/offer")) posts.push(request.url()); });
     await page.goto("/");
     const power = state === "off" || state === "latched_off" ? "Powered off" : state === "energized" || state === "latched_on" ? "Powered" : "Power unknown";
     for (const tab of ["workbench", "pulse", "jog", "diagnostics"]) {

@@ -206,7 +206,11 @@ def worker(camera_config, cv):
     camera.cv = cv
     camera.lock = threading.Lock()
     camera.stop = threading.Event()
-    camera.jpeg = b"old preview"
+    camera.frame = None
+    camera.frame_at = None
+    camera.frame_id = None
+    camera.recognition_error = ""
+    camera.cfg["observation_max_age_seconds"] = 2
     camera.observations = Observations(
         captured_at=now(), tools=[], tray_clear=False, camera_ok=True
     )
@@ -221,7 +225,7 @@ def test_worker_startup_failure_invalidates_previous_capture(camera_config, cv, 
     monkeypatch.setattr(vision_app, "open_capture", MagicMock(side_effect=RuntimeError("CSI busy")))
     camera.run()
     assert camera.error == "CSI busy"
-    assert camera.jpeg is None
+    assert camera.frame is None
     assert not camera.observations.camera_ok
     assert camera.observations.captured_at == captured_at
 
@@ -239,16 +243,15 @@ def test_worker_processes_bgr_frame_then_hides_preview_on_read_failure(
     snapshots = []
 
     def after_frame(_):
-        snapshots.append((camera.jpeg, camera.observations.camera_ok))
+        snapshots.append((camera.frame, camera.observations.camera_ok))
         if len(snapshots) == 2:
             camera.stop.set()
 
     monkeypatch.setattr(camera.stop, "wait", after_frame)
     camera.run()
-    assert snapshots == [(b"new jpeg", True), (None, False)]
+    assert snapshots == [(frame, True), (None, False)]
     assert camera.error == "camera disconnected"
-    assert camera.observations.tools[0].location == "source"
-    cv.imencode.assert_called_once_with(".jpg", frame)
+    cv.imencode.assert_not_called()
     capture.close.assert_called_once()
 
 
@@ -295,7 +298,8 @@ def test_worker_counts_processing_toward_frame_interval(
     monkeypatch.setattr(camera.stop, "wait", after_frame)
     camera.run()
     assert waits == pytest.approx([expected_wait])
-    assert camera.jpeg == b"jpeg"
+    assert camera.frame is frame
+    cv.imencode.assert_not_called()
     capture.close.assert_called_once()
 
 
@@ -333,6 +337,7 @@ async def test_preview_waits_for_new_frame_and_times_out_without_repeating(monke
         timestamp_source="sensor",
         error="",
         close=lambda: None,
+        snapshot=lambda: (camera.frame_id, camera.jpeg, camera.frame_at, "sensor"),
     )
     monkeypatch.setattr(vision_app, "Camera", lambda cfg: camera)
     app = vision_app.create_app(cfg)

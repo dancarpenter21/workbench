@@ -7,6 +7,7 @@ export default defineConfig({
     allowedHosts: ["pi1-home-ddc-crew"],
     proxy: {
       "/api": {
+        ws: true,
         target:
           process.env.WORKBENCH_COORDINATOR_URL ?? "http://127.0.0.1:8100",
         configure(proxy) {

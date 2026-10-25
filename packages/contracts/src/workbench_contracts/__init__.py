@@ -661,3 +661,16 @@ class MicrophoneResult(Contract):
     clipped: bool
     wav_base64: str
     simulated: bool = False
+
+
+class VideoOffer(Contract):
+    sdp: str = Field(min_length=1, max_length=65536)
+    type: Literal["offer"] = "offer"
+
+
+class VideoAnswer(Contract):
+    sdp: str
+    type: Literal["answer"] = "answer"
+    session_id: str
+    simulated: bool
+    target_fps: float

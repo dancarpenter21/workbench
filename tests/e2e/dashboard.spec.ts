@@ -36,6 +36,6 @@ test("retrieve, reset, stop and recover from the dashboard", async ({
     page.getByRole("button", { name: "Retrieve tool" }),
   ).toBeEnabled();
   await expect(page.locator("#camera")).toBeVisible();
-  await expect.poll(() => page.locator("#camera").evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator("#camera").evaluate((image: HTMLVideoElement) => image.videoWidth)).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });

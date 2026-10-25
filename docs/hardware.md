@@ -418,3 +418,39 @@ on-screen controls. Wiring follows base channel 5 through claw channel 0. See
 For the unchanged factory arm, use [guided joint trials](joint-trials.md) to
 observe one isolated servo before defining a combined starting pose. Jog becomes available after valid limits for all six joints are saved in Initialization. Never infer an upright or safe pose
 from the manufacturer's midpoint pulse alone.
+
+### Dashboard camera video
+
+The dashboard receives WebRTC video from the vision service at the configured camera
+resolution and frame rate (Pi defaults: 640×480 at 30 fps). One capture worker owns
+the camera; recognition and video consume its latest unannotated frame independently.
+Recognition observations retain the original frame's capture timestamp. The snapshot
+API remains available for diagnostics, but the dashboard never falls back to JPEGs.
+A stalled video is hidden after three seconds without displayed frames and the
+connection is retried after six seconds. Failed connections retry with a backoff
+capped at ten seconds.
+
+Signaling travels through the existing coordinator HTTP proxy. Media uses direct
+WebRTC UDP connections between the browser and Pi, with local ICE candidates and no
+external STUN/TURN service. Permit local UDP traffic on the Pi and avoid Wi-Fi client
+isolation; forwarding only the dashboard HTTP port is insufficient. This supports the
+Pi display and browsers on the same LAN, not arbitrary internet access. Up to four
+viewers can connect; each has its own video encoder, so additional viewers increase
+CPU use. Disconnected viewers and incomplete negotiations are cleaned up automatically.
+The vision service now installs aiortc/PyAV through `uv sync --locked`; Picamera2 still
+uses the matching Raspberry Pi OS camera bindings.
+
+Camera status and expandable diagnostics sit below the image. Displayed FPS and
+WebRTC jitter-buffer statistics are not sensor-to-display latency measurements. Mock
+mode uses an animated synthetic video through the same transport and is explicitly
+labeled simulated. No diagnostic text is drawn on hardware camera pixels.
+
+For physical performance acceptance, keep motor power disconnected. Compare the old
+JPEG revision and WebRTC using the same camera settings, lighting, moving scene,
+Pi browser and LAN browser. Film a timer or changing light alongside the displayed
+preview to measure visible delay; record median and worst observed delay, displayed
+FPS, Pi CPU load and thermal state over a 60-second run, with one and then two viewers.
+Confirm full framing, correct red/blue colors, camera disconnect/stall indication and
+recovery. Target playback near the configured frame rate and lower measured latency
+than the JPEG baseline. Mock tests and transport statistics do not establish physical
+latency or acceptance.

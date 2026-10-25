@@ -7,9 +7,19 @@ from datetime import datetime, timedelta
 
 from fastapi import HTTPException, Response
 from workbench_common import ROOT, app_base, settings
-from workbench_contracts import Diagnostic, Health, MockScene, Observation, Observations, now
+from workbench_contracts import (
+    Diagnostic,
+    Health,
+    MockScene,
+    Observation,
+    Observations,
+    VideoAnswer,
+    VideoOffer,
+    now,
+)
 
 from .capture import open_capture
+from .stream import VideoSessions
 
 RECONNECT_INTERVAL_SECONDS = 2
 
@@ -22,7 +32,7 @@ class Camera:
         self.cfg = cfg
         self.lock = threading.Lock()
         self.stop = threading.Event()
-        self.jpeg = None
+        self.frame = None
         self.observations = Observations(
             captured_at=now(), tools=[], tray_clear=False, camera_ok=False
         )
@@ -41,6 +51,8 @@ class Camera:
             self.recognition_error = str(exc)
         self.thread = threading.Thread(target=self.run_forever, daemon=True)
         self.thread.start()
+        self.recognition_thread = threading.Thread(target=self.run_recognition, daemon=True)
+        self.recognition_thread.start()
 
     def load_references(self):
         vision = self.cfg["workbench"]["vision"]
@@ -76,7 +88,7 @@ class Camera:
     def record_error(self, exc):
         with self.lock:
             self.error = str(exc) or type(exc).__name__
-            self.jpeg = None
+            self.frame = None
             self.observations.camera_ok = False
 
     def recognize(self, frame):
@@ -125,18 +137,8 @@ class Camera:
                     if not isinstance(captured_at, datetime):
                         captured_at = now()
                     failures = 0
-                    observations = None
-                    recognition_error = getattr(self, "recognition_error", "")
-                    if not recognition_error:
-                        try:
-                            observations = self.recognize(frame)
-                        except Exception as exc:
-                            recognition_error = str(exc)
-                    ok, jpeg = self.cv.imencode(".jpg", frame)
-                    if not ok:
-                        raise ValueError("Camera encoding failed")
                     with self.lock:
-                        self.jpeg = jpeg.tobytes()
+                        self.frame = frame
                         self.frame_at = captured_at
                         self.frame_id = captured_at.isoformat()
                         self.timestamp_source = (
@@ -149,17 +151,13 @@ class Camera:
                         previous = getattr(self, "previous_frame_time", None)
                         self.frame_rate = 1 / (tick - previous) if previous else 0.0
                         self.previous_frame_time = tick
-                        self.recognition_error = recognition_error
-                        self.observations = observations or Observations(
-                            captured_at=self.frame_at, tools=[], tray_clear=False, camera_ok=False
-                        )
                         self.error = ""
                 except Exception as exc:
                     self.record_error(exc)
                     failures += 1
                     if failures >= 3:
                         break
-                # Capture and encoding count toward the interval, rather than adding
+                # Capture counts toward the interval, rather than adding
                 # another full delay after each frame. Never queue catch-up frames.
                 self.stop.wait(max(0, camera["interval_seconds"] - (time.monotonic() - started)))
         except Exception as exc:
@@ -171,9 +169,53 @@ class Camera:
                 except Exception as exc:
                     self.record_error(exc)
 
+    def latest(self):
+        """Return one immutable frame reference; consumers never queue camera frames."""
+        with self.lock:
+            if (
+                self.frame is None
+                or self.error
+                or self.frame_at is None
+                or (now() - self.frame_at).total_seconds() > self.cfg["observation_max_age_seconds"]
+            ):
+                return None
+            return self.frame_id, self.frame, self.frame_at, self.timestamp_source
+
+    def snapshot(self):
+        sample = self.latest()
+        if sample is None:
+            return None
+        frame_id, frame, captured_at, source = sample
+        ok, jpeg = self.cv.imencode(".jpg", frame)
+        if not ok:
+            raise ValueError("Camera encoding failed")
+        return frame_id, jpeg.tobytes(), captured_at, source
+
+    def run_recognition(self):
+        previous = None
+        while not self.stop.is_set():
+            sample = self.latest()
+            if sample is None or sample[0] == previous or self.recognition_error:
+                self.stop.wait(0.01)
+                continue
+            previous, frame, captured_at, _ = sample
+            try:
+                observation = self.recognize(frame)
+                observation.captured_at = captured_at
+                with self.lock:
+                    # A read failure during inference must not restore camera health.
+                    if self.frame is not None and not self.error:
+                        self.observations = observation
+            except Exception as exc:
+                with self.lock:
+                    self.recognition_error = str(exc) or type(exc).__name__
+                    self.observations.camera_ok = False
+
     def close(self):
         self.stop.set()
         self.thread.join(timeout=2)
+        if hasattr(self, "recognition_thread"):
+            self.recognition_thread.join(timeout=2)
         if self.thread.is_alive():
             self.record_error("Camera capture did not stop within two seconds")
 
@@ -186,6 +228,8 @@ def create_app(config=None):
     ]
     state = {"scene": MockScene(tools=initial), "camera": None, "error": ""}
 
+    sessions = VideoSessions(cfg, lambda: state["camera"], lambda: state["scene"])
+
     @asynccontextmanager
     async def lifespan(app):
         if cfg["mode"] == "hardware":
@@ -194,6 +238,7 @@ def create_app(config=None):
             except Exception as exc:
                 state["error"] = str(exc)
         yield
+        await sessions.close()
         if state["camera"]:
             await asyncio.to_thread(state["camera"].close)
 
@@ -312,27 +357,29 @@ def create_app(config=None):
                 if time.monotonic() >= deadline:
                     return Response(status_code=204, headers={"Cache-Control": "no-store"})
                 await asyncio.sleep(0.002)
-            with camera.lock:
-                if (
-                    camera.jpeg
-                    and camera.frame_at
-                    and (now() - camera.frame_at).total_seconds()
-                    <= cfg["observation_max_age_seconds"]
-                ):
-                    return Response(
-                        camera.jpeg,
-                        media_type="image/jpeg",
-                        headers={
-                            "Cache-Control": "no-store",
-                            "X-Frame-Id": camera.frame_id,
-                            "X-Frame-Captured-At": camera.frame_at.isoformat(),
-                            "X-Frame-Age-Ms": str(
-                                max(0, (now() - camera.frame_at).total_seconds() * 1000)
-                            ),
-                            "X-Frame-Time-Source": camera.timestamp_source,
-                        },
-                    )
+            sample = await asyncio.to_thread(camera.snapshot)
+            if sample:
+                frame_id, jpeg, captured_at, source = sample
+                return Response(
+                    jpeg,
+                    media_type="image/jpeg",
+                    headers={
+                        "Cache-Control": "no-store",
+                        "X-Frame-Id": frame_id,
+                        "X-Frame-Captured-At": captured_at.isoformat(),
+                        "X-Frame-Age-Ms": str(max(0, (now() - captured_at).total_seconds() * 1000)),
+                        "X-Frame-Time-Source": source,
+                    },
+                )
         raise HTTPException(503, "Camera preview unavailable")
+
+    @app.post("/webrtc/offer", response_model=VideoAnswer)
+    async def video_offer(value: VideoOffer):
+        return await sessions.offer(value)
+
+    @app.delete("/webrtc/sessions/{session_id}", status_code=204)
+    async def close_video(session_id: str):
+        await sessions.remove(session_id)
 
     if cfg["mode"] == "mock":
 

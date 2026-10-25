@@ -8,6 +8,9 @@ for (const state of ["not_neutral", "within_reference", "outside_reference", "fa
     const evidence = { reference, state, detail: state === "not_neutral" ? "Neutral targets not established; advisory only" : "Recorded-range comparison", commanded_neutral: state !== "not_neutral" };
     await page.addInitScript(({ evidence, state }) => {
       class FixtureEvents {
+      static OPEN = 1;
+      readyState = 1;
+      send(_message: string) {}
         onmessage: ((event: { data: string }) => void) | null = null;
         onerror: (() => void) | null = null;
         constructor() {
@@ -20,7 +23,11 @@ for (const state of ["not_neutral", "within_reference", "outside_reference", "fa
           }) }), 75);
         }
       }
-      (window as any).EventSource = FixtureEvents;
+      (window as any).WebSocket = new Proxy(window.WebSocket, {
+      construct(native, args) {
+        return String(args[0]).includes("/ws/status") ? new FixtureEvents() : Reflect.construct(native, args);
+      },
+    });
     }, { evidence, state });
     await page.route("**/api/coordinator/diagnostics", route => route.fulfill({ json: {
       mode: "hardware", commissioning_ready: true, retrieval_enabled: false, checked_at: new Date().toISOString(),

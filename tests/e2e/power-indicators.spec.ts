@@ -17,6 +17,9 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
         },
       };
       class FixtureEvents {
+      static OPEN = 1;
+      readyState = 1;
+      send(_message: string) {}
         onmessage: ((event: { data: string }) => void) | null = null;
         onerror: (() => void) | null = null;
         constructor() {
@@ -28,7 +31,11 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
           }, 75);
         }
       }
-      (window as any).EventSource = FixtureEvents;
+      (window as any).WebSocket = new Proxy(window.WebSocket, {
+      construct(native, args) {
+        return String(args[0]).includes("/ws/status") ? new FixtureEvents() : Reflect.construct(native, args);
+      },
+    });
     }, { state });
     await page.goto("/");
     const badge = page.locator("#servo-power");
@@ -40,6 +47,7 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
       await page.locator("#header-current summary").click();
       await expect(page.locator("#header-current .current-recovery")).toContainText("previous monitoring interruption");
       if (state === "recovered_off") await page.screenshot({ path: "test-results/powered-off-normal.png" });
+      await page.locator("#header-current summary").click();
       await page.route("**/api/coordinator/commissioning/bounds", route => route.fulfill({
         status: 503, contentType: "application/json",
         body: JSON.stringify({ message: "Stale INA219 readings. CUT PHYSICAL SERVO POWER; support the arm." }),

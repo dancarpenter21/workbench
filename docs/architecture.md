@@ -65,7 +65,7 @@ logging and storage utilities, not application logic.
 
 | Service | Port | Key routes |
 | --- | --- | --- |
-| Coordinator | 8100 | `POST /requests`, `GET /status`, `GET /operations/{id}`, `GET /events`, `POST /stop`, `POST /recover` |
+| Coordinator | 8100 | `POST /requests`, `GET /status`, `GET /operations/{id}`, `WS /ws/status`, `POST /stop`, `POST /recover` |
 | Vision | 8101 | `GET /observations`, `GET /preview` |
 | Voice | 8102 | `POST /transcribe` (mono 16-bit PCM WAV, 0.1–30 seconds, 8–48 kHz) |
 | Assistant | 8103 | `POST /interpret` |
@@ -103,8 +103,17 @@ stopping during legacy RoArm dispatch waits for that bounded request, then reque
 hold. A PCA9685 backend must define its own validated behavior before retrieval execution.
 
 HTTP logs carry `X-Operation-ID` across the workflow. The dashboard receives state over
-server-sent events and refreshes preview frames independently. An API health response
-indicates initialization/readiness, not a certified guarantee of hardware availability.
+a WebSocket at `/ws/status` and receives camera video independently over WebRTC.
+The coordinator shares one 100 ms status acquisition loop among viewers. Each server
+message is a JSON `WorkbenchStatus`; the client replies with the text `ack` after
+processing it. Only one message may be in flight per viewer; after acknowledgment the
+server sends the newest available state, skipping superseded snapshots. Cache time is
+included in sensor ages. WebSocket compression reduces repeated metadata on the wire.
+Missing acknowledgments or missing updates time out after three seconds; the dashboard
+reconnects without restoring motion ownership. The legacy `/events` SSE endpoint remains
+available for diagnostics, but the dashboard uses WebSocket. Commands retain their HTTP
+APIs. Status delivery never changes the controller's sensor deadlines or motion interlocks.
+An API health response indicates initialization/readiness, not a certified guarantee of hardware availability.
 Fresh observations and legacy RoArm serial feedback are checked at execution time; the
 PWM backend does not supply equivalent feedback.
 

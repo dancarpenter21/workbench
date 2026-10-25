@@ -4,6 +4,9 @@ for (const ready of [false, true]) {
   test(`opens ${ready ? "Workbench" : "Initialization"} from commissioning limits`, async ({ page }) => {
     await page.addInitScript(({ ready }) => {
       class StartupEvents {
+      static OPEN = 1;
+      readyState = 1;
+      send(_message: string) {}
         onmessage: ((event: { data: string }) => void) | null = null;
         timer: ReturnType<typeof setInterval>;
         constructor() {
@@ -15,7 +18,11 @@ for (const ready of [false, true]) {
         }
         close() { clearInterval(this.timer); }
       }
-      (window as any).EventSource = StartupEvents;
+      (window as any).WebSocket = new Proxy(window.WebSocket, {
+      construct(native, args) {
+        return String(args[0]).includes("/ws/status") ? new StartupEvents() : Reflect.construct(native, args);
+      },
+    });
     }, { ready });
     await page.goto("/");
     await expect(page.locator(ready ? "#workbench-tab" : "#pulse-tab"))
