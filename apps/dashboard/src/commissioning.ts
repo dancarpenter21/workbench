@@ -1,5 +1,6 @@
 import type { components } from "@workbench/contracts";
 import { mountGeometry } from "./geometry";
+import { currentPresentation } from "./current";
 
 type Bounds = components["schemas"]["CommissionBounds"];
 type Status = components["schemas"]["CommissionStatus"];
@@ -41,6 +42,14 @@ export function mountCommissioning(root: HTMLElement) {
   let generation = 0;
   let nextMove = 0;
   let heartbeat: Promise<void> | null = null;
+  let errorMessage = "";
+  let powerOff = false;
+
+  function renderError() {
+    error.textContent = powerOff && errorMessage.startsWith("Stale INA219 readings")
+      ? "Powered off. A previous monitoring interruption requires a reset before motion."
+      : errorMessage;
+  }
 
   async function request<T>(path: string, body?: unknown): Promise<T> {
     const response = await fetch(`/api/coordinator/commissioning/${path}`, {
@@ -54,7 +63,8 @@ export function mountCommissioning(root: HTMLElement) {
     return value as T;
   }
   function fail(value: unknown) {
-    error.textContent = value instanceof Error ? value.message : "Request failed";
+    errorMessage = value instanceof Error ? value.message : "Request failed";
+    renderError();
     error.hidden = false;
   }
   function render() {
@@ -170,6 +180,10 @@ export function mountCommissioning(root: HTMLElement) {
   render();
   return {
     end,
+    updateCurrent(sample: Workbench["claw_current"]) {
+      powerOff = currentPresentation(sample).power === "off";
+      renderError();
+    },
     setVisible(value: boolean) { visible = value; geometry.setVisible(value); if (!value && token) void end(); else if (value) void poll(); },
     updateWorkbench(value: Workbench | null) { if (!value && token) void end(); },
   };

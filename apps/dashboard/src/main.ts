@@ -253,6 +253,7 @@ function refreshCurrent() {
   const sample = ageCurrent(latest?.claw_current, elapsed, connected);
   renderCurrent(el("header-current"), sample);
   renderServoPower(el("servo-power"), sample);
+  commissioning.updateCurrent(sample);
   renderHatPresence(el("connection"), connected ? latest?.servo_hat : null, elapsed, connected);
 }
 refreshCurrent();
