@@ -45,10 +45,6 @@ root.innerHTML = `
           <p id="operation-message">Waiting for your first request.</p><small id="operation-id"></small></div>
         <p id="error" role="alert"></p>
         <div class="controls"><button id="reset" class="secondary" hidden>Reset mock scene</button></div>
-        <div id="recovery" hidden><p id="recovery-message"></p>
-          <p id="recovery-error" role="alert"></p>
-          <label class="ack"><input type="checkbox" id="ack" /> I have checked the arm and cleared the workbench.</label>
-          <button id="recover" class="secondary" disabled>Recover</button></div>
       </div>
     <section id="commissioning-panel" class="manual-panel"></section>
     <section id="manual-panel" class="manual-panel"></section>
@@ -56,8 +52,7 @@ root.innerHTML = `
       </div>
     </div>
     <footer><span>LOCAL PROCESSING</span><div id="services">Checking applications…</div></footer>
-  </main>
-  <div id="shared-recovery"></div>`;
+  </main>`;
 
 const headerObserver = new ResizeObserver(([entry]) => {
   document.documentElement.style.setProperty("--header-height", `${entry.target.getBoundingClientRect().height}px`);
@@ -87,7 +82,6 @@ function showView(view: View) {
   diagnosticsView.hidden = view !== "diagnostics";
   el("tools-view").hidden = view !== "workbench";
   el("commissioning-panel").hidden = view !== "pulse";
-  el("shared-recovery").hidden = view === "pulse";
   el("manual-panel").hidden = view !== "jog";
   for (const name of ["workbench", "pulse", "jog", "diagnostics"] as const) {
     button(`${name}-tab`).setAttribute("aria-pressed", String(name === view));
@@ -96,7 +90,6 @@ function showView(view: View) {
 for (const view of ["workbench", "pulse", "jog", "diagnostics"] as const) {
   button(`${view}-tab`).onclick = () => { selectedView = true; showView(view); };
 }
-el("shared-recovery").append(el("recovery"));
 showView("workbench");
 let connected = false;
 let latest: Status | null = null;
@@ -147,10 +140,6 @@ function render(status: Status) {
     el("operation-message").textContent = operation.message;
     el("operation-id").textContent = `REQUEST ${operation.id.slice(0, 8)}`;
   }
-  el("recovery").hidden = !status.recovery_required;
-  el("recovery-message").textContent =
-    status.message ||
-    "Inspection and recovery required before another request.";
   updateControls();
 }
 
@@ -191,24 +180,6 @@ button("stop").onclick = async () => {
   }
 };
 
-el<HTMLInputElement>("ack").onchange = () => {
-  button("recover").disabled = !el<HTMLInputElement>("ack").checked;
-};
-button("recover").onclick = async () => {
-  el("recovery-error").textContent = "";
-  try {
-    const { data, error } = await api.POST("/coordinator/recover", {
-      body: { acknowledged: true },
-    });
-    if (error) throw new Error(error.message);
-    if (data) render(data);
-    el<HTMLInputElement>("ack").checked = false;
-    button("recover").disabled = true;
-    el("error").textContent = "";
-  } catch (error) {
-    el("recovery-error").textContent = error instanceof Error ? error.message : "Recovery failed";
-  }
-};
 button("reset").onclick = async () => {
   try {
     const { error } = await api.POST("/coordinator/mock/reset");

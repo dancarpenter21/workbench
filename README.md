@@ -10,6 +10,11 @@ npm start
 
 Open **http://127.0.0.1:5173** on the Pi or **http://<pi-address>:5173** on your LAN. The command starts all backend services and the dashboard. On first use, the dashboard opens **Initialization**. Use [Measuring the arm and entering measurements](#measuring-the-arm-and-entering-measurements) below to configure its geometry; minimum and maximum pulse limits are separate, optional constraints. Jog is available without geometry or saved pulse limits and requires manual power preparation and acknowledgment. PCA9685 automatic retrieval remains disabled.
 
+The dashboard has no shared recovery panel. Diagnostics provides interrupted-session
+cleanup and current-monitor reset. Controller recovery interlocks remain enforced;
+general acknowledged recovery is available through `POST /coordinator/recover` after
+inspection. See [Dashboard](apps/dashboard/README.md).
+
 Use `npm run dev:mock` for a simulated stack. Press Ctrl+C or run `npm run stop` to stop. The stop command shuts down this checkout's hardware/mock services and dashboard, including orphaned processes, and force-kills any that do not exit. Logs and commissioning records live under `.runtime/hardware/` for hardware and `.runtime/mock/` for simulation. Existing `.runtime/hardware/workbench-config.json` settings are loaded automatically when present; otherwise the Pi defaults apply.
 
 Startup preserves the installed Python dependencies with `uv run --no-sync`; rerun

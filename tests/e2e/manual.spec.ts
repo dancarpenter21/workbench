@@ -137,24 +137,23 @@ test("Xbox dead zone, neutral selection, proportional movement, disconnect and s
   expect(errors).toEqual([]);
   await expect(page.locator("#manual-panel")).toBeFocused();
   await page.evaluate(() => { (window as any).__manualPad.buttons[1].pressed = true; });
-  await expect(page.locator("#recovery")).toBeVisible();
+  await expect(page.locator("#recovery")).toHaveCount(0);
   await expect(page.locator("#manual-end")).toBeDisabled();
 });
 
 
-test("lost manual connection expires ownership and requires explicit recovery", async ({ page }) => {
+test("lost manual connection expires ownership and requires explicit recovery", async ({ page, request }) => {
   await page.locator("#manual-enable").click();
   await expect(page.locator("#manual-message")).toContainText("Manual control enabled");
   await page.route("**/api/coordinator/manual/**", (route) => route.abort("failed"));
   await expect(page.locator("#manual-end")).toBeDisabled();
-  await expect(page.locator("#recovery")).toBeVisible();
+  await expect(page.locator("#recovery")).toHaveCount(0);
   await expect(page.locator("#manual-enable")).toBeDisabled();
   await expect(page.locator("#manual-message")).toContainText("recover");
   await page.locator("#manual-panel").screenshot({ path: "test-results/manual-unavailable.png" });
   await page.unroute("**/api/coordinator/manual/**");
   await expect(page.locator("#manual-enable")).toBeDisabled();
-  await page.locator("#ack").check();
-  await page.locator("#recover").click();
+  await request.post("/api/coordinator/recover", { data: { acknowledged: true } });
   await expect(page.locator("#manual-enable")).toBeEnabled();
   await expect(page.locator("#manual-end")).toBeDisabled();
 });

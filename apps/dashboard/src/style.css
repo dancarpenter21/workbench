@@ -252,13 +252,6 @@ textarea {
 #error:empty {
   display: none;
 }
-#recovery {
-  border: 1px solid var(--warning-border);
-  border-radius: 7px;
-  padding: 12px;
-  margin-top: 18px;
-  font-size: 13px;
-}
 .ack {
   display: flex;
   gap: 9px;
@@ -496,8 +489,6 @@ details > div, details > p { font-size: 12px; }
 
 header { position: sticky; top: 0; z-index: 10; height: 58px; }
 .view-navigation { top: 58px; }
-#shared-recovery { max-width: 1200px; margin: auto; padding: 0 12px; }
-#recovery { margin: 8px 0; background: var(--warning-bg); border-color: var(--warning-border); }
 
 .manual-panel .panel-heading .eyebrow { display: none; }
 
@@ -693,7 +684,6 @@ button[aria-pressed="true"]:disabled { color: var(--disabled-text); background: 
 a { color: var(--accent); }
 a.wordmark { color: inherit; }
 ::selection { background: var(--accent); color: var(--on-accent); }
-#recovery-error { color: var(--danger); }
 button:disabled, button:disabled:hover { color: var(--disabled-text); background: var(--disabled); }
 
 #camera-status[data-state="error"], #camera-status[data-state="stale"] { color: var(--danger); font-weight: 700; }

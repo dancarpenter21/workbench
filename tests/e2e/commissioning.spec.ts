@@ -36,7 +36,7 @@ test("Initialization separates capsule measurements from optional pulse limits",
   await expect(page.locator("#geometry-panel")).toBeVisible();
   await expect(page.locator("#geometry-save")).toBeEnabled();
   await expect(page.locator("#init-error")).toBeHidden();
-  await expect(page.locator("#shared-recovery")).toBeHidden();
+  await expect(page.locator("#shared-recovery")).toHaveCount(0);
   await expect(page.locator("#commissioning-panel")).toContainText("SIMULATED");
   for (const id of joints) {
     await expect(field(page, id, "pulse")).toHaveValue("1500");

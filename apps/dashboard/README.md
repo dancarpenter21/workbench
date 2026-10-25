@@ -2,7 +2,12 @@
 
 TypeScript/Vite operator interface with a typed OpenAPI HTTP client. It displays camera
 preview, tool shortcuts, request progress and service readiness, and provides local
-microphone capture, stop controls and acknowledged recovery.
+microphone capture and stop controls.
+
+There is no shared recovery panel or general recovery action in the dashboard.
+Diagnostics provides interrupted commissioning-session cleanup and current-monitor
+reset. Controller recovery interlocks still block retrieval and Jog when required;
+the acknowledged `POST /coordinator/recover` API remains available after inspection.
 
 From the repository root, install with `npm ci`, then run:
 

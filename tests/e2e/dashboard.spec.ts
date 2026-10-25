@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-test("retrieve, reset, stop and recover from the dashboard", async ({
+test("retrieve, reset and stop without a shared recovery panel", async ({
   page,
   request,
 }) => {
@@ -25,16 +25,11 @@ test("retrieve, reset, stop and recover from the dashboard", async ({
   );
   await page.getByRole("button", { name: "Reset mock scene" }).click();
   await page.locator("#stop").click();
-  await expect(page.locator("#recovery")).toBeVisible();
+  await expect(page.locator("#shared-recovery, #recovery, #recover, #ack")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Retrieve tool" }),
   ).toBeDisabled();
-  await page.locator("#ack").check();
-  await page.getByRole("button", { name: "Recover", exact: true }).click();
-  await expect(page.locator("#recovery")).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Retrieve tool" }),
-  ).toBeEnabled();
+  await page.screenshot({ path: "test-results/workbench-stopped.png", fullPage: true });
   await expect(page.locator("#camera")).toBeVisible();
   await expect.poll(() => page.locator("#camera").evaluate((image: HTMLVideoElement) => image.videoWidth)).toBeGreaterThan(0);
   expect(errors).toEqual([]);

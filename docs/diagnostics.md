@@ -80,7 +80,11 @@ coordinator status includes `retrieval_enabled` and commissioning readiness.
 
 Browser requests use the existing `/api/coordinator/` proxy prefix. Generated
 OpenAPI and TypeScript contracts contain the additions. Existing mock retrieval
-and stop/recovery remain available in the Workbench view.
+and stop remain available in the Workbench view. The shared recovery panel and its
+acknowledgment/request handling have been removed. Diagnostics retains interrupted
+commissioning-session cleanup and current-monitor reset; general controller recovery
+uses the acknowledged `POST /coordinator/recover` API after inspection. Recovery
+interlocks continue to block motion until cleared through the appropriate procedure.
 
 ## Verification
 
