@@ -29,6 +29,7 @@ from .claw_current import ClawCurrentMonitor
 from .geometry_setup import GeometrySetup
 from .manual import JOINT_ORDER
 from .movement import MovementRejected, MovementSession
+from .robot_model_setup import RobotModelSetup
 from .servo_trial import TICK_US, SingleServoOutput, encode_pulse
 
 
@@ -60,6 +61,7 @@ class LiveCommissioning:
     def attach(self, store):
         self.store = store
         self.geometry = GeometrySetup(self.config, store, self.bounds_context, self.bounds_key)
+        self.robot_model = RobotModelSetup(self.config, store, self.bounds_context, self.bounds_key)
         self.trial = store.get(self.prefix + "trial")
         if self.trial:
             draft = self.read(self.trial["draft_id"])

@@ -1,0 +1,7 @@
+workbench_interfaces/Observation[] tools
+bool tray_clear
+bool camera_ok
+float64 age_seconds
+---
+bool accepted
+string message

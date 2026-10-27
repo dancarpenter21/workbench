@@ -1,19 +1,24 @@
 import type { components } from "@workbench/contracts";
 import { mountGeometry } from "./geometry";
+import { mountRobotModel } from "./robot-model";
 import { currentPresentation } from "./current";
+import { armParts, channelLabel, mountArmGuide } from "./arm-guide";
 
 type Bounds = components["schemas"]["CommissionBounds"];
 type Status = components["schemas"]["CommissionStatus"];
 type Session = components["schemas"]["CommissionSession"];
 type Workbench = components["schemas"]["WorkbenchStatus"];
 const joints = ["base", "joint_2", "joint_3", "joint_4", "joint_5", "claw"];
-const label = (id: string) => id === "base" ? "Base" : id === "claw" ? "Claw" : id.replace("joint_", "Joint ");
+const label = (id: string) => channelLabel(armParts.find(part => part.joint === id)!.channel);
 
 export function mountCommissioning(root: HTMLElement) {
   root.innerHTML = `
     <div class="panel-heading"><h2>Initialization</h2><span id="init-domain" class="caption"></span></div>
-    <section id="geometry-panel"></section>
-    <h3>Optional pulse limits</h3>
+    <section id="arm-guide" aria-label="Arm part guide"></section>
+    <section id="robot-model-panel"></section>
+    <details id="legacy-geometry"><summary>Existing supervised capsule guard</summary><section id="geometry-panel"></section></details>
+    <h3>Pulse positioning and optional limits</h3>
+    <p class="caption">For capsule measurements, keep channels 1–5 at 1500 µs and enter your measured full-open pulse in the claw row. Move uses the current-monitored positioning flow. A new motion session first initializes all six servos at 1500 µs, then applies the requested pulse. Saving limits does not move the arm.</p>
     <form id="init-form" novalidate>
       <div class="init-values" role="table" aria-label="Joint pulse values in microseconds">
         <div class="init-row init-head" role="row"><span>Joint</span><span>Pulse μs</span><span>Min μs</span><span>Max μs</span><span></span></div>
@@ -28,7 +33,20 @@ export function mountCommissioning(root: HTMLElement) {
       <button id="init-save" type="submit">Save limits</button>
     </form>
     <p id="init-error" role="alert" hidden></p>`;
-  const geometry = mountGeometry(root.querySelector<HTMLElement>("#geometry-panel")!);
+  const geometry = mountGeometry(root.querySelector<HTMLElement>("#geometry-panel")!, (name, reveal) => guide.showPart(name, reveal));
+  const robotModel = mountRobotModel(root.querySelector<HTMLElement>("#robot-model-panel")!);
+  const guide = mountArmGuide(root.querySelector<HTMLElement>("#arm-guide")!, name => {
+    if (name !== null) {
+      root.querySelector<HTMLDetailsElement>("#legacy-geometry")!.open = true;
+      return geometry.selectPart(name);
+    }
+    root.querySelectorAll(".arm-part-selected").forEach(item => item.classList.remove("arm-part-selected"));
+    const row = root.querySelector<HTMLElement>('[data-joint="base"]')!;
+    row.classList.add("arm-part-selected");
+    row.scrollIntoView({ block: "center" });
+    row.querySelector<HTMLInputElement>("input")!.focus({ preventScroll: true });
+    return true;
+  });
   const input = (id: string, kind: string) => root.querySelector<HTMLInputElement>(`#init-${id}-${kind}`)!;
   const error = root.querySelector<HTMLElement>("#init-error")!;
   let bounds: Bounds | null = null;
@@ -184,7 +202,7 @@ export function mountCommissioning(root: HTMLElement) {
       powerOff = currentPresentation(sample).power === "off";
       renderError();
     },
-    setVisible(value: boolean) { visible = value; geometry.setVisible(value); if (!value && token) void end(); else if (value) void poll(); },
+    setVisible(value: boolean) { visible = value; geometry.setVisible(value); robotModel.setVisible(value); if (!value && token) void end(); else if (value) void poll(); },
     updateWorkbench(value: Workbench | null) { if (!value && token) void end(); },
   };
 }

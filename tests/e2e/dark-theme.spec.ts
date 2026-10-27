@@ -8,6 +8,10 @@ for (const viewport of [{ width: 800, height: 480 }, { width: 390, height: 844 }
     for (const view of ["workbench", "pulse", "jog", "diagnostics"]) {
       await page.locator(`#${view}-tab`).click();
       if (view === "pulse") {
+        await expect(page.locator("#robot-model-revision")).toBeEnabled();
+        await page.locator("#robot-model-links > details").first().locator("summary").click();
+        await page.locator("#robot-model-joints > details").first().locator("summary").click();
+        await page.locator("#legacy-geometry > summary").click();
         await expect(page.locator("#geometry-clearance")).toBeEnabled();
         await page.locator("#geometry-joint-details summary").click();
       }

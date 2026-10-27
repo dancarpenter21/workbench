@@ -1,0 +1,5 @@
+bool acknowledged
+string inspection_evidence
+---
+bool recovered
+string message

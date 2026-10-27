@@ -1,0 +1,10 @@
+string domain
+workbench_interfaces/ApiMicrophoneTest value
+---
+string domain
+bool success
+int32 error_status
+string error_message
+workbench_interfaces/ApiMicrophoneResult value
+---
+string stage

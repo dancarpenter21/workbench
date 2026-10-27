@@ -62,7 +62,17 @@ def belongs_to_stack(process):
         for arg in args
     )
     wrapper = " ".join(args).startswith(("npm run dev", "npm start", "npm run start"))
-    return service or dashboard or wrapper
+    return service or dashboard or wrapper or is_ros_owner(process)
+
+
+def is_ros_owner(process):
+    roots = (str(ROOT / "ros/install") + "/", str(ROOT / ".runtime/ros/underlay/install") + "/")
+    native = any(arg.startswith(roots) and "/lib/" in arg for arg in process.args)
+    return native or is_ros_launch(process)
+
+
+def is_ros_launch(process):
+    return "launch" in process.args and "workbench_bringup" in process.args
 
 
 def processes():
@@ -105,7 +115,12 @@ def wait_for_exit(group, seconds):
 
 def shutdown_configs(found):
     """Capture the actual arm configuration before terminating its process."""
-    candidates = [p for p in found.values() if "workbench_arm_controller.app:create_app" in p.args]
+    candidates = [
+        p
+        for p in found.values()
+        if "workbench_arm_controller.app:create_app" in p.args
+        or any(arg.endswith("/lib/workbench_arm_controller/arm_controller") for arg in p.args)
+    ]
     if not candidates:
         candidates = [p for p in found.values() if is_launcher(p)]
     environments = []
@@ -165,11 +180,18 @@ def main():
         return
     print(f"Stopping {len(found)} workbench processes…", flush=True)
     launchers = [p for p in found.values() if is_launcher(p)]
+    if not launchers:
+        launchers = [p for p in found.values() if is_ros_launch(p)]
     for process in launchers:
-        send(process, signal.SIGTERM)
+        send(process, signal.SIGINT if is_ros_launch(process) else signal.SIGTERM)
     wait_for_exit(list(found.values()), 20 if launchers else 0)
     # Orphans: stop the coordinator while arm monitoring is still running.
-    coordinators = [p for p in found.values() if "workbench_coordinator.app:create_app" in p.args]
+    coordinators = [
+        p
+        for p in found.values()
+        if "workbench_coordinator.app:create_app" in p.args
+        or any(arg.endswith("/lib/workbench_coordinator/coordinator") for arg in p.args)
+    ]
     for process in coordinators:
         send(process, signal.SIGTERM)
     wait_for_exit(coordinators, 5)

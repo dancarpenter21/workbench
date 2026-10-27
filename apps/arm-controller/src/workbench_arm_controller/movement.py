@@ -1,6 +1,9 @@
 """Standalone, hardware-free ROB0036 table-clearance model and movement gate.
 
-All geometry is in the table frame at the verified all-1500-us reference. Channel
+All geometry shares a fixed right-handed table frame: origin at the base axis on
+the table, +X along neutral-base reach, +Y counterclockwise viewed from above,
+and +Z upward. Channels 1..5 are measured at 1500 us; channel 0 may be opened
+separately to measure its full-opening envelope. Channel
 5 is table-parallel yaw; channels 4..1 form the height chain. Channel 0 is covered
 by a fixed full-opening claw envelope. This is not position feedback or a stop.
 Callers serialize sessions and retain their current monitoring/output lifecycle.

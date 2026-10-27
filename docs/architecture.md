@@ -1,5 +1,44 @@
 # Architecture
 
+## ROS migration
+
+The native ROS backend now has separate voice, assistant, vision, coordinator, and
+arm-owner nodes. The browser uses the HTTP/WebSocket gateway. Its guarded control
+services preserve the existing Pydantic validation and monitoring implementation.
+The default launcher starts these ROS owners and the dashboard. The retained HTTP
+stack requires explicit `--transport http`; its architecture is described below.
+Build and validation status is recorded in
+the [ROS workspace guide](../ros/README.md).
+
+```mermaid
+flowchart LR
+    Browser -->|HTTP / WebSocket| Gateway
+    Gateway -->|actions / services| Coordinator[ROS coordinator]
+    Gateway -->|typed supervised controls| Owner[ROS arm owner]
+    Coordinator -->|intent action| Assistant[ROS assistant]
+    Gateway -->|transcription / microphone actions| Voice[ROS voice]
+    Vision[Lifecycle vision] -->|observations / images| Coordinator
+    Vision -->|images| Gateway
+    Coordinator -->|retrieval action| Owner
+    Owner -->|exclusive retrieval lease| Task[MoveIt Task Constructor]
+    Task --> MoveGroup[MoveIt planning scene / OMPL]
+    MoveGroup --> Control[ros2_control mock trajectories]
+    Owner -->|continuous monitoring / supervised I/O| Guard[PCA9685 / INA219 domain handlers]
+```
+
+The planning executor currently accepts only the synthetic GenericSystem model.
+Physical automatic retrieval is rejected. The arm owner maintains one control
+reservation across planned retrieval and supervised commands. Continuous claw
+monitoring remains active until local output cleanup completes; losing the ROS
+context must not prevent that cleanup. Unknown amperes remain explicitly absent
+in typed telemetry, and unverified current scales retain raw shunt voltage.
+
+The ROS coordinator journals accepted request IDs before dispatch, rejects stale
+or foreign-domain evidence, and requires observations captured after execution
+completion before reporting delivery. Restart recovery never replays motion.
+
+## Existing HTTP stack
+
 The repository contains six independently runnable applications. Five Python services
 use FastAPI and HTTP/JSON; a TypeScript dashboard uses Vite. Each service has its own
 package, dependency list, entry point and health endpoint. Python packages are managed

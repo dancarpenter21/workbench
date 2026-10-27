@@ -30,8 +30,21 @@ API error/message fields surface movement rejection without a new HTTP endpoint.
 ## Supply measured geometry
 
 Use **Initialization → Capsule measurements** to record each capsule's endpoints,
-radius, and parent joint. The table frame and 1500-us reference are shared by all
-measurements. Expand **Joint axes and angle calibration** to enter the rotation
+radius, and parent joint. All measurements share one fixed table frame. For the
+measurement pose, keep servos **2–6 / channels 1–5 at 1500 us**. Set servo
+**1 / channel 0** to an operator-measured full-open pulse using Initialization's
+current-monitored pulse controls; do not assume that 1500 us means fully open.
+Measure the open claw, and make its capsule large enough to enclose the fingers
+and mechanism throughout the full opening/closing range. The capsule follows
+channel 1, so opening the claw does not redefine the arm's reference frame.
+The custom claw pulse is entered in the existing positioning control; it is not
+stored as a new geometry reference or inferred from the capsule dimensions.
+New motion sessions still initialize all six channels at 1500 us before applying
+the requested claw pulse. Continuous INA219 monitoring applies during movement
+and powered holding, including measurement; sensor faults require shutdown and
+operator power cutoff, with no automatic motion retry.
+
+Expand **Joint axes and angle calibration** to enter the rotation
 axes, pulse/angle pairs, and angle-error allowances needed by the height model.
 This is separate from the optional minimum/maximum PWM fields.
 
@@ -60,9 +73,51 @@ replace every `null` with measured data. The template deliberately supplies no
 invented physical dimensions or tolerances. Set `calibrated: true` only after
 checking the completed geometry and assigning a new `revision`.
 
-All coordinates share **one table frame at the 1500-us reference**: table `z=0`,
-upward `+z`, and an arbitrary but consistent horizontal `x/y` orientation. These
-are not parent-local link coordinates.
+All coordinates share **one right-handed table frame anchored to base neutral**:
+
+- **Origin `(0, 0, 0)`:** the intersection of the base rotation axis and the table surface.
+- **`+X`:** the arm's direction of reach projected onto the table with base
+  servo **6 / channel 5 at 1500 us**.
+- **`+Y`:** 90 degrees counterclockwise from `+X`, viewed from above the table.
+- **`+Z`:** upward from the table; the table is `Z = 0` and `X × Y = Z`.
+
+Positive rotation about `+Z` turns `+X` toward `+Y`. For example, a positive
+90-degree rotation about the base axis sends `(100, 0, 50)` to `(0, 100, 50)` mm.
+This defines an angle sign, not the direction of increasing servo pulse width;
+pulse-to-angle direction must be established separately on the assembled arm.
+The height checker ignores base yaw because this rotation preserves height.
+
+The frame stays fixed when the base turns and has no implied alignment with the
+video feed. Base neutral aligns the direction of reach with `+X`; it does not
+force every endpoint onto the X axis. Measure actual heights and sideways offsets.
+Use this frame for every endpoint, joint origin and joint-axis vector; coordinates
+are not relative to individual links. Saved values are not automatically
+transformed: measurements made in a different horizontal frame must be expressed
+consistently in this frame, including rotating joint-axis vectors.
+
+### Joint axes at the neutral measurement pose
+
+The owner-specified axes in this frame are:
+
+| Servo / channel | Part | Positive axis vector |
+| --- | --- | --- |
+| 2 / 1 | Claw mount | +X `(1, 0, 0)` |
+| 3 / 2 | Wrist section | +Y `(0, 1, 0)` |
+| 4 / 3 | Middle arm | +Y `(0, 1, 0)` |
+| 5 / 4 | Upper arm | +Y `(0, 1, 0)` |
+| 6 / 5 | Base | +Z `(0, 0, 1)`; height-invariant yaw |
+
+Positive rotation about +X turns +Y toward +Z. Positive rotation about +Y turns
++Z toward +X and +X toward −Z. Axis vectors describe the neutral pose; upstream
+joint motion rotates downstream axes with the arm. Servo 1 / channel 0 remains
+represented by the full opening/closing capsule, rather than a height-chain axis.
+
+The template supplies these owner-specified axes for channels 4–1. Joint origins,
+angle samples and error allowances still require measurements. Existing saved
+axes are preserved. In **Joint axes and angle calibration**, each **Use neutral
+axis** button edits that joint's draft vector without saving, activating or moving
+hardware. Recheck measured angle signs when changing an axis: changing an existing
+−Y vector to +Y requires negating its angle samples to describe the same motion.
 
 | Field | Measurement/convention |
 | --- | --- |

@@ -18,6 +18,7 @@ test.beforeEach(async ({ page, request }) => {
   expect(saved.ok()).toBe(true);
   await page.goto("/");
   await page.locator("#pulse-tab").click();
+  await page.locator("#legacy-geometry").evaluate(element => element.setAttribute("open", ""));
   await expect(page.locator("#init-save")).toBeEnabled();
 });
 
@@ -49,6 +50,115 @@ test("Initialization separates capsule measurements from optional pulse limits",
   await page.screenshot({ path: "test-results/initialization-direct-values-800.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator(".geometry-frame").screenshot({ path: "test-results/coordinate-frame-mobile.png", style: "header, .view-navigation { visibility: hidden !important; }" });
+});
+
+test("photo guide opens the matching part with keyboard and pointer without motion", async ({ page }) => {
+  const motion: string[] = [];
+  page.on("request", r => {
+    if (r.method() === "POST" && /\/(initialize|position|resume|prepare)$/.test(r.url())) motion.push(r.url());
+  });
+  const guide = page.locator("#arm-guide");
+  for (const [name, channel] of [["Claw", 0], ["Claw mount", 1], ["Wrist section", 2], ["Middle arm", 3], ["Upper arm", 4], ["Base", 5]] as const) {
+    await expect(guide.getByRole("button", { name: `${name}, servo ${channel + 1}, channel ${channel}`, exact: true }))
+      .toHaveText(`CH ${channel} · Servo ${channel + 1}${name}`);
+  }
+  await expect(guide.locator("img")).toBeVisible();
+  expect(await guide.locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  const middle = guide.getByRole("button", { name: "Middle arm, servo 4, channel 3", exact: true });
+  await middle.focus();
+  await page.keyboard.press("Enter");
+  const card = page.locator('[data-arm-part="link_3"]');
+  await expect(card).toHaveAttribute("open", "");
+  await expect(card.locator(":scope > summary")).toBeFocused();
+  await expect(card).toHaveClass(/arm-part-selected/);
+  await expect(card.locator(":scope > summary")).toHaveText("Middle arm · servo 4 · channel 3");
+  await card.getByRole("button", { name: "Show on image", exact: true }).click();
+  await expect(middle).toBeFocused();
+  await expect(middle).toHaveAttribute("aria-pressed", "true");
+  await middle.click();
+  await card.getByRole("spinbutton", { name: "Middle arm (CH 3) endpoint A (mm) x", exact: true }).focus();
+  await expect(middle).toHaveAttribute("aria-pressed", "true");
+  await guide.getByRole("button", { name: "Claw, servo 1, channel 0", exact: true }).click();
+  await expect(page.locator('[data-arm-part="claw"]')).toHaveAttribute("open", "");
+  await guide.getByRole("button", { name: "Base, servo 6, channel 5", exact: true }).click();
+  await expect(field(page, "base", "pulse")).toBeFocused();
+  expect(motion).toEqual([]);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const screenshotStyle = "header, .view-navigation { visibility: hidden !important; }";
+  await guide.screenshot({ path: "test-results/arm-guide-desktop.png", style: screenshotStyle });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await middle.click();
+  await expect(card.locator(":scope > summary")).toBeInViewport({ ratio: 1 });
+  const summaryTop = await card.locator(":scope > summary").evaluate(item => item.getBoundingClientRect().top);
+  const navBottom = await page.locator(".view-navigation").evaluate(item => item.getBoundingClientRect().bottom);
+  expect(summaryTop).toBeGreaterThan(navBottom);
+  await guide.screenshot({ path: "test-results/arm-guide-mobile.png", style: screenshotStyle });
+});
+
+test("photo guide preserves custom parts and reports missing measurements", async ({ page }) => {
+  const upper = page.locator('[data-arm-part="link_4"]');
+  await upper.locator(".capsule-mapping > summary").click();
+  const name = upper.locator('input[id$="-name"]');
+  await name.fill("Custom bracket");
+  const before = await name.inputValue();
+  await page.locator("#arm-guide").getByRole("button", { name: "Upper arm, servo 5, channel 4", exact: true }).click();
+  await expect(page.locator("#arm-guide-selection")).toContainText("No upper arm measurement is present");
+  await expect(name).toHaveValue(before);
+  await name.fill("link_4");
+  await upper.getByRole("button", { name: "Remove part", exact: true }).click();
+  const count = await page.locator("#geometry-capsules > details").count();
+  await page.locator("#arm-guide").getByRole("button", { name: "Upper arm, servo 5, channel 4", exact: true }).click();
+  await expect(page.locator("#arm-guide-selection")).toContainText("No upper arm measurement is present");
+  await expect(page.locator("#geometry-capsules > details")).toHaveCount(count);
+  // Discard this unsaved draft, so later cases still use the saved scene.
+  await page.locator("#geometry-reload").click();
+});
+
+test("arm legend remains usable when the photo cannot load", async ({ page }) => {
+  await page.route("**/images/dfrobot-rob0036-dark.png", route => route.abort());
+  await page.reload();
+  await page.locator("#pulse-tab").click();
+  await page.locator("#legacy-geometry").evaluate(element => element.setAttribute("open", ""));
+  await expect(page.locator("#geometry-save")).toBeEnabled();
+  await page.locator(".arm-guide-legend").getByRole("button", { name: /Middle arm/ }).click();
+  await expect(page.locator('[data-arm-part="link_3"]')).toHaveAttribute("open", "");
+});
+
+test("neutral axis buttons edit the draft without moving or rewriting angle samples", async ({ page, request }) => {
+  const initial = await (await request.get("/api/coordinator/commissioning/geometry")).json();
+  initial.geometry.joints[0].axis = [0, -1, 0];
+  initial.geometry.joints[3].axis = [-1, 0, 0];
+  const saves: typeof initial.geometry[] = [];
+  const motion: string[] = [];
+  page.on("request", r => {
+    if (r.method() === "POST" && /\/(initialize|position|resume|prepare)$/.test(r.url())) motion.push(r.url());
+  });
+  await page.route("**/commissioning/geometry", async route => {
+    if (route.request().method() === "POST") saves.push(route.request().postDataJSON().geometry);
+    await route.fulfill({ json: { ...initial, geometry: saves.at(-1) ?? initial.geometry } });
+  });
+  await page.reload();
+  await page.locator("#pulse-tab").click();
+  await page.locator("#legacy-geometry").evaluate(element => element.setAttribute("open", ""));
+  await expect(page.locator("#geometry-save")).toBeEnabled();
+  await page.locator("#geometry-joint-details > summary").click();
+  await expect(page.locator("#geometry-joint-0-axis-1")).toHaveValue("-1");
+  await expect(page.locator("#geometry-joint-3-axis-0")).toHaveValue("-1");
+  const samples = await page.locator("#geometry-joint-0-samples").inputValue();
+  await page.getByRole("button", { name: "Use neutral +Y axis for channel 4", exact: true }).click();
+  await page.getByRole("button", { name: "Use neutral +X axis for channel 1", exact: true }).click();
+  await expect(page.locator("#geometry-joint-0-axis-1")).toHaveValue("1");
+  await expect(page.locator("#geometry-joint-3-axis-0")).toHaveValue("1");
+  await expect(page.locator("#geometry-joint-0-samples")).toHaveValue(samples);
+  expect(saves).toHaveLength(0);
+  await page.locator("#geometry-save").click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0].joints[0].axis).toEqual([0, 1, 0]);
+  expect(saves[0].joints[3].axis).toEqual([1, 0, 0]);
+  expect(saves[0].joints[0].pulse_angle_deg).toEqual(initial.geometry.joints[0].pulse_angle_deg);
+  expect(motion).toEqual([]);
 });
 
 test("limits save directly, survive reload, and never send movement requests", async ({ page, request }) => {
@@ -62,6 +172,7 @@ test("limits save directly, survive reload, and never send movement requests", a
   await expect(page.locator("#init-save")).toHaveText("Saved");
   await page.reload();
   await page.locator("#pulse-tab").click();
+  await page.locator("#legacy-geometry").evaluate(element => element.setAttribute("open", ""));
   await expect(field(page, "base", "min")).toHaveValue("1100");
   await expect(field(page, "claw", "max")).toHaveValue("1850");
   expect(motion).toEqual([]);
@@ -153,6 +264,7 @@ test("Save accepts only base limits and preserves omitted joints", async ({ page
   expect(saved.joints.claw.minimum.requested_us).toBe(1000);
   await page.reload();
   await page.locator("#pulse-tab").click();
+  await page.locator("#legacy-geometry").evaluate(element => element.setAttribute("open", ""));
   await expect(field(page, "base", "min")).toHaveValue("750");
   await expect(field(page, "base", "max")).toHaveValue("2200");
   for (const id of joints) {
@@ -189,6 +301,7 @@ test("capsule drafts save independently without sending movement", async ({ page
   expect(motion).toEqual([]);
   await page.reload();
   await page.locator("#pulse-tab").click();
+  await page.locator("#legacy-geometry").evaluate(element => element.setAttribute("open", ""));
   await expect(page.locator("#capsule-0-radius")).toHaveValue("14");
   await page.locator("#geometry-panel").screenshot({ path: "test-results/capsule-measurements.png" });
   await page.locator("#geometry-activate").click();

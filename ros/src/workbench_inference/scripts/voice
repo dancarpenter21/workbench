@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+from workbench_inference.node import main
+
+main("voice")

@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(workbench_common)
+find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+ament_python_install_package(${PROJECT_NAME} PACKAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../packages/python-common/src/workbench_common")
+ament_package()

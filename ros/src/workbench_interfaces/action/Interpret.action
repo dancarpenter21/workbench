@@ -1,0 +1,8 @@
+string operation_id
+string text
+---
+string action
+string tool_id
+string message
+---
+string stage

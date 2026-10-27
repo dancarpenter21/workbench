@@ -414,6 +414,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/arm-controller/commissioning/robot-model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Robot Model Measurements */
+        get: operations["arm_controller_robot_model_measurements_commissioning_robot_model_get"];
+        put?: never;
+        /** Robot Model Measurements Save */
+        post: operations["arm_controller_robot_model_measurements_save_commissioning_robot_model_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/arm-controller/commissioning/geometry": {
         parameters: {
             query?: never;
@@ -1112,6 +1130,24 @@ export interface paths {
         put?: never;
         /** Commissioning Save Bounds */
         post: operations["coordinator_commissioning_save_bounds_commissioning_bounds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/commissioning/robot-model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Robot Model Measurements */
+        get: operations["coordinator_robot_model_measurements_commissioning_robot_model_get"];
+        put?: never;
+        /** Robot Model Measurements Save */
+        post: operations["coordinator_robot_model_measurements_save_commissioning_robot_model_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3168,6 +3204,46 @@ export interface components {
             /** P99 */
             p99: number;
         };
+        /** RobotModelMeasurements */
+        RobotModelMeasurements: {
+            /** Context Key */
+            context_key: string;
+            /**
+             * Domain
+             * @enum {string}
+             */
+            domain: "physical" | "simulated";
+            /**
+             * Revision
+             * @default 0
+             */
+            revision: number;
+            /** Model */
+            model: {
+                [key: string]: unknown;
+            };
+            /**
+             * Valid
+             * @default false
+             */
+            valid: boolean;
+            /**
+             * Validation Error
+             * @default
+             */
+            validation_error: string;
+        };
+        /** RobotModelMeasurementsUpdate */
+        RobotModelMeasurementsUpdate: {
+            /** Context Key */
+            context_key: string;
+            /** Revision */
+            revision: number;
+            /** Model */
+            model: {
+                [key: string]: unknown;
+            };
+        };
         /** DiagnosticsReport */
         DiagnosticsReport: {
             hardware?: components["schemas"]["ArmHardwareStatus"] | null;
@@ -4704,6 +4780,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommissionBounds"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_robot_model_measurements_commissioning_robot_model_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RobotModelMeasurements"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_robot_model_measurements_save_commissioning_robot_model_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RobotModelMeasurementsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RobotModelMeasurements"];
                 };
             };
             /** @description Bad Request */
@@ -7524,6 +7716,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommissionBounds"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_robot_model_measurements_commissioning_robot_model_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RobotModelMeasurements"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_robot_model_measurements_save_commissioning_robot_model_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RobotModelMeasurementsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RobotModelMeasurements"];
                 };
             };
             /** @description Bad Request */

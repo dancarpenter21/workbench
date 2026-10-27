@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "revision": "replace-with-measured-revision",
+  "domain": "physical",
+  "complete": false,
+  "links": [
+    {
+      "name": "base_link",
+      "size": null,
+      "xyz": null
+    },
+    {
+      "name": "turntable_link",
+      "size": null,
+      "xyz": null
+    },
+    {
+      "name": "upper_arm_link",
+      "size": null,
+      "xyz": null
+    },
+    {
+      "name": "forearm_link",
+      "size": null,
+      "xyz": null
+    },
+    {
+      "name": "wrist_link",
+      "size": null,
+      "xyz": null
+    },
+    {
+      "name": "hand_link",
+      "size": null,
+      "xyz": null
+    },
+    {
+      "name": "claw_link",
+      "size": null,
+      "xyz": null
+    },
+    {
+      "name": "tool0"
+    }
+  ],
+  "joints": [
+    {
+      "name": "base_joint",
+      "type": "revolute",
+      "parent": "base_link",
+      "child": "turntable_link",
+      "xyz": null,
+      "rpy": null,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 5
+    },
+    {
+      "name": "shoulder_joint",
+      "type": "revolute",
+      "parent": "turntable_link",
+      "child": "upper_arm_link",
+      "xyz": null,
+      "rpy": null,
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 4
+    },
+    {
+      "name": "elbow_joint",
+      "type": "revolute",
+      "parent": "upper_arm_link",
+      "child": "forearm_link",
+      "xyz": null,
+      "rpy": null,
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 3
+    },
+    {
+      "name": "wrist_joint",
+      "type": "revolute",
+      "parent": "forearm_link",
+      "child": "wrist_link",
+      "xyz": null,
+      "rpy": null,
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 2
+    },
+    {
+      "name": "wrist_roll_joint",
+      "type": "revolute",
+      "parent": "wrist_link",
+      "child": "hand_link",
+      "xyz": null,
+      "rpy": null,
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 1
+    },
+    {
+      "name": "claw_joint",
+      "type": "revolute",
+      "parent": "hand_link",
+      "child": "claw_link",
+      "xyz": null,
+      "rpy": null,
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 0
+    },
+    {
+      "name": "tool_mount",
+      "type": "fixed",
+      "parent": "hand_link",
+      "child": "tool0",
+      "xyz": null,
+      "rpy": null
+    }
+  ]
+}

@@ -40,10 +40,18 @@ def test_incomplete_capsules_save_without_pulse_bounds_or_hardware(measurements)
     state = control.geometry.read()
     assert not state.valid and state.active_revision is None
     data = state.geometry
+    assert [joint["axis"] for joint in data["joints"]] == [
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [1, 0, 0],
+    ]
     data["capsules"][0]["radius_mm"] = 12
+    data["joints"][0]["axis"] = [0, -1, 0]
     saved = control.geometry.save(update(control, data))
     assert saved.revision == 1 and saved.geometry["capsules"][0]["radius_mm"] == 12
     assert not saved.valid and saved.active_revision is None
+    assert saved.geometry["joints"][0]["axis"] == [0, -1, 0]
     assert control.bounds() == original and not control.reserved
 
 

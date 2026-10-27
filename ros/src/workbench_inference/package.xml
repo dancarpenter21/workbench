@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>workbench_inference</name><version>0.1.0</version>
+  <description>Local speech and intent ROS action servers.</description>
+  <maintainer email="maintainers@example.invalid">Workbench maintainers</maintainer>
+  <license>LicenseRef-Proprietary</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+  <exec_depend>rclpy</exec_depend><exec_depend>diagnostic_msgs</exec_depend>
+  <exec_depend>workbench_interfaces</exec_depend>
+  <exec_depend>workbench_voice</exec_depend><exec_depend>workbench_assistant</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

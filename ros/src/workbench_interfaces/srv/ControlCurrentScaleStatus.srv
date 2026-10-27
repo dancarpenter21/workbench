@@ -1,0 +1,8 @@
+# Generated commissioning service; request and result domains must match.
+string domain
+---
+string domain
+bool success
+int32 error_status
+string error_message
+workbench_interfaces/ApiCurrentScaleState value

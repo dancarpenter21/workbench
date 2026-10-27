@@ -1,0 +1,9 @@
+# Generated commissioning service; request and result domains must match.
+string domain
+workbench_interfaces/ApiCommissionReady value
+---
+string domain
+bool success
+int32 error_status
+string error_message
+workbench_interfaces/ApiCommissionStatus value

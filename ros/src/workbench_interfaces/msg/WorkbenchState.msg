@@ -1,0 +1,6 @@
+std_msgs/Header header
+string domain
+bool retrieval_enabled
+bool recovery_required
+workbench_interfaces/OperationStatus operation
+string message

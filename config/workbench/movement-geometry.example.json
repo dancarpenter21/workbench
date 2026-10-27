@@ -10,10 +10,10 @@
   "geometry_error_mm": null,
   "max_boxes": 4096,
   "joints": [
-    {"channel": 4, "origin_mm": null, "axis": null, "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null},
-    {"channel": 3, "origin_mm": null, "axis": null, "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null},
-    {"channel": 2, "origin_mm": null, "axis": null, "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null},
-    {"channel": 1, "origin_mm": null, "axis": null, "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null}
+    {"channel": 4, "origin_mm": null, "axis": [0, 1, 0], "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null},
+    {"channel": 3, "origin_mm": null, "axis": [0, 1, 0], "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null},
+    {"channel": 2, "origin_mm": null, "axis": [0, 1, 0], "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null},
+    {"channel": 1, "origin_mm": null, "axis": [1, 0, 0], "pulse_angle_deg": [[null, null], [1500, 0], [null, null]], "error_deg": null}
   ],
   "capsules": [
     {"name": "link_4", "parent_channel": 4, "a_mm": null, "b_mm": null, "radius_mm": null},

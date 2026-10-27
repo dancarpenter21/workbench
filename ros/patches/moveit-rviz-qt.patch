@@ -1,0 +1,28 @@
+--- a/moveit_ros/visualization/CMakeLists.txt
++++ b/moveit_ros/visualization/CMakeLists.txt
+@@ -31,18 +31,16 @@
+ find_package(tf2_eigen REQUIRED)
+ find_package(Eigen3 REQUIRED)
+
+-# rviz switched to Qt6 in 15.1.14: https://github.com/ros2/rviz/pull/1635
+-# (merged 2025-12-08, first released in the 15.1.14 tag on 2025-12-17 -- 15.1.0
+-# through 15.1.13 are still Qt5)
+-if(rviz2_VERSION VERSION_GREATER_EQUAL 15.1.14)
+-  find_package(Qt6 REQUIRED COMPONENTS Widgets)
++# Match the Qt ABI exported by the actual RViz build, including its Qt5 fallback.
++find_package(rviz_common REQUIRED)
++if(TARGET Qt6::Widgets)
+   set(QT_VERSION_MAJOR 6)
+-  # Hint for transitive deps that use find_package(QT NAMES Qt6 Qt5 ...) which
+-  # may incorrectly resolve to Qt5 due to CMake's ascending path order
+   set(QT_DIR "${Qt6_DIR}")
++elseif(TARGET Qt5::Widgets)
++  set(QT_VERSION_MAJOR 5)
++  set(QT_DIR "${Qt5_DIR}")
+ else()
+-  find_package(Qt5 REQUIRED COMPONENTS Widgets)
+-  set(QT_VERSION_MAJOR 5)
++  message(FATAL_ERROR "rviz_common did not export a supported Qt Widgets target")
+ endif()
+ set(QT_LIBRARIES Qt${QT_VERSION_MAJOR}::Widgets)
+ set(QT_VERSION_NAME Qt${QT_VERSION_MAJOR})

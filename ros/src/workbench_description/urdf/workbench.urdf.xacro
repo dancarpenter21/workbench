@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="workbench">
+  <!-- JSON is also YAML. The launch entry validates this file before expansion. -->
+  <xacro:arg name="model" default=""/>
+  <xacro:arg name="mock_control" default="false"/>
+  <xacro:property name="model" value="${xacro.load_yaml('$(arg model)')}"/>
+  <material name="arm"><color rgba="0.3 0.5 0.7 1"/></material>
+  <xacro:macro name="links" params="items">
+    <xacro:if value="${len(items) > 0}">
+      <xacro:property name="item" value="${items[0]}"/>
+      <link name="${item['name']}">
+        <xacro:unless value="${item['name'] == 'tool0'}">
+        <visual>
+          <origin xyz="${' '.join(str(v) for v in item['xyz'])}"/>
+          <geometry><box size="${' '.join(str(v) for v in item['size'])}"/></geometry>
+          <material name="arm"/>
+        </visual>
+        <collision>
+          <origin xyz="${' '.join(str(v) for v in item['xyz'])}"/>
+          <geometry><box size="${' '.join(str(v) for v in item['size'])}"/></geometry>
+        </collision>
+        </xacro:unless>
+      </link>
+      <xacro:links items="${items[1:]}"/>
+    </xacro:if>
+  </xacro:macro>
+  <xacro:macro name="joints" params="items">
+    <xacro:if value="${len(items) > 0}">
+      <xacro:property name="item" value="${items[0]}"/>
+      <joint name="${item['name']}" type="${item['type']}">
+        <parent link="${item['parent']}"/><child link="${item['child']}"/>
+        <origin xyz="${' '.join(str(v) for v in item['xyz'])}"
+                rpy="${' '.join(str(v) for v in item['rpy'])}"/>
+        <xacro:unless value="${item['type'] == 'fixed'}">
+          <axis xyz="${' '.join(str(v) for v in item['axis'])}"/>
+          <limit lower="${item['lower']}" upper="${item['upper']}"
+                 effort="${item['effort']}" velocity="${item['velocity']}"/>
+        </xacro:unless>
+      </joint>
+      <xacro:joints items="${items[1:]}"/>
+    </xacro:if>
+  </xacro:macro>
+  <xacro:macro name="interfaces" params="items">
+    <xacro:if value="${len(items) > 0}">
+      <xacro:property name="item" value="${items[0]}"/>
+      <xacro:unless value="${item['type'] == 'fixed'}">
+        <joint name="${item['name']}">
+          <command_interface name="position"/>
+          <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+          <state_interface name="velocity"/>
+        </joint>
+      </xacro:unless>
+      <xacro:interfaces items="${items[1:]}"/>
+    </xacro:if>
+  </xacro:macro>
+  <xacro:links items="${model['links']}"/>
+  <xacro:joints items="${model['joints']}"/>
+  <xacro:if value="$(arg mock_control)">
+    <ros2_control name="SimulatedWorkbench" type="system">
+      <hardware><plugin>mock_components/GenericSystem</plugin></hardware>
+      <xacro:interfaces items="${model['joints']}"/>
+    </ros2_control>
+  </xacro:if>
+</robot>

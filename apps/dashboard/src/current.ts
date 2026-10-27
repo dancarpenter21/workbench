@@ -74,7 +74,9 @@ export function renderCurrent(root: HTMLElement, sample?: Current | null) {
     : sample?.off_baseline_error ? `Off baseline unavailable: ${sample.off_baseline_error}` : "Off baseline not established for this sensor setup.");
   set(".current-recovery", latched ? "Current readings are available. A previous monitoring interruption still needs an explicit reset before motion. Previous interlock: " + sample?.fault : "");
   set(".current-interlock", resetRequired ? "Motion inhibited — reset required" : "");
-  root.querySelector<HTMLElement>(".current-interlock")!.title = sample?.fault ?? "";
+  root.querySelector<HTMLElement>(".current-interlock")!.title = resetRequired
+    ? "A sensor fault means the software could not trust the claw current measurement; the sensor may still be working. Causes include missing or invalid INA219 readings, readings more than 0.3 seconds old (including software delays), or verified current reaching 2.5 A.\n\nFresh readings can resume while the earlier fault keeps motion blocked. Restarting does not clear it.\n\nTo reset: support the arm and switch servo power off. Open Diagnostics, check ‘Arm supported, servo power disconnected, interruption inspected’, then click ‘Clear stopped session and reset monitoring’. Reset requires a fresh valid reading and does not move the arm. If the problem persists, reset fails or the fault returns.\n\n‘Reading healthy’ describes the sensor now; ‘reset required’ remembers an earlier interruption."
+    : "";
   const fault = sample && !fresh && !delayed
     ? sample.fault || "No fresh sensor reading. Physical testing unavailable." : "";
   set(".current-fault-detail", root.id === "header-current" ? fault : "");

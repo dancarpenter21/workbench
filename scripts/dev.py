@@ -53,6 +53,7 @@ def resolve_launch_config(mode):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["mock", "hardware"], default="hardware")
+    parser.add_argument("--transport", choices=["ros", "http"], default="ros")
     parser.add_argument("--dashboard-host", default="0.0.0.0")
     parser.add_argument("--backend-only", action="store_true")
     parser.add_argument("--dashboard-port", type=int, default=5173)
@@ -68,7 +69,11 @@ def main():
         ),
     }
     cfg = load_launch_config(config_path)
-    ports = [urlparse(cfg["services"][name]).port for name in MODULES]
+    if args.transport == "ros" and not (ROOT / "ros/install/.workbench_ready").is_file():
+        raise SystemExit("Build native ROS first; see ros/README.md. No applications started.")
+    services = MODULES if args.transport == "http" else {"coordinator": "workbench_coordinator"}
+    ports = [urlparse(cfg["services"][name]).port for name in services]
+    env["WORKBENCH_GATEWAY_PORT"] = str(urlparse(cfg["services"]["coordinator"]).port)
     if not args.backend_only:
         ports.append(args.dashboard_port)
     if len(set(ports)) != len(ports):
@@ -99,7 +104,29 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     try:
-        for name, module in MODULES.items():
+        if args.transport == "ros":
+            log = (runtime / "ros.log").open("a")
+            logs.append(log)
+            children.append(
+                subprocess.Popen(
+                    [
+                        "bash",
+                        "-c",
+                        'source "$1" && shift && exec ros2 launch workbench_bringup workbench.launch.py "$@"',
+                        "workbench-ros",
+                        str(ROOT / "scripts/ros-env.bash"),
+                        "mode:=" + args.mode,
+                        "config:=" + str(Path(config_path).resolve()),
+                        "planning:=" + ("true" if args.mode == "mock" else "false"),
+                    ],
+                    cwd=ROOT,
+                    env=env,
+                    stdout=log,
+                    stderr=log,
+                    start_new_session=True,
+                )
+            )
+        for name, module in MODULES.items() if args.transport == "http" else []:
             log = (runtime / f"{name}.log").open("a")
             logs.append(log)
             command = [
@@ -118,7 +145,7 @@ def main():
                     command, cwd=ROOT, env=env, stdout=log, stderr=log, start_new_session=True
                 )
             )
-        pending = set(MODULES)
+        pending = set(services)
         deadline = time.monotonic() + 180
         next_update = 0
         while pending:
@@ -190,7 +217,10 @@ def main():
         # Stop the coordinator before the arm and vision so it can request a hold.
         for child in reversed(children):
             if child.poll() is None:
-                os.killpg(child.pid, signal.SIGTERM)
+                if args.transport == "ros" and child is children[0]:
+                    child.send_signal(signal.SIGINT)
+                else:
+                    os.killpg(child.pid, signal.SIGTERM)
                 try:
                     child.wait(timeout=15)
                 except subprocess.TimeoutExpired:

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<robot name="workbench">
+  <virtual_joint name="table_mount" type="fixed" parent_frame="world" child_link="base_link"/>
+  <group name="arm"><chain base_link="base_link" tip_link="tool0"/></group>
+  <group name="gripper"><joint name="claw_joint"/></group>
+  <end_effector name="claw" parent_link="hand_link" group="gripper" parent_group="arm"/>
+  <group_state name="neutral" group="arm">
+    <joint name="base_joint" value="0"/><joint name="shoulder_joint" value="0"/>
+    <joint name="elbow_joint" value="0"/><joint name="wrist_joint" value="0"/>
+    <joint name="wrist_roll_joint" value="0"/>
+  </group_state>
+  <!-- Only directly connected links; do not disable arbitrary self-collision pairs. -->
+  <disable_collisions link1="base_link" link2="turntable_link" reason="Adjacent"/>
+  <disable_collisions link1="turntable_link" link2="upper_arm_link" reason="Adjacent"/>
+  <disable_collisions link1="upper_arm_link" link2="forearm_link" reason="Adjacent"/>
+  <disable_collisions link1="forearm_link" link2="wrist_link" reason="Adjacent"/>
+  <disable_collisions link1="wrist_link" link2="hand_link" reason="Adjacent"/>
+  <disable_collisions link1="hand_link" link2="claw_link" reason="Adjacent"/>
+  <disable_collisions link1="hand_link" link2="tool0" reason="Adjacent"/>
+</robot>

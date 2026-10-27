@@ -1,0 +1,7 @@
+string operation_id
+string text
+---
+bool success
+workbench_interfaces/OperationStatus status
+---
+workbench_interfaces/OperationStatus status

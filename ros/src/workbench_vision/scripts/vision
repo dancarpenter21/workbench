@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+from workbench_vision.ros_node import main
+
+main()

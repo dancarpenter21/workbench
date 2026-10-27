@@ -48,6 +48,22 @@ def test_general_axis_wrist_rotation_includes_finger_thickness():
     assert model.clearances((0, 0, 0, -math.pi / 2))[-1] == pytest.approx(59)
 
 
+def test_positive_neutral_axes_follow_right_hand_rotation():
+    data = geometry_data()
+    for joint in data["joints"]:
+        joint["axis"] = [1, 0, 0] if joint["channel"] == 1 else [0, 1, 0]
+    model = ArmGeometry.from_dict(data)
+    # Positive +Y rotation takes the arm's +X reach downward; negative raises it.
+    assert model.clearances((math.pi / 2, 0, 0, 0))[-1] == pytest.approx(-151)
+    assert model.clearances((-math.pi / 2, 0, 0, 0))[-1] == pytest.approx(309)
+    # A finger offset toward +Y moves upward under positive claw-mount roll (+X).
+    for endpoint in ("a_mm", "b_mm"):
+        data["capsules"][-1][endpoint][1] = 30
+    model = ArmGeometry.from_dict(data)
+    assert model.clearances((0, 0, 0, math.pi / 2))[-1] == pytest.approx(119)
+    assert model.clearances((0, 0, 0, -math.pi / 2))[-1] == pytest.approx(59)
+
+
 def test_reversed_mapping_and_no_extrapolation():
     data = geometry_data()
     data["joints"][0]["pulse_angle_deg"] = [[1000, 45], [1500, 0], [2000, -40]]

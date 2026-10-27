@@ -1,0 +1,276 @@
+{
+  "schema_version": 1,
+  "revision": "synthetic-demo-v1-not-rob0036-measurements",
+  "domain": "simulated",
+  "complete": true,
+  "links": [
+    {
+      "name": "base_link",
+      "size": [
+        0.12,
+        0.12,
+        0.05
+      ],
+      "xyz": [
+        0,
+        0,
+        0.025
+      ]
+    },
+    {
+      "name": "turntable_link",
+      "size": [
+        0.06,
+        0.06,
+        0.04
+      ],
+      "xyz": [
+        0,
+        0,
+        0.02
+      ]
+    },
+    {
+      "name": "upper_arm_link",
+      "size": [
+        0.035,
+        0.035,
+        0.12
+      ],
+      "xyz": [
+        0,
+        0,
+        0.06
+      ]
+    },
+    {
+      "name": "forearm_link",
+      "size": [
+        0.03,
+        0.03,
+        0.12
+      ],
+      "xyz": [
+        0,
+        0,
+        0.06
+      ]
+    },
+    {
+      "name": "wrist_link",
+      "size": [
+        0.03,
+        0.03,
+        0.08
+      ],
+      "xyz": [
+        0,
+        0,
+        0.04
+      ]
+    },
+    {
+      "name": "hand_link",
+      "size": [
+        0.04,
+        0.04,
+        0.04
+      ],
+      "xyz": [
+        0,
+        0,
+        0.02
+      ]
+    },
+    {
+      "name": "claw_link",
+      "size": [
+        0.025,
+        0.06,
+        0.05
+      ],
+      "xyz": [
+        0,
+        0,
+        0.025
+      ]
+    },
+    {
+      "name": "tool0"
+    }
+  ],
+  "joints": [
+    {
+      "name": "base_joint",
+      "type": "revolute",
+      "parent": "base_link",
+      "child": "turntable_link",
+      "xyz": [
+        0,
+        0,
+        0.05
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": -1.2,
+      "upper": 1.2,
+      "velocity": 0.3,
+      "effort": 1.0,
+      "channel": 5
+    },
+    {
+      "name": "shoulder_joint",
+      "type": "revolute",
+      "parent": "turntable_link",
+      "child": "upper_arm_link",
+      "xyz": [
+        0,
+        0,
+        0.04
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 1.2,
+      "velocity": 0.3,
+      "effort": 1.0,
+      "channel": 4
+    },
+    {
+      "name": "elbow_joint",
+      "type": "revolute",
+      "parent": "upper_arm_link",
+      "child": "forearm_link",
+      "xyz": [
+        0,
+        0,
+        0.12
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 1.2,
+      "velocity": 0.3,
+      "effort": 1.0,
+      "channel": 3
+    },
+    {
+      "name": "wrist_joint",
+      "type": "revolute",
+      "parent": "forearm_link",
+      "child": "wrist_link",
+      "xyz": [
+        0,
+        0,
+        0.12
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 1.2,
+      "velocity": 0.3,
+      "effort": 1.0,
+      "channel": 2
+    },
+    {
+      "name": "wrist_roll_joint",
+      "type": "revolute",
+      "parent": "wrist_link",
+      "child": "hand_link",
+      "xyz": [
+        0,
+        0,
+        0.08
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 1.2,
+      "velocity": 0.3,
+      "effort": 1.0,
+      "channel": 1
+    },
+    {
+      "name": "claw_joint",
+      "type": "revolute",
+      "parent": "hand_link",
+      "child": "claw_link",
+      "xyz": [
+        0,
+        0,
+        0.04
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": -1.2,
+      "upper": 1.2,
+      "velocity": 0.3,
+      "effort": 1.0,
+      "channel": 0
+    },
+    {
+      "name": "tool_mount",
+      "type": "fixed",
+      "parent": "hand_link",
+      "child": "tool0",
+      "xyz": [
+        0,
+        0,
+        0.09
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

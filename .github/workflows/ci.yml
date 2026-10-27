@@ -11,11 +11,13 @@ jobs:
           node-version: 24
           cache: npm
       - run: uv sync --locked --extra vision
+      - run: uv sync --locked --project ros/tooling
       - run: npm ci
       - run: uv run --extra vision pytest -q
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: npm run contracts
+      - run: git diff --exit-code -- packages/contracts/src/workbench_contracts/ros_control.py ros/src/workbench_interfaces
       - run: git diff --exit-code -- packages/contracts
       - run: npm run build
       - run: npx playwright install --with-deps chromium

@@ -1,4 +1,5 @@
 import type { components } from "@workbench/contracts";
+import { channelLabel, knownPart } from "./arm-guide";
 
 type State = components["schemas"]["GeometryMeasurements"];
 type Vec = (number | null)[] | null;
@@ -9,11 +10,51 @@ type Geometry = { schema_version: number; revision: string; domain: string; cali
   clearance_mm: number | null; geometry_error_mm: number | null; max_boxes: number;
   capsules: Capsule[]; joints: Joint[] };
 
-export function mountGeometry(root: HTMLElement) {
+export function mountGeometry(root: HTMLElement, showPart: (name: string, reveal: boolean) => void) {
   root.innerHTML = `
     <h3>Capsule measurements</h3>
-    <p>Measure the robot at its 1500 µs startup pose. Each capsule is a line segment with a radius large enough to enclose the part.</p>
-    <p class="caption">Use millimeters in one fixed frame: table height is z = 0, positive z points up. Include brackets, servo bodies, and the claw at every opening. Base/channel 5 does not change height. Jog remains free play.</p>
+    <p>Match each card to the same channel and servo on the photo. Select a photo label to open its card, or use Show on image to find it above.</p>
+    <p class="caption">Base (servo 6 / channel 5) has no capsule here because its rotation does not change height. The claw (servo 1 / channel 0) has its own capsule; it follows the claw mount on channel 1 and must cover every claw opening.</p>
+    <p>Measurement pose: keep servos 2–6 (channels 1–5) at 1500 µs. For the claw, use your measured full-open pulse for servo 1 (channel 0) in the pulse controls below; 1500 µs is not assumed to mean fully open.</p>
+    <p class="caption">Measure the claw fully open, then ensure its capsule also encloses the fingers and mechanism throughout closing. Each capsule is a line segment with a radius large enough to enclose the part.</p>
+    <p class="caption">Endpoint A and endpoint B are the two ends of an imaginary line through the part. The radius is the distance outward from that line needed to cover the entire part, including brackets and servo bodies. The photo above identifies parts; it does not supply dimensions.</p>
+    <section class="geometry-frame" aria-label="Coordinate frame at base neutral">
+      <h4>Coordinate frame · base neutral</h4>
+      <svg viewBox="0 0 340 210" role="img" aria-label="Top view: positive X points right along the arm at base neutral; positive Y points up the drawing, counterclockwise from X; positive Z points out of the table toward the viewer.">
+        <defs><marker id="frame-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs>
+        <text x="170" y="18" text-anchor="middle">Top view · looking down at the table</text>
+        <g fill="none" stroke="currentColor" stroke-width="2" marker-end="url(#frame-arrow)">
+          <path d="M 60 150 H 300" /><path d="M 60 150 V 40" />
+          <path d="M 115 150 A 55 55 0 0 0 60 95" />
+        </g>
+        <g class="geometry-frame-axis"><text x="304" y="154">+X</text><text x="48" y="34">+Y</text></g>
+        <text x="126" y="105">Positive rotation: CCW</text>
+        <circle cx="60" cy="150" r="8" fill="var(--panel)" stroke="currentColor" stroke-width="2" />
+        <circle cx="60" cy="150" r="3" fill="currentColor" />
+        <text x="20" y="178">(0, 0, 0)</text><text x="128" y="178">+Z toward you / upward</text>
+        <text x="128" y="198">+X = base at 1500 µs</text>
+      </svg>
+      <dl>
+        <dt>Origin (0, 0, 0)</dt><dd>Where the base rotation axis meets the table surface.</dd>
+        <dt>+X</dt><dd>Along the arm’s reach projected onto the table when the base (servo 6 / channel 5) is at 1500 µs.</dd>
+        <dt>+Y</dt><dd>90° counterclockwise from +X, viewed from above. Positive rotation about +Z turns +X toward +Y.</dd>
+        <dt>+Z</dt><dd>Upward from the table. Table height is Z = 0; X × Y = Z.</dd>
+      </dl>
+      <p class="caption">Use millimeters for every endpoint and joint origin in this same fixed frame. The frame stays fixed when the base turns and is independent of the video feed. Base neutral sets the direction of reach; links can still have different heights and measured sideways offsets. Increasing the base pulse is not assumed to produce positive rotation.</p>
+      <h4>Joint rotations at neutral</h4>
+      <table class="geometry-axis-table">
+        <thead><tr><th>Joint</th><th>Rotation axis</th></tr></thead>
+        <tbody>
+          <tr><td>Claw mount · servo 2 / CH 1</td><td>+X · (1, 0, 0)</td></tr>
+          <tr><td>Wrist · servo 3 / CH 2</td><td>+Y · (0, 1, 0)</td></tr>
+          <tr><td>Middle arm · servo 4 / CH 3</td><td>+Y · (0, 1, 0)</td></tr>
+          <tr><td>Upper arm · servo 5 / CH 4</td><td>+Y · (0, 1, 0)</td></tr>
+          <tr><td>Base · servo 6 / CH 5</td><td>+Z · (0, 0, 1)</td></tr>
+        </tbody>
+      </table>
+      <p class="caption">Positive rotation follows the right-hand rule: about +X, +Y turns toward +Z; about +Y, +Z turns toward +X (and +X toward −Z). These are the axes at the neutral measurement pose; downstream axes move with upstream joints. Claw opening is covered by its capsule.</p>
+    </section>
+    <p class="caption">Include brackets, servo bodies, and the claw at every opening. Base/channel 5 does not change height. Jog remains free play.</p>
     <p id="geometry-status" role="status">Loading measurements…</p>
     <form id="geometry-form" novalidate>
       <div class="geometry-pair">
@@ -23,7 +64,7 @@ export function mountGeometry(root: HTMLElement) {
       <div id="geometry-capsules"></div>
       <button id="geometry-add" type="button" class="secondary">Add part capsule</button>
       <details id="geometry-joint-details"><summary>Joint axes and angle calibration</summary>
-        <p class="caption">The clearance calculation also needs each axis location and direction at startup. Angles are zero at 1500 µs. Enter measured pulse : angle pairs, one per line. Positive angles follow the right-hand rule around the axis.</p>
+        <p class="caption">The clearance calculation also needs each axis location and direction at startup. Angles are zero at 1500 µs. Enter measured pulse : angle pairs, one per line. Positive angles follow the right-hand rule around the axis, regardless of whether pulse width increases or decreases. New drafts use the neutral axes above; existing saved axes remain as entered. Use a neutral-axis button to update that joint in this draft, keeping its measured angle signs consistent.</p>
         <div id="geometry-joints"></div>
       </details>
       <div class="actions"><button id="geometry-save" type="submit">Save measurements</button>
@@ -80,31 +121,82 @@ export function mountGeometry(root: HTMLElement) {
     el("geometry-capsules").replaceChildren();
     geometry.capsules.forEach((capsule, index) => {
       const card = document.createElement("details"); card.className = "geometry-card"; card.open = index === 0;
-      const title = document.createElement("summary"); title.textContent = `Part ${index + 1} · ${capsule.name}`; card.append(title);
-      const nameLabel = document.createElement("label"); nameLabel.textContent = "Part name";
+      const part = knownPart(capsule.name, capsule.parent_channel);
+      if (part) card.dataset.armPart = part.storedName!;
+      const title = document.createElement("summary");
+      title.textContent = part ? channelLabel(part.channel) : `Custom part · ${capsule.name}`;
+      card.append(title);
+      if (part) {
+        const description = document.createElement("p"); description.className = "caption";
+        description.textContent = part.description; card.append(description);
+      }
+      const nameLabel = document.createElement("label"); nameLabel.textContent = "Stored part name";
       const name = document.createElement("input"); name.id = `capsule-${index}-name`; name.value = capsule.name;
-      name.setAttribute("aria-label", `Part ${index + 1} name`); nameLabel.append(name); card.append(nameLabel);
+      name.setAttribute("aria-label", `Part ${index + 1} name`); nameLabel.append(name);
       const parentLabel = document.createElement("label"); parentLabel.textContent = "Last joint moving this part";
       const parent = document.createElement("select"); parent.id = `capsule-${index}-parent`;
       parent.setAttribute("aria-label", `Part ${index + 1} parent channel`);
-      [4, 3, 2, 1].forEach(channel => parent.add(new Option(`Channel ${channel}`, String(channel))));
-      parent.value = String(capsule.parent_channel); parentLabel.append(parent); card.append(parentLabel);
-      vector(card, `Part ${index + 1} endpoint A (mm)`, capsule.a_mm, `capsule-${index}-a`);
-      vector(card, `Part ${index + 1} endpoint B (mm)`, capsule.b_mm, `capsule-${index}-b`);
-      numeric(card, `Part ${index + 1} radius (mm)`, capsule.radius_mm, `capsule-${index}-radius`);
+      [4, 3, 2, 1].forEach(channel => parent.add(new Option(channelLabel(channel), String(channel))));
+      parent.value = String(capsule.parent_channel); parentLabel.append(parent);
+      const measurementLabel = part ? `${part.name} (CH ${part.channel})` : capsule.name;
+      vector(card, `${measurementLabel} endpoint A (mm)`, capsule.a_mm, `capsule-${index}-a`);
+      vector(card, `${measurementLabel} endpoint B (mm)`, capsule.b_mm, `capsule-${index}-b`);
+      numeric(card, `${measurementLabel} radius (mm)`, capsule.radius_mm, `capsule-${index}-radius`);
+      const currentPart = () => knownPart(name.value.trim(), Number(parent.value));
+      const show = document.createElement("button"); show.type = "button"; show.className = "secondary";
+      show.textContent = "Show on image"; show.hidden = !part;
+      show.onclick = () => { const selected = currentPart(); if (selected) showPart(selected.storedName!, true); };
+      card.insertBefore(show, card.querySelector("fieldset"));
+      card.addEventListener("focusin", () => {
+        root.closest("#commissioning-panel")?.querySelectorAll(".arm-part-selected").forEach(item => item.classList.remove("arm-part-selected"));
+        const selected = currentPart();
+        if (selected) card.classList.add("arm-part-selected");
+        showPart(selected?.storedName ?? "", false);
+      });
+      const updateIdentity = () => {
+        const selected = currentPart();
+        title.textContent = selected ? channelLabel(selected.channel) : `Custom part · ${name.value.trim()}`;
+        // Re-label existing controls without replacing them or losing unsaved values/focus.
+        const prefix = selected ? `${selected.name} (CH ${selected.channel})` : name.value.trim();
+        card.querySelectorAll(".geometry-vector").forEach((group, endpoint) => {
+          const label = `${prefix} endpoint ${endpoint === 0 ? "A" : "B"} (mm)`;
+          group.querySelector("legend")!.textContent = label;
+          group.querySelectorAll("input").forEach((input, axis) => input.setAttribute("aria-label", `${label} ${["x", "y", "z"][axis]}`));
+        });
+        const radius = el<HTMLInputElement>(`capsule-${index}-radius`);
+        radius.setAttribute("aria-label", `${prefix} radius (mm)`);
+        radius.parentElement!.firstChild!.textContent = `${prefix} radius (mm)`;
+        show.hidden = !selected;
+        if (!selected) card.classList.remove("arm-part-selected");
+        showPart(selected?.storedName ?? "", false);
+      };
+      name.addEventListener("input", updateIdentity);
+      parent.addEventListener("change", updateIdentity);
       const remove = document.createElement("button"); remove.type = "button"; remove.className = "secondary";
       remove.textContent = "Remove part"; remove.onclick = () => {
         try { collect(); geometry!.capsules.splice(index, 1); dirty = true; renderFields(); render(); }
         catch (error) { fail(error); }
       };
-      card.append(remove); el("geometry-capsules").append(card);
+      const advanced = document.createElement("details"); advanced.className = "capsule-mapping"; advanced.open = !part;
+      const advancedTitle = document.createElement("summary"); advancedTitle.textContent = "Advanced: stored name and moving joint";
+      advanced.append(advancedTitle, nameLabel, parentLabel, remove);
+      card.append(advanced); el("geometry-capsules").append(card);
     });
     el("geometry-joints").replaceChildren();
     geometry.joints.forEach((joint, index) => {
       const card = document.createElement("fieldset"); card.className = "geometry-card";
-      const title = document.createElement("legend"); title.textContent = `Joint channel ${joint.channel}`; card.append(title);
+      const title = document.createElement("legend"); title.textContent = channelLabel(joint.channel); card.append(title);
       vector(card, `Channel ${joint.channel} axis origin (mm)`, joint.origin_mm, `geometry-joint-${index}-origin`);
       vector(card, `Channel ${joint.channel} axis direction`, joint.axis, `geometry-joint-${index}-axis`);
+      const axisName = joint.channel === 1 ? "+X" : "+Y";
+      const axis = joint.channel === 1 ? [1, 0, 0] : [0, 1, 0];
+      const useAxis = document.createElement("button"); useAxis.type = "button"; useAxis.className = "secondary";
+      useAxis.textContent = `Use neutral ${axisName} axis for channel ${joint.channel}`;
+      useAxis.onclick = () => {
+        axis.forEach((value, component) => { el<HTMLInputElement>(`geometry-joint-${index}-axis-${component}`).value = String(value); });
+        dirty = true; render();
+      };
+      card.append(useAxis);
       numeric(card, `Channel ${joint.channel} angle error (degrees)`, joint.error_deg, `geometry-joint-${index}-error`);
       const label = document.createElement("label"); label.textContent = "Pulse µs : angle degrees";
       const samples = document.createElement("textarea"); samples.id = `geometry-joint-${index}-samples`; samples.rows = 3;
@@ -171,5 +263,22 @@ export function mountGeometry(root: HTMLElement) {
     catch (error) { fail(error); }
   };
   render();
-  return { setVisible(value: boolean) { const entered = value && !visible; visible = value; if (entered) void refresh(); } };
+  return {
+    selectPart(name: string) {
+      root.closest("#commissioning-panel")?.querySelectorAll(".arm-part-selected").forEach(item => item.classList.remove("arm-part-selected"));
+      // Read current fields so renamed or reassigned parts are never mistaken for defaults.
+      const index = geometry?.capsules.findIndex((_, index) => {
+        const nameField = el<HTMLInputElement>(`capsule-${index}-name`);
+        const parentField = el<HTMLSelectElement>(`capsule-${index}-parent`);
+        return knownPart(nameField.value.trim(), Number(parentField.value))?.storedName === name;
+      }) ?? -1;
+      if (index < 0) return false;
+      const card = el<HTMLInputElement>(`capsule-${index}-name`).closest<HTMLDetailsElement>(".geometry-card")!;
+      card.open = true; card.classList.add("arm-part-selected");
+      card.scrollIntoView({ block: "start" });
+      card.querySelector<HTMLElement>("summary")!.focus({ preventScroll: true });
+      return true;
+    },
+    setVisible(value: boolean) { const entered = value && !visible; visible = value; if (entered) void refresh(); },
+  };
 }

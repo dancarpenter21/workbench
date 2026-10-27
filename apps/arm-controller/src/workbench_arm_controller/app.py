@@ -47,6 +47,8 @@ from workbench_contracts import (
     ManualStatus,
     NeutralEvidence,
     Recovery,
+    RobotModelMeasurements,
+    RobotModelMeasurementsUpdate,
 )
 
 from workbench_arm_controller.claw_current import ClawCurrentMonitor
@@ -267,6 +269,7 @@ def create_app(config=None, store=None):
                     status.message = str(exc)
                     await save(status)
             worker = asyncio.create_task(manual_worker())
+            app.state.monitor_worker = worker
             yield
         finally:
             if worker:
@@ -292,6 +295,14 @@ def create_app(config=None, store=None):
                 state["store"].close()
 
     app = app_base("arm-controller", lifespan)
+
+    async def emergency_shutdown(reason):
+        async with lock:
+            monitor.trip(reason)
+            await manual_io(monitor_tick)
+
+    # ROS lifecycle adapter reuses the same monitored domain handlers without an HTTP listener.
+    app.state.emergency_shutdown = emergency_shutdown
 
     @app.get("/hardware/status", response_model=ArmHardwareStatus)
     async def hardware_status():
@@ -357,6 +368,19 @@ def create_app(config=None, store=None):
     async def commissioning_bounds():
         async with lock:
             return commissioning.bounds()
+
+    @app.get("/commissioning/robot-model", response_model=RobotModelMeasurements)
+    async def robot_model_measurements():
+        async with lock:
+            return commissioning.robot_model.read()
+
+    @app.post("/commissioning/robot-model", response_model=RobotModelMeasurements)
+    async def robot_model_measurements_save(value: RobotModelMeasurementsUpdate):
+        async with lock:
+            try:
+                return commissioning.robot_model.save(value)
+            except OSError as exc:
+                raise HTTPException(503, "Could not save robot model measurements") from exc
 
     @app.get("/commissioning/geometry", response_model=GeometryMeasurements)
     async def geometry_measurements():

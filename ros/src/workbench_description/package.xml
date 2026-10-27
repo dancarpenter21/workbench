@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>workbench_description</name>
+  <version>0.1.0</version>
+  <description>Measured workbench robot description and explicitly synthetic demo model.</description>
+  <maintainer email="maintainers@example.invalid">Workbench maintainers</maintainer>
+  <license>LicenseRef-Proprietary</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

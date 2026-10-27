@@ -8,7 +8,7 @@
     "dev": "uv run --no-sync python scripts/dev.py",
     "dev:mock": "uv run --no-sync python scripts/dev.py --mode mock",
     "build": "npm run build --workspace @workbench/dashboard",
-    "contracts": "uv run python scripts/export_contracts.py && openapi-typescript packages/contracts/openapi.json -o packages/contracts/src/api.d.ts",
+    "contracts": "uv run python scripts/export_contracts.py && openapi-typescript packages/contracts/openapi.json -o packages/contracts/src/api.d.ts && uv run --no-sync python scripts/export_ros_contracts.py",
     "check": "npm run check --workspace @workbench/dashboard",
     "test:e2e": "playwright test"
   },

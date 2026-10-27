@@ -645,7 +645,7 @@ header:has(#servo-power[data-pill-state="off"]) :is(#header-current, #connection
 #diagnostic-hardware [data-state="warning"] { border-color: var(--warning-border); }
 
 .init-values { margin: 8px 0; }
-.init-row { display: grid; grid-template-columns: 46px repeat(3, minmax(0, 1fr)) 52px; gap: 6px; align-items: center; margin: 5px 0; }
+.init-row { display: grid; grid-template-columns: minmax(68px, 1.2fr) repeat(3, minmax(0, 1fr)) 48px; gap: 6px; align-items: center; margin: 5px 0; }
 .init-row label, .init-head { font-size: 12px; }
 .init-row input { width: 100%; min-width: 0; padding: 8px 4px; font-size: 13px; font-variant-numeric: tabular-nums; }
 .init-row button { padding: 9px 5px; font-size: 12px; }
@@ -663,9 +663,45 @@ header:has(#servo-power[data-pill-state="off"]) :is(#header-current, #connection
 .geometry-vector legend { font-size: 12px; padding-bottom: 5px; }
 .geometry-vector label { font-size: 10px !important; }
 .geometry-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.geometry-frame { margin: 14px 0; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.geometry-frame h4 { margin: 0 0 8px; font-size: 14px; }
+.geometry-frame svg { display: block; width: 100%; max-width: 380px; height: auto; margin: auto; color: var(--accent); }
+.geometry-frame svg text { fill: var(--text); font-size: 12px; }
+.geometry-frame .geometry-frame-axis text { fill: var(--accent); font-size: 15px; font-weight: 700; }
+.geometry-frame dl { margin: 8px 0; font-size: 12px; }
+.geometry-frame dt { font-weight: 700; }
+.geometry-frame dd { margin: 0 0 8px; color: var(--text-secondary); }
+.geometry-axis-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.geometry-axis-table th, .geometry-axis-table td { padding: 6px 4px; text-align: left; border-bottom: 1px solid var(--border); }
+.geometry-axis-table td:last-child { white-space: nowrap; }
 #geometry-joint-details { margin: 12px 0; }
 #geometry-error { color: var(--danger); }
 #manual-clearance { font-size: 12px; color: var(--warning); }
+
+#arm-guide { margin-bottom: 20px; }
+.arm-guide-figure { margin: 12px 0; }
+.arm-guide-photo { position: relative; background: var(--panel); border-radius: 8px; overflow: hidden; aspect-ratio: 3 / 2; }
+.arm-guide-photo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.arm-guide-photo svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.arm-guide-photo line { stroke: var(--accent); stroke-width: 5; }
+.arm-guide-photo circle { fill: #f4c542; stroke: #191919; stroke-width: 3; }
+.arm-callout { position: absolute; transform: translate(-50%, -50%); max-width: 30%; padding: 7px; font-size: clamp(10px, 1.4vw, 12px); line-height: 1.2; color: #191919; background: #f4c542; box-shadow: 0 0 0 1px #8a6500; }
+.arm-callout span { display: block; }
+.arm-guide-figure figcaption { margin-top: 7px; }
+.arm-guide-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.arm-guide-legend button { display: grid; gap: 3px; text-align: left; font-size: 12px; padding: 10px; }
+.arm-guide-legend span { font-weight: 400; color: var(--text-muted); }
+#commissioning-panel { --arm-selection: #5cff9d; }
+#arm-guide [aria-pressed="true"] { outline: 3px solid var(--arm-selection); outline-offset: 3px; }
+#arm-guide .arm-callout[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--page); }
+.arm-part-selected { outline: 3px solid var(--arm-selection); outline-offset: 3px; }
+.geometry-card, #arm-guide { scroll-margin-top: calc(var(--header-height, 58px) + 76px); }
+.capsule-mapping { border-top: 1px solid var(--border); padding-top: 8px; }
+.capsule-mapping > label, .capsule-mapping > button { margin-top: 8px; }
+@media (max-width: 480px) {
+  .arm-guide-legend { grid-template-columns: minmax(0, 1fr); }
+  .init-row label { font-size: 10px; overflow-wrap: anywhere; }
+}
 
 /* Control edges and focus stay visible on the dark metal surfaces. */
 button.secondary, button.tool { box-shadow: inset 0 0 0 1px var(--control-border); }

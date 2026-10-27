@@ -60,6 +60,8 @@ from workbench_contracts import (
     Observations,
     Operation,
     Recovery,
+    RobotModelMeasurements,
+    RobotModelMeasurementsUpdate,
     TextRequest,
     Tool,
     Transcript,
@@ -390,6 +392,15 @@ def create_app(config=None, store=None, client=None):
     @app.get("/commissioning/bounds", response_model=CommissionBounds)
     async def commissioning_bounds():
         return await manual_call("bounds", prefix="commissioning")
+
+    @app.get("/commissioning/robot-model", response_model=RobotModelMeasurements)
+    async def robot_model_measurements():
+        return await manual_call("robot-model", prefix="commissioning")
+
+    @app.post("/commissioning/robot-model", response_model=RobotModelMeasurements)
+    async def robot_model_measurements_save(value: RobotModelMeasurementsUpdate):
+        async with gate:
+            return await manual_call("robot-model", value, prefix="commissioning")
 
     @app.get("/commissioning/geometry", response_model=GeometryMeasurements)
     async def geometry_measurements():

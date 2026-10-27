@@ -1,14 +1,29 @@
 # Robotic Workbench
 
+## ROS migration
+
+The backend is being migrated to native ROS 2 with URDF/Xacro, MoveIt 2,
+ros2_control, and MoveIt Task Constructor. The ROS coordinator, inference nodes,
+lifecycle camera and arm owners, and browser gateway pass mock integration checks.
+All three synthetic tool fixtures complete retrieval through Task Constructor,
+MoveIt, and ros2_control. The normal launcher now starts this ROS backend and the dashboard.
+
+See the [ROS workspace guide](ros/README.md) for reproducible builds, launch commands,
+interfaces, and validation limits. The physical model needs measured joint origins,
+collision geometry, limits, and calibration. Synthetic dimensions and simulated
+joint states do not qualify physical retrieval. Existing capsule measurements are
+retained for the existing supervised movement guard during the transition.
+
 ## Start the arm workbench
 
-Install dependencies once (`uv sync --locked --extra vision --extra pwm` and `npm ci`), then run:
+Install dependencies (`uv sync --locked --extra vision --extra pwm` and `npm ci`)
+and complete the [native ROS build](ros/README.md#native-debian-tooling) once, then run:
 
 ```sh
 npm start
 ```
 
-Open **http://127.0.0.1:5173** on the Pi or **http://<pi-address>:5173** on your LAN. The command starts all backend services and the dashboard. On first use, the dashboard opens **Initialization**. Use [Measuring the arm and entering measurements](#measuring-the-arm-and-entering-measurements) below to configure its geometry; minimum and maximum pulse limits are separate, optional constraints. Jog is available without geometry or saved pulse limits and requires manual power preparation and acknowledgment. PCA9685 automatic retrieval remains disabled.
+Open **http://127.0.0.1:5173** on the Pi or **http://<pi-address>:5173** on your LAN. On first use, the dashboard opens **Initialization**. The **ROS robot model** section records link collision boxes, joint origins, axes, and limits in metres and radians. Drafts can remain incomplete; validation and export do not enable physical retrieval. Pulse limits and the existing supervised capsule guard remain separate. Jog requires manual power preparation and acknowledgment. PCA9685 automatic retrieval remains disabled.
 
 The dashboard has no shared recovery panel. Diagnostics provides interrupted-session
 cleanup and current-monitor reset. Controller recovery interlocks remain enforced;
@@ -16,6 +31,11 @@ general acknowledged recovery is available through `POST /coordinator/recover` a
 inspection. See [Dashboard](apps/dashboard/README.md).
 
 Use `npm run dev:mock` for a simulated stack. Press Ctrl+C or run `npm run stop` to stop. The stop command shuts down this checkout's hardware/mock services and dashboard, including orphaned processes, and force-kills any that do not exit. Logs and commissioning records live under `.runtime/hardware/` for hardware and `.runtime/mock/` for simulation. Existing `.runtime/hardware/workbench-config.json` settings are loaded automatically when present; otherwise the Pi defaults apply.
+
+Mock launches include the synthetic MoveIt planning fixture. Hardware launches use
+the monitored arm owner for supervised controls and reject automatic retrieval.
+The retained HTTP stack is available explicitly with
+`uv run --no-sync python scripts/dev.py --transport http --mode mock` for legacy tests.
 
 Startup preserves the installed Python dependencies with `uv run --no-sync`; rerun
 the installation command above after dependency changes. If `WORKBENCH_CONFIG` still

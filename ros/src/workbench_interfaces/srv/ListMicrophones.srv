@@ -1,0 +1,6 @@
+string domain
+---
+string domain
+bool success
+string error_message
+workbench_interfaces/ApiMicrophoneDevice[] devices

@@ -1,0 +1,8 @@
+string operation_id
+string tool_id
+---
+bool success
+string message
+workbench_interfaces/ExecutionEvidence evidence
+---
+workbench_interfaces/OperationStatus status

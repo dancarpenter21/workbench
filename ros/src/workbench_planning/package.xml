@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>workbench_planning</name><version>0.1.0</version>
+  <description>Collision-aware Task Constructor retrieval for the synthetic workbench fixture.</description>
+  <maintainer email="maintainers@example.invalid">Workbench maintainers</maintainer>
+  <license>LicenseRef-Proprietary</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend><depend>rclcpp_action</depend>
+  <depend>control_msgs</depend>
+  <depend>moveit_task_constructor_core</depend><depend>moveit_ros_planning_interface</depend>
+  <depend>moveit_task_constructor_capabilities</depend>
+  <depend>workbench_interfaces</depend><depend>sensor_msgs</depend><depend>std_srvs</depend>
+  <depend>shape_msgs</depend><depend>nlohmann_json</depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

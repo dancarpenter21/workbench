@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.16)
+project(workbench_arm_controller)
+find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
+ament_python_install_package(${PROJECT_NAME} PACKAGE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../apps/arm-controller/src/workbench_arm_controller")
+install(PROGRAMS scripts/arm_controller DESTINATION lib/${PROJECT_NAME})
+ament_package()

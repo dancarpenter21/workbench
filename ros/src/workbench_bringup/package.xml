@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>workbench_bringup</name><version>0.1.0</version>
+  <description>ROS service ownership and browser gateway launch.</description>
+  <maintainer email="maintainers@example.invalid">Workbench maintainers</maintainer>
+  <license>LicenseRef-Proprietary</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>launch_ros</exec_depend><exec_depend>lifecycle_msgs</exec_depend>
+  <exec_depend>rclpy</exec_depend><exec_depend>workbench_common</exec_depend>
+  <exec_depend>workbench_inference</exec_depend><exec_depend>workbench_vision</exec_depend>
+  <exec_depend>workbench_arm_controller</exec_depend><exec_depend>workbench_coordinator</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

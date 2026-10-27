@@ -14,3 +14,7 @@ config/workbench/references/
 test-results/
 playwright-report/
 config/workbench/manual.local.json
+ros/build/
+ros/install/
+ros/log/
+/log/

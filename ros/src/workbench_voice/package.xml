@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>workbench_voice</name><version>0.1.0</version>
+  <description>Shared workbench Python implementation, dependencies managed with uv.</description>
+  <maintainer email="maintainers@example.invalid">Workbench maintainers</maintainer>
+  <license>LicenseRef-Proprietary</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+  <exec_depend>workbench_common</exec_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

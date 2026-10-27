@@ -153,3 +153,20 @@ def test_shutdown_uses_running_arm_bus_and_address(stop_module, monkeypatch, tmp
         20, 1, "2", ["workbench_arm_controller.app:create_app"], stop_module.ROOT
     )
     assert stop_module.shutdown_configs({20: process}) == [config]
+
+
+def test_native_ros_owners_are_scoped_to_this_checkout(stop):
+    executable = (
+        stop.ROOT
+        / "ros/install/workbench_arm_controller/lib/workbench_arm_controller/arm_controller"
+    )
+    owner = stop.Process(70, 1, "10", ["python3", str(executable), "--ros-args"], stop.ROOT)
+    assert stop.belongs_to_stack(owner)
+    foreign = stop.Process(
+        71, 1, "11", ["python3", "/other/ros/install/node/lib/node/run"], stop.ROOT
+    )
+    assert not stop.belongs_to_stack(foreign)
+    launch = stop.Process(
+        72, 1, "12", ["ros2", "launch", "workbench_bringup", "workbench.launch.py"], stop.ROOT
+    )
+    assert stop.belongs_to_stack(launch) and stop.is_ros_launch(launch)

@@ -1,0 +1,8 @@
+std_msgs/Header header
+string domain
+bool available
+string error
+workbench_interfaces/ApiArmHardwareStatus hardware
+workbench_interfaces/ApiManualStatus manual
+workbench_interfaces/ApiCommissionStatus commissioning
+workbench_interfaces/ApiArmStatus arm

@@ -1,13 +1,9 @@
-import asyncio
-import io
-import tempfile
-import wave
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import HTTPException, Request
-from workbench_common import ROOT, app_base, settings
+from workbench_common import app_base, settings
 from workbench_common.diagnostics import model_check
+from workbench_common.inference import EngineBusy, EngineUnavailable
 from workbench_contracts import (
     WAV_REQUEST_BODY,
     Diagnostic,
@@ -18,24 +14,8 @@ from workbench_contracts import (
     Transcript,
 )
 
+from .engine import MAX_BYTES, VoiceEngine, validate_audio
 from .microphone import Microphone, devices
-
-MAX_BYTES = 4_000_000
-
-
-def validate_audio(data: bytes):
-    try:
-        with wave.open(io.BytesIO(data)) as audio:
-            if audio.getnchannels() != 1 or audio.getsampwidth() != 2:
-                raise ValueError("Use mono 16-bit PCM WAV")
-            if not 8000 <= audio.getframerate() <= 48000:
-                raise ValueError("Unsupported sample rate")
-            if not 0.1 <= audio.getnframes() / audio.getframerate() <= 30:
-                raise ValueError("Record between 0.1 and 30 seconds")
-            if len(audio.readframes(audio.getnframes())) != audio.getnframes() * 2:
-                raise ValueError("Truncated audio")
-    except (wave.Error, EOFError) as exc:
-        raise ValueError("Invalid WAV file") from exc
 
 
 async def read_audio(request: Request) -> bytes:
@@ -53,30 +33,17 @@ async def read_audio(request: Request) -> bytes:
 
 def create_app(config=None):
     cfg = config or settings()
-    state = {"model": None, "error": ""}
-    lock = asyncio.Lock()
+    engine = VoiceEngine(cfg)
     microphone = Microphone(mock=cfg["mode"] == "mock")
 
     @asynccontextmanager
     async def lifespan(app):
-        if cfg["mode"] == "hardware":
-            try:
-                from faster_whisper import WhisperModel
-
-                path = ROOT / Path(cfg["speech"]["model_path"])
-                if not path.is_dir():
-                    raise ValueError(f"Local Whisper model missing: {path}")
-                state["model"] = await asyncio.to_thread(
-                    WhisperModel,
-                    str(path),
-                    device=cfg["speech"]["device"],
-                    compute_type=cfg["speech"]["compute_type"],
-                    local_files_only=True,
-                )
-            except Exception as exc:
-                state["error"] = str(exc)
-        yield
-        await microphone.close()
+        await engine.start()
+        try:
+            yield
+        finally:
+            await microphone.close()
+            await engine.close()
 
     app = app_base("voice", lifespan)
 
@@ -88,7 +55,7 @@ def create_app(config=None):
                 cfg,
                 "faster_whisper",
                 cfg["speech"]["model_path"],
-                state["model"] is not None,
+                engine.model is not None,
             )
         ]
         try:
@@ -136,31 +103,18 @@ def create_app(config=None):
         return Health(
             service="voice",
             mode=cfg["mode"],
-            ready=not state["error"],
-            detail=state["error"],
+            ready=not engine.error,
+            detail=engine.error,
         )
 
     @app.post("/transcribe", response_model=Transcript, openapi_extra=WAV_REQUEST_BODY)
     async def transcribe(request: Request):
         data = await read_audio(request)
-        if cfg["mode"] == "mock":
-            return Transcript(text="Grab me the screwdriver")
-        if state["model"] is None:
-            raise HTTPException(503, state["error"] or "Speech model is not loaded")
-        if lock.locked():
-            raise HTTPException(409, "Transcriber is busy")
-
-        def run():
-            with tempfile.NamedTemporaryFile(suffix=".wav") as audio:
-                audio.write(data)
-                audio.flush()
-                segments, _ = state["model"].transcribe(audio.name, beam_size=1, vad_filter=True)
-                return " ".join(s.text.strip() for s in segments).strip()
-
-        async with lock:
-            try:
-                return Transcript(text=await asyncio.to_thread(run))
-            except Exception as exc:
-                raise HTTPException(503, "Local transcription failed") from exc
+        try:
+            return await engine.transcribe(data)
+        except EngineBusy as exc:
+            raise HTTPException(409, "Transcriber is busy") from exc
+        except EngineUnavailable as exc:
+            raise HTTPException(503, str(exc)) from exc
 
     return app

@@ -1,0 +1,9 @@
+string operation_id
+# Mono PCM16 WAV, validated using the existing size/duration/rate limits.
+uint8[] wav
+---
+bool success
+string text
+string error
+---
+string stage

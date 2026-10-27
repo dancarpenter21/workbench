@@ -400,6 +400,21 @@ class CommissionReadiness(Contract):
     ready: bool
 
 
+class RobotModelMeasurements(Contract):
+    context_key: str
+    domain: Literal["physical", "simulated"]
+    revision: int = 0
+    model: dict
+    valid: bool = False
+    validation_error: str = ""
+
+
+class RobotModelMeasurementsUpdate(Contract):
+    context_key: str
+    revision: int = Field(ge=0)
+    model: dict
+
+
 class GeometryMeasurements(Contract):
     context_key: str
     domain: Literal["physical", "simulated"]
