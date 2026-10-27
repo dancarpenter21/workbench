@@ -33,7 +33,7 @@ test.afterEach(async ({ request }) => {
 test("Initialization separates capsule measurements from optional pulse limits", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 480 });
   await expect(page.locator("#init-form input")).toHaveCount(18);
-  await expect(page.locator("#init-form button")).toHaveCount(7);
+  await expect(page.locator("#init-form button")).toHaveCount(19);
   await expect(page.locator("#geometry-panel")).toBeVisible();
   await expect(page.locator("#geometry-save")).toBeEnabled();
   await expect(page.locator("#init-error")).toBeHidden();
@@ -68,21 +68,16 @@ test("photo guide opens the matching part with keyboard and pointer without moti
   const middle = guide.getByRole("button", { name: "Middle arm, servo 4, channel 3", exact: true });
   await middle.focus();
   await page.keyboard.press("Enter");
-  const card = page.locator('[data-arm-part="link_3"]');
+  const card = page.locator('[data-model-channel="3"]');
   await expect(card).toHaveAttribute("open", "");
   await expect(card.locator(":scope > summary")).toBeFocused();
   await expect(card).toHaveClass(/arm-part-selected/);
-  await expect(card.locator(":scope > summary")).toHaveText("Middle arm · servo 4 · channel 3");
-  await card.getByRole("button", { name: "Show on image", exact: true }).click();
-  await expect(middle).toBeFocused();
-  await expect(middle).toHaveAttribute("aria-pressed", "true");
-  await middle.click();
-  await card.getByRole("spinbutton", { name: "Middle arm (CH 3) endpoint A (mm) x", exact: true }).focus();
-  await expect(middle).toHaveAttribute("aria-pressed", "true");
+  await expect(card.locator(":scope > summary")).toContainText("Middle arm · servo 4 · channel 3");
+  await expect(card.getByRole("spinbutton", { name: "elbow_joint origin (inches) X", exact: true })).toBeVisible();
   await guide.getByRole("button", { name: "Claw, servo 1, channel 0", exact: true }).click();
-  await expect(page.locator('[data-arm-part="claw"]')).toHaveAttribute("open", "");
+  await expect(page.locator('[data-model-channel="0"]')).toHaveAttribute("open", "");
   await guide.getByRole("button", { name: "Base, servo 6, channel 5", exact: true }).click();
-  await expect(field(page, "base", "pulse")).toBeFocused();
+  await expect(page.locator('[data-model-channel="5"] > summary')).toBeFocused();
   expect(motion).toEqual([]);
   await page.setViewportSize({ width: 1280, height: 900 });
   const screenshotStyle = "header, .view-navigation { visibility: hidden !important; }";
@@ -97,20 +92,20 @@ test("photo guide opens the matching part with keyboard and pointer without moti
   await guide.screenshot({ path: "test-results/arm-guide-mobile.png", style: screenshotStyle });
 });
 
-test("photo guide preserves custom parts and reports missing measurements", async ({ page }) => {
+test("primary photo navigation preserves custom capsule drafts", async ({ page }) => {
   const upper = page.locator('[data-arm-part="link_4"]');
   await upper.locator(".capsule-mapping > summary").click();
   const name = upper.locator('input[id$="-name"]');
   await name.fill("Custom bracket");
   const before = await name.inputValue();
   await page.locator("#arm-guide").getByRole("button", { name: "Upper arm, servo 5, channel 4", exact: true }).click();
-  await expect(page.locator("#arm-guide-selection")).toContainText("No upper arm measurement is present");
+  await expect(page.locator('[data-model-channel="4"]')).toHaveAttribute("open", "");
   await expect(name).toHaveValue(before);
   await name.fill("link_4");
   await upper.getByRole("button", { name: "Remove part", exact: true }).click();
   const count = await page.locator("#geometry-capsules > details").count();
   await page.locator("#arm-guide").getByRole("button", { name: "Upper arm, servo 5, channel 4", exact: true }).click();
-  await expect(page.locator("#arm-guide-selection")).toContainText("No upper arm measurement is present");
+  await expect(page.locator('[data-model-channel="4"]')).toHaveAttribute("open", "");
   await expect(page.locator("#geometry-capsules > details")).toHaveCount(count);
   // Discard this unsaved draft, so later cases still use the saved scene.
   await page.locator("#geometry-reload").click();
@@ -123,7 +118,7 @@ test("arm legend remains usable when the photo cannot load", async ({ page }) =>
   await page.locator("#legacy-geometry").evaluate(element => element.setAttribute("open", ""));
   await expect(page.locator("#geometry-save")).toBeEnabled();
   await page.locator(".arm-guide-legend").getByRole("button", { name: /Middle arm/ }).click();
-  await expect(page.locator('[data-arm-part="link_3"]')).toHaveAttribute("open", "");
+  await expect(page.locator('[data-model-channel="3"]')).toHaveAttribute("open", "");
 });
 
 test("neutral axis buttons edit the draft without moving or rewriting angle samples", async ({ page, request }) => {
@@ -146,12 +141,13 @@ test("neutral axis buttons edit the draft without moving or rewriting angle samp
   await page.locator("#geometry-joint-details > summary").click();
   await expect(page.locator("#geometry-joint-0-axis-1")).toHaveValue("-1");
   await expect(page.locator("#geometry-joint-3-axis-0")).toHaveValue("-1");
-  const samples = await page.locator("#geometry-joint-0-samples").inputValue();
+  const sampleValues = () => page.locator("#geometry-joint-0-samples input").evaluateAll(inputs => inputs.map(input => (input as HTMLInputElement).value));
+  const samples = await sampleValues();
   await page.getByRole("button", { name: "Use neutral +Y axis for channel 4", exact: true }).click();
   await page.getByRole("button", { name: "Use neutral +X axis for channel 1", exact: true }).click();
   await expect(page.locator("#geometry-joint-0-axis-1")).toHaveValue("1");
   await expect(page.locator("#geometry-joint-3-axis-0")).toHaveValue("1");
-  await expect(page.locator("#geometry-joint-0-samples")).toHaveValue(samples);
+  expect(await sampleValues()).toEqual(samples);
   expect(saves).toHaveLength(0);
   await page.locator("#geometry-save").click();
   await expect.poll(() => saves.length).toBe(1);
@@ -337,4 +333,52 @@ test("complete capsule geometry activates while Jog stays free play", async ({ p
   await expect(page.locator("#manual-clearance")).toContainText("table-clearance checks off");
   await expect(page.locator("#manual-enable")).toBeEnabled();
   await page.locator("#manual-panel").screenshot({ path: "test-results/manual-free-play.png" });
+});
+
+test("clear saved endpoints supports undo and persists without motion", async ({ page, request }) => {
+  const motion: string[] = [];
+  page.on("request", r => {
+    if (r.method() === "POST" && /\/(initialize|position|resume|prepare|input)$/.test(r.url())) motion.push(r.url());
+  });
+  const clearMin = page.locator('[data-clear="base-min"]');
+  await clearMin.click();
+  await expect(field(page, "base", "min")).toHaveValue("");
+  await expect(clearMin).toHaveText("Undo clear min");
+  await clearMin.click();
+  await expect(field(page, "base", "min")).toHaveValue("1000");
+  await clearMin.click();
+  await page.locator('[data-clear="claw-min"]').click();
+  await page.locator('[data-clear="claw-max"]').click();
+  await field(page, "joint_2", "min").fill("850");
+  await page.locator("#init-save").click();
+  await expect(page.locator("#init-save")).toHaveText("Saved");
+  const saved = await (await request.get("/api/coordinator/commissioning/bounds")).json();
+  expect(saved.joints.base.minimum).toBeNull();
+  expect(saved.joints.base.maximum.requested_us).toBe(2000);
+  expect(saved.joints.claw).toEqual({ minimum: null, maximum: null });
+  expect(saved.joints.joint_2.minimum.requested_us).toBe(850);
+  await page.reload();
+  await page.locator("#pulse-tab").click();
+  await expect(page.locator("#init-save")).toBeEnabled();
+  await expect(field(page, "base", "min")).toHaveValue("");
+  await expect(field(page, "base", "max")).toHaveValue("2000");
+  await expect(field(page, "claw", "min")).toHaveValue("");
+  await expect(field(page, "claw", "max")).toHaveValue("");
+  expect(motion).toEqual([]);
+});
+
+test("failed endpoint deletion stays staged for retry", async ({ page }) => {
+  await page.route("**/commissioning/bounds", async route => {
+    if (route.request().method() === "POST") await route.fulfill({ status: 503, json: { message: "Storage unavailable" } });
+    else await route.continue();
+  });
+  await page.locator('[data-clear="base-min"]').click();
+  await page.locator("#init-save").click();
+  await expect(page.locator("#init-error")).toContainText("Storage unavailable");
+  await expect(field(page, "base", "min")).toHaveValue("");
+  await expect(page.locator('[data-clear="base-min"]')).toHaveText("Undo clear min");
+  await page.unroute("**/commissioning/bounds");
+  await page.locator("#init-save").click();
+  await expect(page.locator("#init-save")).toHaveText("Saved");
+  await expect(field(page, "base", "min")).toHaveValue("");
 });

@@ -202,3 +202,12 @@ single-servo test for the unchanged factory assembly. Read
 1500 μs initial target, discrete steps, saved observations, interruption handling,
 and disabled configuration export. This is a separate stage from full manual
 rate/combined-pose qualification.
+
+## Initialization measurement guide
+
+The Initialization tab groups positioning, geometry, frame orientation, pulse
+calibration, and review into five navigable steps. See the
+[illustrated measurement guide](measurement-illustrations.md) for the shared UI
+graphics, rotated collision-box examples, frame mathematics, and saved-limit
+deletion semantics. Save each model/capsule/limit draft separately; navigating the
+guide never commands movement.

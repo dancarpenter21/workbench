@@ -64,6 +64,8 @@ def test_stale_setup_and_revision_never_overwrite(models):
     [
         lambda model: model.update(domain="simulated"),
         lambda model: model["links"][0].update(size=[float("nan"), 1, 1]),
+        lambda model: model["links"][0].update(rpy=[0, "invalid", 0]),
+        lambda model: model["links"][0].update(rpy=[0, 0]),
         lambda model: model["joints"][0].update(parent="tool0"),
         lambda model: model.update(links=[]),
     ],
@@ -85,3 +87,18 @@ def test_complete_flag_does_not_invent_missing_measurements(models):
     state.model["complete"] = True
     saved = control.robot_model.save(update(state))
     assert not saved.valid and "coordinates" in saved.validation_error
+
+
+def test_box_rotation_drafts_persist_independently_of_joint_frames(models):
+    control, _ = models
+    state = control.robot_model.read()
+    original_joints = copy.deepcopy(state.model["joints"])
+    state.model["links"][2]["rpy"] = [0, -0.5235987755982988, 0]
+    saved = control.robot_model.save(update(state))
+    assert saved.model["links"][2]["rpy"] == [0, -0.5235987755982988, 0]
+    assert saved.model["joints"] == original_joints
+    assert not saved.valid
+    # Omitted orientations on legacy links retain their meaning, even on save.
+    del saved.model["links"][2]["rpy"]
+    legacy = control.robot_model.save(update(saved))
+    assert "rpy" not in legacy.model["links"][2]

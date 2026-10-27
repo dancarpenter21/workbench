@@ -11,12 +11,14 @@
       <link name="${item['name']}">
         <xacro:unless value="${item['name'] == 'tool0'}">
         <visual>
-          <origin xyz="${' '.join(str(v) for v in item['xyz'])}"/>
+          <origin xyz="${' '.join(str(v) for v in item['xyz'])}"
+                  rpy="${' '.join(str(v) for v in item.get('rpy', [0, 0, 0]))}"/>
           <geometry><box size="${' '.join(str(v) for v in item['size'])}"/></geometry>
           <material name="arm"/>
         </visual>
         <collision>
-          <origin xyz="${' '.join(str(v) for v in item['xyz'])}"/>
+          <origin xyz="${' '.join(str(v) for v in item['xyz'])}"
+                  rpy="${' '.join(str(v) for v in item.get('rpy', [0, 0, 0]))}"/>
           <geometry><box size="${' '.join(str(v) for v in item['size'])}"/></geometry>
         </collision>
         </xacro:unless>

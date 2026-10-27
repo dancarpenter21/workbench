@@ -7,37 +7,44 @@
     {
       "name": "base_link",
       "size": null,
-      "xyz": null
+      "xyz": null,
+      "rpy": null
     },
     {
       "name": "turntable_link",
       "size": null,
-      "xyz": null
+      "xyz": null,
+      "rpy": null
     },
     {
       "name": "upper_arm_link",
       "size": null,
-      "xyz": null
+      "xyz": null,
+      "rpy": null
     },
     {
       "name": "forearm_link",
       "size": null,
-      "xyz": null
+      "xyz": null,
+      "rpy": null
     },
     {
       "name": "wrist_link",
       "size": null,
-      "xyz": null
+      "xyz": null,
+      "rpy": null
     },
     {
       "name": "hand_link",
       "size": null,
-      "xyz": null
+      "xyz": null,
+      "rpy": null
     },
     {
       "name": "claw_link",
       "size": null,
-      "xyz": null
+      "xyz": null,
+      "rpy": null
     },
     {
       "name": "tool0"

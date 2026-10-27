@@ -129,7 +129,14 @@ uv run --no-sync python scripts/ros.py render-model \
 Rendering refuses to overwrite an existing output. Validation rejects synthetic
 models in hardware mode and incomplete physical measurements. Coordinates are
 link-local metres and rotations are radians, unlike the previous table-frame
-millimetre capsules. Do not copy the synthetic dimensions into calibration.
+millimetre capsules. The dashboard accepts inches/degrees and converts on save.
+Collision `size` is measured along the box's own axes; collision `xyz` and `rpy`
+place and orient that box within its link. Joint `rpy` separately orients the child
+frame within the parent. Missing collision `rpy` on old models means zero rotation;
+new physical templates leave it unknown until measured. Both visual and collision
+origins use the saved box orientation. See the
+[shared measurement diagrams and tilted-box example](../docs/measurement-illustrations.md).
+Do not copy the synthetic dimensions into calibration.
 
 The demo is a kinematic model with mock joint state, not a dynamics simulation.
 Its claw is a simplified synthetic envelope, not a measured finger mechanism.

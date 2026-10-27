@@ -368,11 +368,22 @@ class CommissionBounds(Contract):
 class CommissionLimitValues(Contract):
     minimum_us: float | None = Field(default=None, ge=500, le=1500)
     maximum_us: float | None = Field(default=None, ge=1500, le=2500)
+    clear_minimum: bool = Field(default=False, description="Delete the saved minimum endpoint")
+    clear_maximum: bool = Field(default=False, description="Delete the saved maximum endpoint")
 
     @model_validator(mode="after")
     def ordered(self):
-        if self.minimum_us is None and self.maximum_us is None:
-            raise ValueError("Provide at least one limit")
+        if (self.clear_minimum and self.minimum_us is not None) or (
+            self.clear_maximum and self.maximum_us is not None
+        ):
+            raise ValueError("Cannot set and clear the same limit")
+        if (
+            self.minimum_us is None
+            and self.maximum_us is None
+            and not self.clear_minimum
+            and not self.clear_maximum
+        ):
+            raise ValueError("Provide at least one limit or endpoint to clear")
         if self.minimum_us is not None and self.maximum_us is not None:
             if self.minimum_us >= self.maximum_us:
                 raise ValueError("Minimum must be below maximum")

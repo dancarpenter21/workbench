@@ -1,6 +1,7 @@
 import type { components } from "@workbench/contracts";
 import { mountGeometry } from "./geometry";
 import { mountRobotModel } from "./robot-model";
+import { poseGuide, calibrationGuide, nominalText } from "./measurement-guide";
 import { currentPresentation } from "./current";
 import { armParts, channelLabel, mountArmGuide } from "./arm-guide";
 
@@ -14,11 +15,19 @@ const label = (id: string) => channelLabel(armParts.find(part => part.joint === 
 export function mountCommissioning(root: HTMLElement) {
   root.innerHTML = `
     <div class="panel-heading"><h2>Initialization</h2><span id="init-domain" class="caption"></span></div>
+    <p>Work through the five steps, or jump to a section. Measurements remain in the form while you navigate; save drafts before leaving or reloading the page.</p>
+    <nav class="measurement-navigation" aria-label="Initialization steps">
+      <a href="#measurement-pose">1 · Position</a><a href="#measurement-dimensions">2 · Measure</a>
+      <a href="#measurement-orientation">3 · Orient</a><a href="#measurement-calibration">4 · Calibrate</a>
+      <a href="#measurement-review">5 · Review</a>
+    </nav>
+    ${poseGuide()}
     <section id="arm-guide" aria-label="Arm part guide"></section>
     <section id="robot-model-panel"></section>
-    <details id="legacy-geometry"><summary>Existing supervised capsule guard</summary><section id="geometry-panel"></section></details>
-    <h3>Pulse positioning and optional limits</h3>
+    ${calibrationGuide()}
+    <h4>Pulse positioning and optional limits</h4>
     <p class="caption">For capsule measurements, keep channels 1–5 at 1500 µs and enter your measured full-open pulse in the claw row. Move uses the current-monitored positioning flow. A new motion session first initializes all six servos at 1500 µs, then applies the requested pulse. Saving limits does not move the arm.</p>
+    <p class="caption">Clear min / Clear max marks a saved endpoint for deletion; Save limits applies it. Undo restores the field before saving. Other empty fields leave saved limits unchanged. Cleared endpoints use the nominal 500 / 2500 µs fallback when Jog loads its configuration; these are not verified safe limits.</p>
     <form id="init-form" novalidate>
       <div class="init-values" role="table" aria-label="Joint pulse values in microseconds">
         <div class="init-row init-head" role="row"><span>Joint</span><span>Pulse μs</span><span>Min μs</span><span>Max μs</span><span></span></div>
@@ -28,27 +37,43 @@ export function mountCommissioning(root: HTMLElement) {
           <input id="init-${id}-min" aria-label="${label(id)} minimum" type="number" min="500" max="1500" step="1" />
           <input id="init-${id}-max" aria-label="${label(id)} maximum" type="number" min="1500" max="2500" step="1" />
           <button type="button" data-move="${id}">Move</button>
+          <div class="limit-clear-actions"><button type="button" class="secondary" data-clear="${id}-min" aria-label="Clear ${label(id)} minimum">Clear min</button>
+            <button type="button" class="secondary" data-clear="${id}-max" aria-label="Clear ${label(id)} maximum">Clear max</button></div>
+          <output id="init-${id}-nominal" class="nominal-angle" for="init-${id}-pulse" aria-live="polite"></output>
         </div>`).join("")}
       </div>
       <button id="init-save" type="submit">Save limits</button>
     </form>
-    <p id="init-error" role="alert" hidden></p>`;
+    <p id="init-error" role="alert" hidden></p>
+    <details id="legacy-geometry"><summary>Advanced · Existing supervised capsule guard</summary>
+      <p>This optional guard uses fixed table coordinates in millimetres. Its measured calibration is separate from the ROS model above.</p>
+      <section id="geometry-panel"></section></details>
+    <section id="measurement-review" class="measurement-step" tabindex="-1">
+      <h3>5. Review and save</h3>
+      <p>Check the reference pose, units, signed offsets, rotation axes and the claw’s complete envelope. Unknown values should remain blank. Save an incomplete draft while measuring; validate only after every required value is measured.</p>
+      <p>Model drafts, capsule measurements and pulse limits save separately. Structural validation does not establish physical acceptance or enable retrieval. Manufacturer angle estimates never replace measured calibration.</p>
+      <div id="measurement-review-actions"></div>
+    </section>`;
   const geometry = mountGeometry(root.querySelector<HTMLElement>("#geometry-panel")!, (name, reveal) => guide.showPart(name, reveal));
   const robotModel = mountRobotModel(root.querySelector<HTMLElement>("#robot-model-panel")!);
   const guide = mountArmGuide(root.querySelector<HTMLElement>("#arm-guide")!, name => {
-    if (name !== null) {
-      root.querySelector<HTMLDetailsElement>("#legacy-geometry")!.open = true;
-      return geometry.selectPart(name);
-    }
-    root.querySelectorAll(".arm-part-selected").forEach(item => item.classList.remove("arm-part-selected"));
-    const row = root.querySelector<HTMLElement>('[data-joint="base"]')!;
-    row.classList.add("arm-part-selected");
-    row.scrollIntoView({ block: "center" });
-    row.querySelector<HTMLInputElement>("input")!.focus({ preventScroll: true });
-    return true;
+    const part = armParts.find(part => part.storedName === name);
+    return part ? robotModel.selectChannel(part.channel) : false;
+  });
+  root.querySelector("#measurement-review-actions")!.append(root.querySelector("#robot-model-actions")!);
+  root.querySelectorAll<HTMLAnchorElement>(".measurement-navigation a").forEach(link => {
+    link.onclick = event => {
+      event.preventDefault();
+      const target = root.querySelector<HTMLElement>(link.hash)!;
+      target.scrollIntoView({ block: "start" });
+      target.focus({ preventScroll: true });
+      root.querySelectorAll(".measurement-navigation a").forEach(item => item.removeAttribute("aria-current"));
+      link.setAttribute("aria-current", "step");
+    };
   });
   const input = (id: string, kind: string) => root.querySelector<HTMLInputElement>(`#init-${id}-${kind}`)!;
   const error = root.querySelector<HTMLElement>("#init-error")!;
+  const clearedLimits = new Map<string, string>();
   let bounds: Bounds | null = null;
   let status: Status | null = null;
   let token: string | null = null;
@@ -87,6 +112,14 @@ export function mountCommissioning(root: HTMLElement) {
   }
   function render() {
     root.querySelectorAll<HTMLButtonElement>("#init-form button").forEach(button => { button.disabled = pending || !bounds || (!!button.dataset.move && Date.now() < nextMove); });
+    root.querySelectorAll<HTMLInputElement>("#init-form input").forEach(field => { field.disabled = pending || !bounds; });
+    root.querySelectorAll<HTMLButtonElement>("[data-clear]").forEach(button => {
+      const key = button.dataset.clear!;
+      const kind = key.endsWith("-min") ? "min" : "max";
+      button.textContent = `${clearedLimits.has(key) ? "Undo clear" : "Clear"} ${kind}`;
+      button.setAttribute("aria-pressed", String(clearedLimits.has(key)));
+      input(key.slice(0, -4), kind).placeholder = clearedLimits.has(key) ? "Delete on save" : "";
+    });
     root.querySelector<HTMLElement>("#init-domain")!.textContent = bounds?.domain === "simulated" ? "SIMULATED" : "";
   }
   function loadLimits(value: Bounds) {
@@ -139,10 +172,27 @@ export function mountCommissioning(root: HTMLElement) {
     return true;
   }
   for (const id of joints) {
-    for (const kind of ["min", "max"]) input(id, kind).oninput = () => {
-      dirty = true; input(id, "max").setCustomValidity("");
-      root.querySelector<HTMLButtonElement>("#init-save")!.textContent = "Save limits";
+    const pulse = input(id, "pulse");
+    const updateNominal = () => {
+      const channel = armParts.find(part => part.joint === id)!.channel;
+      root.querySelector<HTMLOutputElement>(`#init-${id}-nominal`)!.textContent = nominalText(channel, pulse.valueAsNumber);
     };
+    pulse.addEventListener("input", updateNominal); updateNominal();
+    for (const kind of ["min", "max"]) {
+      const field = input(id, kind);
+      const markDirty = () => {
+        dirty = true; input(id, "max").setCustomValidity("");
+        root.querySelector<HTMLButtonElement>("#init-save")!.textContent = "Save limits";
+        render();
+      };
+      field.oninput = () => { clearedLimits.delete(`${id}-${kind}`); markDirty(); };
+      root.querySelector<HTMLButtonElement>(`[data-clear="${id}-${kind}"]`)!.onclick = () => {
+        const key = `${id}-${kind}`;
+        if (clearedLimits.has(key)) { field.value = clearedLimits.get(key)!; clearedLimits.delete(key); }
+        else { clearedLimits.set(key, field.value); field.value = ""; }
+        markDirty();
+      };
+    }
     root.querySelector<HTMLButtonElement>(`[data-move="${id}"]`)!.onclick = () => {
       const field = input(id, "pulse");
       if (!field.reportValidity()) return;
@@ -156,14 +206,16 @@ export function mountCommissioning(root: HTMLElement) {
   }
   root.querySelector<HTMLFormElement>("#init-form")!.onsubmit = event => {
     event.preventDefault();
-    const changes: Record<string, { minimum_us?: number; maximum_us?: number }> = {};
+    const changes: Record<string, Partial<components["schemas"]["CommissionLimitValues"]>> = {};
     for (const id of joints) {
       const min = input(id, "min"), max = input(id, "max");
       max.setCustomValidity(min.value && max.value && min.valueAsNumber >= max.valueAsNumber ? "Maximum must be above minimum." : "");
       if (!min.reportValidity() || !max.reportValidity()) return;
-      const values: { minimum_us?: number; maximum_us?: number } = {};
+      const values: Partial<components["schemas"]["CommissionLimitValues"]> = {};
       if (min.value) values.minimum_us = min.valueAsNumber;
       if (max.value) values.maximum_us = max.valueAsNumber;
+      if (clearedLimits.has(`${id}-min`)) values.clear_minimum = true;
+      if (clearedLimits.has(`${id}-max`)) values.clear_maximum = true;
       if (Object.keys(values).length) changes[id] = values;
     }
     if (!Object.keys(changes).length) return;
@@ -173,7 +225,7 @@ export function mountCommissioning(root: HTMLElement) {
         assembly_id: bounds!.assembly_id, setup: bounds!.setup,
         joints: changes,
       });
-      dirty = false; loadLimits(value);
+      dirty = false; clearedLimits.clear(); loadLimits(value);
       root.querySelector<HTMLButtonElement>("#init-save")!.textContent = "Saved";
     });
   };

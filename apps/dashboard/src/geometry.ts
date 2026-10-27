@@ -1,4 +1,5 @@
 import type { components } from "@workbench/contracts";
+import { illustration, measurementDiagram, nominalText } from "./measurement-guide";
 import { channelLabel, knownPart } from "./arm-guide";
 
 type State = components["schemas"]["GeometryMeasurements"];
@@ -12,8 +13,11 @@ type Geometry = { schema_version: number; revision: string; domain: string; cali
 
 export function mountGeometry(root: HTMLElement, showPart: (name: string, reveal: boolean) => void) {
   root.innerHTML = `
-    <h3>Capsule measurements</h3>
-    <p>Match each card to the same channel and servo on the photo. Select a photo label to open its card, or use Show on image to find it above.</p>
+    <h3>Capsule measurements · fixed table frame</h3>
+    ${measurementDiagram("capsule")}
+    <p>Choose A and B along an imaginary centre line through the part. They are the centres of the rounded caps, not the outermost tips. Measure their X/Y offsets from the base axis with a square and their Z heights from the tabletop, all in mm. Choose a radius covering the farthest bracket, servo or finger from the line, including beyond its ends.</p>
+    ${illustration("claw")}
+    <p>Match each card to the same channel and servo on the photo. Use Show on image to find it above. Photo labels open the primary ROS joint cards; capsule coordinates here use the fixed table frame.</p>
     <p class="caption">Base (servo 6 / channel 5) has no capsule here because its rotation does not change height. The claw (servo 1 / channel 0) has its own capsule; it follows the claw mount on channel 1 and must cover every claw opening.</p>
     <p>Measurement pose: keep servos 2–6 (channels 1–5) at 1500 µs. For the claw, use your measured full-open pulse for servo 1 (channel 0) in the pulse controls below; 1500 µs is not assumed to mean fully open.</p>
     <p class="caption">Measure the claw fully open, then ensure its capsule also encloses the fingers and mechanism throughout closing. Each capsule is a line segment with a radius large enough to enclose the part.</p>
@@ -64,7 +68,7 @@ export function mountGeometry(root: HTMLElement, showPart: (name: string, reveal
       <div id="geometry-capsules"></div>
       <button id="geometry-add" type="button" class="secondary">Add part capsule</button>
       <details id="geometry-joint-details"><summary>Joint axes and angle calibration</summary>
-        <p class="caption">The clearance calculation also needs each axis location and direction at startup. Angles are zero at 1500 µs. Enter measured pulse : angle pairs, one per line. Positive angles follow the right-hand rule around the axis, regardless of whether pulse width increases or decreases. New drafts use the neutral axes above; existing saved axes remain as entered. Use a neutral-axis button to update that joint in this draft, keeping its measured angle signs consistent.</p>
+        <p class="caption">The clearance calculation also needs each axis location and direction at startup. Angles are zero at 1500 µs. Enter measured pulse and angle pairs in the rows below. Include (1500 µs, 0°), with at least three samples in increasing pulse order and strictly increasing or strictly decreasing angles. Reference estimates never fill measured values. Positive angles follow the right-hand rule around the axis, regardless of whether pulse width increases or decreases. New drafts use the neutral axes above; existing saved axes remain as entered. Use a neutral-axis button to update that joint in this draft, keeping its measured angle signs consistent.</p>
         <div id="geometry-joints"></div>
       </details>
       <div class="actions"><button id="geometry-save" type="submit">Save measurements</button>
@@ -198,11 +202,30 @@ export function mountGeometry(root: HTMLElement, showPart: (name: string, reveal
       };
       card.append(useAxis);
       numeric(card, `Channel ${joint.channel} angle error (degrees)`, joint.error_deg, `geometry-joint-${index}-error`);
-      const label = document.createElement("label"); label.textContent = "Pulse µs : angle degrees";
-      const samples = document.createElement("textarea"); samples.id = `geometry-joint-${index}-samples`; samples.rows = 3;
-      samples.setAttribute("aria-label", `Channel ${joint.channel} pulse angle samples`);
-      samples.value = joint.pulse_angle_deg.map(pair => pair.map(v => v == null ? "" : String(v)).join(" : ")).join("\n");
-      label.append(samples); card.append(label); el("geometry-joints").append(card);
+      const samples = document.createElement("div"); samples.id = `geometry-joint-${index}-samples`;
+      samples.className = "angle-samples";
+      samples.setAttribute("role", "group"); samples.setAttribute("aria-label", `Channel ${joint.channel} pulse angle samples`);
+      let sampleNumber = 0;
+      const addSample = (pair: (number | null)[]) => {
+        const row = document.createElement("div"); row.className = "angle-sample";
+        const number = ++sampleNumber;
+        const pulse = numeric(row, `CH ${joint.channel} sample ${number} pulse (µs)`, pair[0]);
+        pulse.dataset.samplePulse = "";
+        const angle = numeric(row, `CH ${joint.channel} sample ${number} observed angle (degrees)`, pair[1]);
+        angle.dataset.sampleAngle = "";
+        const reference = document.createElement("output"); reference.className = "nominal-angle";
+        const update = () => { reference.textContent = nominalText(joint.channel, pulse.valueAsNumber); };
+        pulse.addEventListener("input", update); update();
+        const remove = document.createElement("button"); remove.type = "button"; remove.className = "secondary";
+        remove.textContent = "Remove sample"; remove.setAttribute("aria-label", `Remove CH ${joint.channel} sample ${number}`);
+        remove.onclick = () => { row.remove(); dirty = true; render(); };
+        row.append(remove, reference); samples.append(row);
+      };
+      joint.pulse_angle_deg.forEach(addSample);
+      const add = document.createElement("button"); add.type = "button"; add.className = "secondary";
+      add.textContent = `Add sample for channel ${joint.channel}`;
+      add.onclick = () => { addSample([null, null]); dirty = true; render(); };
+      card.append(samples, add); el("geometry-joints").append(card);
     });
   }
   function collect() {
@@ -217,11 +240,13 @@ export function mountGeometry(root: HTMLElement, showPart: (name: string, reveal
     geometry.joints = geometry.joints.map((joint, index) => ({ ...joint,
       origin_mm: readVector(`geometry-joint-${index}-origin`), axis: readVector(`geometry-joint-${index}-axis`),
       error_deg: value(`geometry-joint-${index}-error`),
-      pulse_angle_deg: el<HTMLTextAreaElement>(`geometry-joint-${index}-samples`).value.split("\n").filter(line => line.trim()).map(line => {
-        const pair = line.split(":").map(v => v.trim() === "" ? null : Number(v.trim()));
-        if (pair.length !== 2 || pair.some(v => v !== null && !Number.isFinite(v))) throw new Error(`Channel ${joint.channel}: use pulse : angle, one pair per line.`);
-        return pair;
-      }),
+      pulse_angle_deg: [...el(`geometry-joint-${index}-samples`).querySelectorAll<HTMLElement>(".angle-sample")].map(row =>
+        [...row.querySelectorAll<HTMLInputElement>("input")].map(input => {
+          if (input.validity.badInput || (input.value !== "" && !Number.isFinite(input.valueAsNumber))) {
+            throw new Error(`Channel ${joint.channel}: enter finite pulses and observed angles, or leave unknown values blank.`);
+          }
+          return input.value === "" ? null : input.valueAsNumber;
+        })),
     }));
   }
   function fail(error: unknown) { el("geometry-error").textContent = error instanceof Error ? error.message : "Could not save measurements"; el("geometry-error").hidden = false; }

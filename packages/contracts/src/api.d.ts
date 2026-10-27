@@ -2506,6 +2506,18 @@ export interface components {
             minimum_us?: number | null;
             /** Maximum Us */
             maximum_us?: number | null;
+            /**
+             * Clear Minimum
+             * @description Delete the saved minimum endpoint
+             * @default false
+             */
+            clear_minimum: boolean;
+            /**
+             * Clear Maximum
+             * @description Delete the saved maximum endpoint
+             * @default false
+             */
+            clear_maximum: boolean;
         };
         /** CommissionMark */
         CommissionMark: {

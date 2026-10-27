@@ -162,6 +162,10 @@ class LiveCommissioning:
         edit_id = str(uuid4())
         for name, limits in request.joints.items():
             endpoints = context.joints[name]
+            if limits.clear_minimum:
+                endpoints.minimum = None
+            if limits.clear_maximum:
+                endpoints.maximum = None
             low = (
                 limits.minimum_us
                 if limits.minimum_us is not None

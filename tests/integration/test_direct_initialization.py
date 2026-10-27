@@ -187,3 +187,72 @@ def test_partial_limits_preserve_other_joints_and_allow_single_endpoints(direct)
     assert result.joints["claw"].minimum.requested_us == 900
     assert result.joints["claw"].maximum.requested_us == 1800
     assert result == control.bounds()
+
+
+def test_clear_limits_persists_and_preserves_other_endpoints_without_hardware(direct, monkeypatch):
+    control, monitor, _, store = direct
+    original = control.set_bounds(update(control))
+    monkeypatch.setattr(monitor, "poll", lambda **_: pytest.fail("Clearing polled hardware"))
+    monkeypatch.setattr(control, "open_output", lambda: pytest.fail("Clearing opened output"))
+    result = control.set_bounds(
+        update(control, joints={"base": CommissionLimitValues(clear_minimum=True)})
+    )
+    assert result.joints["base"].minimum is None
+    assert result.joints["base"].maximum == original.joints["base"].maximum
+    assert result.joints["claw"] == original.joints["claw"]
+    result = control.set_bounds(
+        update(
+            control,
+            joints={"claw": CommissionLimitValues(clear_minimum=True, clear_maximum=True)},
+        )
+    )
+    assert result.joints["claw"].minimum is None
+    assert result.joints["claw"].maximum is None
+    assert result == control.bounds()
+    persisted = store.get(control.bounds_key(result))
+    assert persisted["joints"]["claw"] == {"minimum": None, "maximum": None}
+    assert control.trial is None
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {},
+        {"clear_minimum": True, "minimum_us": 1000},
+        {"clear_maximum": True, "maximum_us": 2000},
+    ],
+)
+def test_contradictory_or_empty_limit_edits_are_rejected(values):
+    with pytest.raises(ValidationError):
+        CommissionLimitValues(**values)
+
+
+def test_clear_and_set_opposite_endpoints_and_failed_updates_are_atomic(direct):
+    control, _, _, _ = direct
+    control.set_bounds(update(control))
+    result = control.set_bounds(
+        update(control, joints={"base": CommissionLimitValues(clear_minimum=True, maximum_us=1800)})
+    )
+    assert result.joints["base"].minimum is None
+    assert result.joints["base"].maximum.requested_us == 1800
+    with pytest.raises(HTTPException):
+        control.set_bounds(
+            update(
+                control,
+                joints={
+                    "base": CommissionLimitValues(clear_maximum=True),
+                    # This interval contains no representable PWM tick.
+                    "claw": CommissionLimitValues(minimum_us=1499.9, maximum_us=1500.1),
+                },
+            )
+        )
+    assert control.bounds() == result
+    with pytest.raises(HTTPException):
+        control.set_bounds(
+            update(
+                control,
+                assembly_id="wrong assembly",
+                joints={"base": CommissionLimitValues(clear_maximum=True)},
+            )
+        )
+    assert control.bounds() == result

@@ -6,6 +6,8 @@ import pytest
 from pydantic import ValidationError
 from workbench_contracts import (
     ClawCurrentStatus,
+    CommissionBoundsUpdate,
+    CommissionSetup,
     Diagnostic,
     ManualInput,
     ManualJoint,
@@ -81,3 +83,12 @@ def test_flexible_metadata_rejects_nonfinite_json():
         encode({"nested": [{"raw": float("inf")}]}, spec, factory)
     with pytest.raises(ValueError):
         decode('{"raw": 1e999}', spec)
+
+
+def test_limit_deletion_flags_survive_gateway_roundtrip():
+    request = CommissionBoundsUpdate(
+        assembly_id="test",
+        setup=CommissionSetup(backend="mock"),
+        joints={"base": {"clear_minimum": True}, "claw": {"clear_maximum": True}},
+    )
+    assert from_ros(to_ros(request, factory=factory), CommissionBoundsUpdate) == request

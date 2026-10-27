@@ -26,7 +26,7 @@ export function knownPart(name: string, parentChannel: number) {
 export function mountArmGuide(root: HTMLElement, select: (name: string | null) => boolean) {
   root.innerHTML = `
     <h3>Find your arm parts</h3>
-    <p class="caption">Select a labeled part to open its measurements. Base opens its pulse value below.</p>
+    <p class="caption">Select a labeled part to open its ROS joint measurements in step 3. Each card names its parent and child links; their boxes are in step 2.</p>
     <p class="caption">Channels use indices 0–5; servo numbers run from 1–6. Claw = servo 1 / channel 0. Base = servo 6 / channel 5.</p>
     <figure class="arm-guide-figure">
       <div class="arm-guide-photo">
@@ -39,7 +39,7 @@ export function mountArmGuide(root: HTMLElement, select: (name: string | null) =
           style="left:${part.labelX / 15.6}%;top:${part.labelY / 10.4}%" aria-label="${part.name}, servo ${part.channel + 1}, channel ${part.channel}"><span>CH ${part.channel} · Servo ${part.channel + 1}</span><span>${part.name}</span></button>`).join("")}
       </div>
       <figcaption class="caption">Photo: <a href="https://wiki.dfrobot.com/rob0036/" target="_blank" rel="noreferrer">DFRobot ROB0036 V2</a>, background edited for dark mode.
-        Reference photo only; measure your arm with channels 1–5 at 1500 µs and the claw at its custom full-open pulse.</figcaption>
+        Reference photo only, not a verified neutral pose. Follow step 1 for the ROS zero pose; use the claw’s measured full-open pulse only when checking its envelope.</figcaption>
     </figure>
     <div class="arm-guide-legend">${armParts.map((part, index) => `<button type="button" class="secondary" data-part="${index}">
       <strong>${channelLabel(part.channel)}</strong><span>${part.description}</span></button>`).join("")}</div>
@@ -53,8 +53,8 @@ export function mountArmGuide(root: HTMLElement, select: (name: string | null) =
       });
       const found = select(part.storedName);
       root.querySelector<HTMLElement>("#arm-guide-selection")!.textContent = found
-        ? `${part.name} selected. ${part.description}`
-        : `No ${part.name.toLowerCase()} measurement is present. Find a renamed part below or use Add part capsule.`;
+        ? `${part.name} selected. Its ROS joint card uses local parent-frame coordinates.`
+        : `The ${part.name.toLowerCase()} ROS card is not loaded. Wait for the model to load, then select again.`;
     };
   });
   return {

@@ -69,7 +69,7 @@ class RobotModelSetup:
                     valid = False
                     continue
                 for key in ("size", "xyz", "rpy", "axis"):
-                    if key in reference and not vector(entry.get(key)):
+                    if (key in reference or key in entry) and not vector(entry.get(key)):
                         valid = False
                 for key in ("lower", "upper", "effort", "velocity"):
                     if key in reference and not scalar(entry.get(key)):

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="color:#e7edf5;background:#20252c;font-family:Arial,sans-serif" class="measurement-diagram" viewBox="0 0 560 270" role="img" aria-label="Collision box: sizes span the entire box along its own rotated X, Y and Z axes. Its centre offset starts at the link origin, which need not be at the box centre.">
+    <g fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M100 85H390V195H100Z M100 85l65-40h290v110l-65 40 M390 85l65-40 M390 195V85"/>
+    <circle cx="277.5" cy="120" r="5"/><path d="M65 215L277.5 120" stroke-dasharray="5 4"/><circle cx="65" cy="215" r="5"/>
+    <path d="M100 225H390 M100 218v14 M390 218v14 M475 45V155 M468 45h14 M468 155h14 M95 65l65-40"/>
+    <text x="200" y="248" fill="currentColor" stroke="none" font-size="15">Box X size</text><text x="485" y="110" fill="currentColor" stroke="none" font-size="15">Box Z</text><text x="90" y="24" fill="currentColor" stroke="none" font-size="15">Box Y size</text><text x="220" y="105" fill="currentColor" stroke="none" font-size="15">Box centre</text><text x="20" y="264" fill="currentColor" stroke="none" font-size="15">Link origin → centre: signed X, Y, Z offsets</text></g></svg>

@@ -9578,6 +9578,18 @@
               }
             ],
             "title": "Maximum Us"
+          },
+          "clear_minimum": {
+            "type": "boolean",
+            "title": "Clear Minimum",
+            "description": "Delete the saved minimum endpoint",
+            "default": false
+          },
+          "clear_maximum": {
+            "type": "boolean",
+            "title": "Clear Maximum",
+            "description": "Delete the saved maximum endpoint",
+            "default": false
           }
         },
         "additionalProperties": false,

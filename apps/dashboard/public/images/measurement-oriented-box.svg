@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="color:#e7edf5;background:#20252c;font-family:Arial,sans-serif" class="measurement-diagram" viewBox="0 0 560 270" role="img" aria-label="Side view: a narrow box follows a component tilted 30 degrees upward. Its box X axis is rotated relative to link X; box centre remains expressed in link coordinates. Pitch is negative for upward tilt from X toward Z.">
+    <g fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M65 225H485 M65 225V35"/><path d="m475 219 10 6-10 6 M59 45l6-10 6 10"/>
+    <g transform="translate(65 225) rotate(-30)"><path d="M0-25H320V25H0Z" fill="currentColor" fill-opacity=".1"/>
+      <path d="M0 0H360 M350-6l10 6-10 6"/><circle cx="160" cy="0" r="5"/>
+      <text x="75" y="-35" fill="currentColor" stroke="none" font-size="15">Box X = component length</text></g>
+    <path d="M65 225L204 145" stroke-dasharray="5 4"/>
+    <text x="280" y="255" fill="currentColor" stroke="none" font-size="15">Link +X</text><text x="18" y="24" fill="currentColor" stroke="none" font-size="15">Link +Z</text><text x="260" y="160" fill="currentColor" stroke="none" font-size="15">Box centre</text><text x="395" y="70" fill="currentColor" stroke="none" font-size="15">Pitch −30°</text></g></svg>

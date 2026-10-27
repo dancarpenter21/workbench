@@ -55,7 +55,7 @@ def validate_model(data, *, mode):
     """Reject incomplete or mixed-domain models before launching planning processes.
 
     Validation establishes structural completeness, never physical qualification.
-    Local link coordinates are in metres; joint rotations are in radians.
+    Local link coordinates are in metres; joint and collision rotations are in radians.
     """
     if mode not in {"mock", "hardware"}:
         raise ValueError("mode must be mock or hardware")
@@ -85,6 +85,8 @@ def validate_model(data, *, mode):
             continue  # Tool datum frame has no physical collision geometry.
         vector(link.get("size"), f"{name}.size", positive=True)
         vector(link.get("xyz"), f"{name}.xyz")
+        # Legacy boxes omitted their collision orientation and were link-aligned.
+        vector(link.get("rpy", [0, 0, 0]), f"{name}.rpy")
     if names != LINK_NAMES:
         raise ValueError("Link names must match the workbench SRDF")
     seen = set()
