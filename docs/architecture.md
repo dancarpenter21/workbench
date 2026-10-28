@@ -1,5 +1,8 @@
 # Architecture
 
+The [LLM harness](llm-harness.md) adds Workbench prompt/tool editing and local MCP
+access to supervised physical joint sequences through the ROS arm owner.
+
 ## ROS migration
 
 The native ROS backend now has separate voice, assistant, vision, coordinator, and

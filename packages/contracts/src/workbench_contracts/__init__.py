@@ -700,3 +700,101 @@ class VideoAnswer(Contract):
     session_id: str
     simulated: bool
     target_fps: float
+
+
+class HarnessStep(Contract):
+    action: Literal["move_joint", "open_claw", "close_claw"]
+    joint_id: str | None = None
+    target_pulse_us: float | None = Field(default=None, ge=500, le=2500)
+
+    @model_validator(mode="after")
+    def arguments(self):
+        if self.action == "move_joint":
+            if not self.joint_id or self.joint_id == "claw" or self.target_pulse_us is None:
+                raise ValueError("move_joint requires a non-claw joint and target_pulse_us")
+        elif self.joint_id is not None or self.target_pulse_us is not None:
+            raise ValueError("Claw actions use operator-configured targets only")
+        return self
+
+
+class HarnessEnable(Contract):
+    supervised: Literal[True]
+    acknowledge_unverified_scale: bool = False
+    claw_open_us: float = Field(ge=500, le=2500)
+    claw_close_us: float = Field(ge=500, le=2500)
+
+
+class HarnessLease(Contract):
+    token: UUID
+
+
+class HarnessSequence(Contract):
+    operation_id: UUID
+    steps: list[HarnessStep] = Field(min_length=1, max_length=10)
+
+
+class HarnessDispatch(HarnessSequence):
+    token: UUID
+
+
+class HarnessOperation(Contract):
+    operation_id: UUID
+    state: Literal["running", "completed", "stopped", "failed", "interrupted"]
+    steps: list[HarnessStep]
+    completed_steps: int = 0
+    message: str = ""
+    commanded: dict[str, float] = Field(default_factory=dict)
+    simulated: bool
+
+
+class HarnessArmStatus(Contract):
+    active: bool = False
+    simulated: bool
+    prepared: bool
+    recovery_required: bool
+    message: str = ""
+    joints: list[ManualJoint] = Field(default_factory=list)
+    claw_current: ClawCurrentStatus
+    operation: HarnessOperation | None = None
+    remaining_seconds: float = 0
+
+
+class HarnessToolConfig(Contract):
+    name: str
+    description: str = Field(min_length=1, max_length=4000)
+    enabled: bool = True
+
+
+class HarnessConfig(Contract):
+    revision: int = Field(default=0, ge=0)
+    endpoint: str = "http://127.0.0.1:8080/v1"
+    model: str = ""
+    credential_env: str = Field(default="WORKBENCH_LLM_API_KEY", pattern=r"^[A-Z][A-Z0-9_]*$")
+    supports_images: bool = False
+    system_prompt: str = Field(default="", max_length=16000)
+    tools: list[HarnessToolConfig] = Field(default_factory=list)
+
+
+class HarnessRunRequest(Contract):
+    text: str = Field(min_length=1, max_length=8000)
+
+
+class HarnessTrace(Contract):
+    at: datetime = Field(default_factory=now)
+    kind: str
+    data: dict = Field(default_factory=dict)
+
+
+class HarnessRun(Contract):
+    id: UUID = Field(default_factory=uuid4)
+    state: Literal["running", "completed", "failed", "stopped", "interrupted"] = "running"
+    config: HarnessConfig
+    text: str
+    events: list[HarnessTrace] = Field(default_factory=list)
+
+
+class HarnessTool(Contract):
+    name: str
+    description: str
+    input_schema: dict
+    enabled: bool = True

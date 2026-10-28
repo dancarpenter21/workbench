@@ -21,6 +21,8 @@ by choice of frame, even for sloped links. This is guidance, not an automatic re
 of saved models. Verify actual rotation shafts and signs. Joint origins use parent
 frames; box centres and rotations use their link frames, while dimensions use the
 box axes. tool0 is an explicitly chosen datum.
+The rotation diagram is a side view from −Y: +X points right, +Z points up,
+and +Y points into the page (a circled cross), so +X × +Y = +Z.
 Use the recorded 1500 µs zero pose for joint origins; inspect the full claw sweep
 separately for its conservative envelope.
 

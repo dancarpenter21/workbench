@@ -232,6 +232,13 @@ class ArmNode(LifecycleNode):
         with self.guard:
             if not self.active:
                 raise HTTPException(409, "Arm lifecycle is not active")
+            if (
+                writing
+                and self.app.state.harness.active
+                and not binding["endpoint"].startswith("harness_")
+                and binding["endpoint"] != "stop"
+            ):
+                raise HTTPException(409, "Harness owns the arm")
             if writing and self.reservation and binding["endpoint"] != "stop":
                 raise HTTPException(409, "Planned retrieval owns the arm")
             if writing and self.recovering and binding["endpoint"] != "stop":
@@ -335,6 +342,7 @@ class ArmNode(LifecycleNode):
         return bool(
             self.cfg["mode"] == "mock"
             and not self.reservation
+            and not self.app.state.harness.active
             and not self.pending_writes
             and not self.store.get("recovery", False)
             and not data["manual"].active

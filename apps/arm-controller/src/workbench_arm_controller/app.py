@@ -38,6 +38,11 @@ from workbench_contracts import (
     Diagnostic,
     GeometryMeasurements,
     GeometryMeasurementsUpdate,
+    HarnessArmStatus,
+    HarnessDispatch,
+    HarnessEnable,
+    HarnessLease,
+    HarnessOperation,
     Health,
     ManualAcquire,
     ManualInput,
@@ -56,6 +61,7 @@ from workbench_arm_controller.commissioning_live import LiveCommissioning
 from workbench_arm_controller.current_scale import CurrentScaleRecords
 from workbench_arm_controller.driver import SerialArm
 from workbench_arm_controller.hardware_status import HardwareStatus
+from workbench_arm_controller.harness import HarnessExecutor
 from workbench_arm_controller.hat_presence import HatPresence
 from workbench_arm_controller.manual import ManualControl
 from workbench_arm_controller.neutral_reference import NeutralReference
@@ -71,11 +77,12 @@ def create_app(config=None, store=None):
     scales = CurrentScaleRecords(monitor)
     manual = ManualControl(cfg, monitor=monitor)
     commissioning = LiveCommissioning(cfg, monitor=monitor)
+    harness = HarnessExecutor(manual)
     neutral_reference = NeutralReference(cfg)
     hardware = HardwareStatus(cfg, monitor, hat_presence, neutral_reference)
 
     def busy():
-        return bool(state["task"] and not state["task"].done())
+        return harness.active or bool(state["task"] and not state["task"].done())
 
     def commanded_neutral():
         targets = manual.targets if manual.prepared else {}
@@ -180,6 +187,7 @@ def create_app(config=None, store=None):
                     await manual_io(monitor_tick)
                     await manual_io(hat_presence.poll)
                     await manual_io(manual.tick)
+                    await manual_io(harness.tick)
                     await manual_io(commissioning.tick)
                 except Exception as exc:
                     monitor.trip(str(exc))
@@ -203,6 +211,7 @@ def create_app(config=None, store=None):
         return status
 
     async def stop_driver():
+        await manual_io(harness.stop, "Software hold requested; inspect and recover.")
         if commissioning.reserved:
             await manual_io(commissioning.stop)
             return "Commissioning stopped; PWM retained. Disconnect servo power and finish trial."
@@ -231,6 +240,7 @@ def create_app(config=None, store=None):
             commissioning.attach(state["store"])
             manual.use_bounds(commissioning.bounds())
             monitor.attach(state["store"])
+            harness.attach(state["store"])
             scales.attach(state["store"])
             await manual_io(monitor_tick)
             await manual_io(hat_presence.poll)
@@ -277,6 +287,7 @@ def create_app(config=None, store=None):
                 await asyncio.gather(worker, return_exceptions=True)
             async with lock:
                 try:
+                    await manual_io(harness.stop)
                     await manual_io(manual.close)
                 finally:
                     try:
@@ -303,6 +314,7 @@ def create_app(config=None, store=None):
 
     # ROS lifecycle adapter reuses the same monitored domain handlers without an HTTP listener.
     app.state.emergency_shutdown = emergency_shutdown
+    app.state.harness = harness
 
     @app.get("/hardware/status", response_model=ArmHardwareStatus)
     async def hardware_status():
@@ -652,9 +664,47 @@ def create_app(config=None, store=None):
             await state["store"].aput("manual_active", False)
             return manual_snapshot()
 
+    @app.get("/harness/arm", response_model=HarnessArmStatus)
+    async def harness_status():
+        async with lock:
+            return harness.status(commissioning.bounds())
+
+    @app.post("/harness/session", response_model=HarnessLease)
+    async def harness_enable(value: HarnessEnable):
+        async with lock:
+            if busy() or manual.token or commissioning.reserved or current().recovery_required:
+                raise HTTPException(409, "Arm is busy or requires recovery")
+            return await manual_io(harness.enable, value, commissioning.bounds())
+
+    @app.post("/harness/heartbeat", response_model=HarnessArmStatus)
+    async def harness_heartbeat(value: HarnessLease):
+        async with lock:
+            return await manual_io(harness.heartbeat, value)
+
+    @app.post("/harness/end", response_model=HarnessArmStatus)
+    async def harness_end(value: HarnessLease):
+        async with lock:
+            harness.authenticate(value.token)
+            await manual_io(harness.stop)
+            return harness.status()
+
+    @app.post("/harness/sequences", response_model=HarnessOperation)
+    async def harness_sequence(value: HarnessDispatch):
+        async with lock:
+            if commissioning.reserved or manual.token or current().recovery_required:
+                raise HTTPException(409, "Arm is busy or requires recovery")
+            return await manual_io(harness.submit, value)
+
+    @app.get("/harness/operations/{operation_id}", response_model=HarnessOperation)
+    async def harness_operation(operation_id: str):
+        async with lock:
+            return harness.lookup(operation_id)
+
     @app.post("/execute", response_model=ArmStatus, status_code=202)
     async def execute(command: ArmCommand):
         async with lock:
+            if harness.active:
+                raise HTTPException(409, "Harness owns the arm")
             if commissioning.reserved:
                 raise HTTPException(409, "Finish commissioning with power disconnected first")
             if manual.token:
@@ -699,6 +749,8 @@ def create_app(config=None, store=None):
         async with lock:
             if state["error"]:
                 raise HTTPException(503, state["error"])
+            if harness.active:
+                raise HTTPException(409, "Harness owns the arm")
             if commissioning.reserved:
                 raise HTTPException(409, "Finish commissioning with power disconnected first")
             if manual.token:

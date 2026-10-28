@@ -852,3 +852,11 @@ header #header-current {
   .init-head > span:first-child { display: none; }
   .init-row input { font-size: 14px; }
 }
+
+.harness-panel { margin-top: 2rem; border-top: 1px solid var(--border, #aaa); padding-top: 1rem; }
+.harness-form { display: grid; gap: 0.8rem; margin: 1rem 0; }
+.harness-panel label { display: block; margin: 0.6rem 0; }
+.harness-panel input:not([type="checkbox"]), .harness-panel textarea { width: 100%; box-sizing: border-box; }
+.harness-panel details { margin: 0.8rem 0; }
+.harness-panel summary { cursor: pointer; }
+.harness-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; font-size: 0.8rem; }

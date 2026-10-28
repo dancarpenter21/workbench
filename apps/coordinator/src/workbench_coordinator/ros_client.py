@@ -204,6 +204,28 @@ class RosBrowserBridge:
             return sample
         return None
 
+    def harness_scene(self):
+        with self.lock:
+            sample = self.observations
+        if sample is None or time.monotonic() - sample[1] > self.cfg["observation_max_age_seconds"]:
+            raise RuntimeError("No fresh local recognition available")
+        message = sample[0]
+        stamp = message.header.stamp.sec + message.header.stamp.nanosec / 1e9
+        if not 0 <= time.time() - stamp <= self.cfg["observation_max_age_seconds"]:
+            raise RuntimeError("Local recognition acquisition timestamp is stale")
+        if not message.camera_ok:
+            raise RuntimeError("Camera recognition unavailable")
+        return {
+            "tools": [
+                {"tool_id": t.tool_id, "location": t.location, "confidence": t.confidence}
+                for t in message.tools
+            ],
+            "captured_at": datetime.fromtimestamp(stamp, timezone.utc).isoformat(),
+            "simulated": self.cfg["mode"] == "mock",
+            "metric_pose_available": False,
+            "tray_clear": message.tray_clear,
+        }
+
     def scene(self):
         with self.lock:
             sample = self.observations
@@ -329,6 +351,11 @@ class RosBrowserBridge:
             )
             self.control_clients[name] = (service, client)
         service, client = self.control_clients[name]
+        # Discovery may lag the first request for a newly created typed control.
+        # Wait for discovery only; never retry a dispatched physical command.
+        if not client.service_is_ready():
+            if not await asyncio.to_thread(client.wait_for_service, timeout_sec=1.0):
+                raise RuntimeError("Required ROS control service is unavailable")
         request = service.Request(domain=self.domain)
         for parameter, annotation in binding["parameters"].items():
             spec = field_type(annotation)

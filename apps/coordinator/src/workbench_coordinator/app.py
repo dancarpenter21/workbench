@@ -71,6 +71,7 @@ from workbench_contracts import (
     now,
 )
 
+from .harness import HarnessService, mount_harness
 from .status_stream import StatusPublisher
 
 
@@ -101,6 +102,7 @@ def create_app(config=None, store=None, client=None):
         "hardware": None,
     }
     gate = asyncio.Lock()
+    harness = HarnessService(cfg, lambda: None)
 
     def current():
         value = state["store"].get("current")
@@ -172,7 +174,9 @@ def create_app(config=None, store=None, client=None):
                 operation, "failed", "Coordinator restarted; inspect the workbench and recover"
             )
             await stop_arm()
+        await harness.start()
         yield
+        await harness.close()
         await publisher.close()
         if state["task"] and not state["task"].done():
             await state["store"].aput("recovery", True)
@@ -188,6 +192,7 @@ def create_app(config=None, store=None, client=None):
             state["store"].close()
 
     app = app_base("coordinator", lifespan)
+    mount_harness(app, harness)
 
     @app.get("/health", response_model=Health)
     async def health():
@@ -744,6 +749,9 @@ def create_app(config=None, store=None, client=None):
 
     @app.post("/stop", response_model=WorkbenchStatus)
     async def stop():
+        if harness.task and not harness.task.done():
+            harness.task.cancel()
+            await asyncio.gather(harness.task, return_exceptions=True)
         async with gate:
             await state["store"].aput("recovery", True)
             if state["task"] and not state["task"].done():

@@ -74,6 +74,18 @@ def main():
                         if time.monotonic() > deadline:
                             raise
                         time.sleep(0.2)
+                with urllib.request.urlopen(base_url + "/harness/arm", timeout=5) as response:
+                    harness = json.load(response)
+                    assert harness["simulated"] and not harness["active"]
+                request = urllib.request.Request(
+                    base_url + "/mcp",
+                    data=json.dumps({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}).encode(),
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    tools = json.load(response)["result"]["tools"]
+                    assert "execute_sequence" in {tool["name"] for tool in tools}
+                    assert "harness_enable" not in {tool["name"] for tool in tools}
                 with urllib.request.urlopen(base_url + "/manual/status", timeout=5) as response:
                     assert not json.load(response)["active"]
                 with urllib.request.urlopen(

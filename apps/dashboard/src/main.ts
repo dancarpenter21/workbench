@@ -1,6 +1,7 @@
 import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
 import { record } from "./audio";
+import { mountHarness } from "./harness";
 import { mountCamera } from "./camera";
 import { ageCurrent, renderCurrent, renderHatPresence, renderServoPower } from "./current";
 import "./style.css";
@@ -45,6 +46,7 @@ root.innerHTML = `
           <p id="operation-message">Waiting for your first request.</p><small id="operation-id"></small></div>
         <p id="error" role="alert"></p>
         <div class="controls"><button id="reset" class="secondary" hidden>Reset mock scene</button></div>
+        <section id="harness-panel" class="harness-panel"></section>
       </div>
     <section id="commissioning-panel" class="manual-panel"></section>
     <section id="manual-panel" class="manual-panel"></section>
@@ -281,6 +283,7 @@ setInterval(() => {
 }, 1000);
 
 mountCamera();
+mountHarness(el("harness-panel"), () => button("stop").click());
 
 async function refreshServices() {
   try {

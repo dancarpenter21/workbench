@@ -133,6 +133,95 @@ def main():
             response = call(ControlManualInput, "manual_input", request=bad)
             assert not response.success and response.error_status == 422
 
+            # Physical harness contracts exercised through real ROS services, with mock I/O.
+            import workbench_interfaces.srv as controls
+            from workbench_contracts import (
+                CommissionBounds,
+                CommissionBoundsUpdate,
+                CommissionLimitValues,
+                HarnessDispatch,
+                HarnessEnable,
+                HarnessLease,
+                HarnessStep,
+                ManualAcquire,
+            )
+            from workbench_contracts.ros_transport import from_ros, to_ros
+
+            bounds_reply = call(controls.ControlCommissioningBounds, "commissioning_bounds")
+            assert bounds_reply.success
+            bounds = from_ros(bounds_reply.value, CommissionBounds)
+            saved = call(
+                controls.ControlCommissioningSaveBounds,
+                "commissioning_save_bounds",
+                value=to_ros(
+                    CommissionBoundsUpdate(
+                        assembly_id=bounds.assembly_id,
+                        setup=bounds.setup,
+                        joints={
+                            name: CommissionLimitValues(minimum_us=1400, maximum_us=1600)
+                            for name in bounds.joints
+                        },
+                    )
+                ),
+            )
+            assert saved.success, saved.error_message
+            enabled = call(
+                controls.ControlHarnessEnable,
+                "harness_enable",
+                value=to_ros(
+                    HarnessEnable(
+                        supervised=True,
+                        acknowledge_unverified_scale=True,
+                        claw_open_us=1450,
+                        claw_close_us=1550,
+                    )
+                ),
+            )
+            assert enabled.success, enabled.error_message
+            lease = from_ros(enabled.value, HarnessLease)
+            manual_conflict = call(
+                controls.ControlManualAcquire,
+                "manual_acquire",
+                request=to_ros(ManualAcquire(ready_acknowledged=True)),
+            )
+            assert not manual_conflict.success and manual_conflict.error_status == 409
+            command = HarnessDispatch(
+                token=lease.token,
+                operation_id=uuid4(),
+                steps=[
+                    HarnessStep(action="move_joint", joint_id="base", target_pulse_us=1510),
+                    HarnessStep(action="close_claw"),
+                ],
+            )
+            submitted = call(
+                controls.ControlHarnessSequence, "harness_sequence", value=to_ros(command)
+            )
+            assert submitted.success, submitted.error_message
+            deadline = time.monotonic() + 10
+            while True:
+                heartbeat = call(
+                    controls.ControlHarnessHeartbeat, "harness_heartbeat", value=to_ros(lease)
+                )
+                assert heartbeat.success, heartbeat.error_message
+                operation = call(
+                    controls.ControlHarnessOperation,
+                    "harness_operation",
+                    operation_id=str(command.operation_id),
+                )
+                assert operation.success, operation.error_message
+                if operation.value.state != "running":
+                    assert operation.value.state == "completed"
+                    assert operation.value.completed_steps == 2 and operation.value.simulated
+                    break
+                assert time.monotonic() < deadline
+                time.sleep(0.05)
+            duplicate = call(
+                controls.ControlHarnessSequence, "harness_sequence", value=to_ros(command)
+            )
+            assert duplicate.success and duplicate.value.state == "completed"
+            ended = call(controls.ControlHarnessEnd, "harness_end", value=to_ros(lease))
+            assert ended.success and not ended.value.active
+
             # The public action reserves the owner before forwarding to the internal planner.
             retrieval = ActionClient(client, RetrieveTool, "/workbench/arm/retrieve")
             assert retrieval.wait_for_server(timeout_sec=10)

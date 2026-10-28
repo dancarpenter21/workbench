@@ -27,10 +27,14 @@ from workbench_contracts.ros_transport import RemoteControlError
 from workbench_vision.stream import VideoSessions
 from workbench_voice.app import read_audio
 
+from .harness import HarnessService, mount_harness
+from .harness_mcp import mount_mcp
+
 
 def create_app(config=None, bridge_factory=None):
     cfg = config or settings()
     state = {"bridge": None, "video": None}
+    harness = HarnessService(cfg, lambda: state["bridge"])
 
     @asynccontextmanager
     async def lifespan(app):
@@ -41,13 +45,18 @@ def create_app(config=None, bridge_factory=None):
             factory = RosBrowserBridge
         state["bridge"] = await asyncio.to_thread(factory, cfg)
         state["video"] = VideoSessions(cfg, lambda: state["bridge"], state["bridge"].scene)
+        await harness.start()
         try:
             yield
         finally:
+            await harness.close()
             await state["video"].close()
             await asyncio.to_thread(state["bridge"].close)
 
     app = app_base("coordinator", lifespan)
+    mount_harness(app, harness)
+    mount_mcp(app, harness)
+    app.state.harness = harness
 
     async def invoke(function, *args):
         try:
@@ -92,7 +101,7 @@ def create_app(config=None, bridge_factory=None):
 
     @app.post("/stop", response_model=WorkbenchStatus)
     async def stop():
-        return await invoke(state["bridge"].stop)
+        return await invoke(harness.stop)
 
     @app.post("/recover", response_model=WorkbenchStatus)
     async def recover(value: Recovery):
