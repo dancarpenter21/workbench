@@ -67,6 +67,7 @@ test("numeric moves and neutral reset with keyboard-only jogging", async ({ page
   await expect(page.locator("#manual-controller, #manual-source, #manual-plus")).toHaveCount(0);
   const fields = page.locator("#manual-pulses input");
   await expect(fields).toHaveCount(6);
+  for (let i = 0; i < 6; i++) await expect(fields.nth(i)).toHaveValue("1500");
   await expect(page.locator("#manual-reset")).toBeEnabled();
   await expect(page.locator("#manual-ready")).toHaveCount(0);
   await page.evaluate(() => window.dispatchEvent(new Event("blur")));
@@ -76,6 +77,9 @@ test("numeric moves and neutral reset with keyboard-only jogging", async ({ page
   await page.locator("#manual-pulses button").first().click();
   await expect(page.locator("#manual-end")).toBeEnabled();
   await expect.poll(() => page.locator("#manual-value").innerText()).toMatch(/^180/);
+  await fields.first().fill("1700");
+  await fields.first().press("Enter");
+  await expect.poll(() => page.locator("#manual-value").innerText()).toMatch(/^170/);
   await page.locator("#manual-reset").click();
   for (let i = 0; i < 6; i++) await expect(fields.nth(i)).toHaveValue("1500");
   await expect.poll(() => page.locator("#manual-value").innerText()).toMatch(/^149/);

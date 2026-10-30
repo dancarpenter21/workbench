@@ -139,9 +139,15 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       for (const j of joints) {
         const row = document.createElement("div");
         row.innerHTML = `<label>${j.label} · Servo ${j.channel} · Pulse (µs)
-          <input type="number" min="${j.min_us}" max="${j.max_us}" step="1" value="${j.commanded_us ?? 1500}" required /></label><button>Move</button>`;
+          <input type="number" min="${j.min_us}" max="${j.max_us}" step="1" value="1500" required /></label><button type="button">Move</button>`;
         const field = row.querySelector("input")!;
-        row.querySelector("button")!.onclick = async () => {
+        const move = row.querySelector("button")!;
+        field.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          if (!event.repeat) move.click();
+        });
+        move.onclick = async () => {
           if (commanding || !field.reportValidity()) return;
           commanding = true;
           clearInput();
