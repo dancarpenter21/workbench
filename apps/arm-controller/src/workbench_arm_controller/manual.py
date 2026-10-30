@@ -204,7 +204,7 @@ class ManualControl:
     def authenticate(self, token):
         if not self.token or token != self.token:
             raise HTTPException(409, "Manual session ended; enable again explicitly")
-        if self.clock() >= self.deadline:
+        if self.clock() >= self.deadline and self.speed != 0:
             self.hold("Manual input timed out; inspect the arm and recover.", recovery=True)
             raise HTTPException(409, self.message)
 
@@ -287,7 +287,7 @@ class ManualControl:
                 return
         if not self.token:
             return
-        if now >= self.deadline:
+        if now >= self.deadline and self.speed != 0:
             self.hold("Manual input timed out; inspect the arm and recover.", recovery=True)
             return
         if not self.speed or not self.joint:

@@ -87,11 +87,11 @@ changing targets; they cannot confirm physical standstill or stop an actuator al
 approaching a target. Use the physical cutoff when control is uncertain.
 
 The browser sends current input every 100 ms, without a queued command backlog.
-The arm service expires ownership after 300 ms without valid input and requires
-recovery. Old tokens and sequences cannot resume movement. Focus loss, leaving the
-Jog tab, controller disconnect, or connection failure clears browser input and
-requests release; if release cannot reach the arm, its watchdog expires the session.
-Reconnection requires explicitly enabling again.
+During jogging, the arm service expires ownership after 300 ms without valid input
+and requires recovery. Idle sessions retain ownership when browser timers slow down.
+Changing tabs or window focus clears held keys and stops jogging while keeping Manual
+enabled. End manual control, Stop, page unload, connection failures, and monitoring
+faults end the session. Reconnection requires explicitly enabling again.
 
 A partial I2C write makes all commanded-state readouts unknown, latches a fault, and
 prevents automatic retries. Inspect with power disconnected and prepare again.

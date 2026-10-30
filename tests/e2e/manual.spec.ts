@@ -55,11 +55,11 @@ test("keyboard jogging, joint mapping, precision, release and focus loss", async
   await page.screenshot({ path: "test-results/manual-keyboard.png", fullPage: true });
   await page.locator("#workbench-tab").click();
   await page.locator("#request").focus();
-  await expect(page.locator("#manual-end")).toBeDisabled();
+  await expect(page.locator("#manual-end")).toBeEnabled();
   await page.locator("#request").fill("Arrow keys and Space belong to this field");
   await page.keyboard.press("ArrowLeft");
   await page.locator("#jog-tab").click();
-  await expect(page.locator("#manual-enable")).toBeEnabled();
+  await expect(page.locator("#manual-end")).toBeEnabled();
 });
 
 test("numeric moves and neutral reset with keyboard-only jogging", async ({ page }) => {
@@ -67,17 +67,21 @@ test("numeric moves and neutral reset with keyboard-only jogging", async ({ page
   await expect(page.locator("#manual-controller, #manual-source, #manual-plus")).toHaveCount(0);
   const fields = page.locator("#manual-pulses input");
   await expect(fields).toHaveCount(6);
-  await expect(page.locator("#manual-reset")).toBeDisabled();
-  await page.locator("#manual-enable").click();
+  await expect(page.locator("#manual-reset")).toBeEnabled();
+  await expect(page.locator("#manual-ready")).toHaveCount(0);
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await page.waitForTimeout(500);
+  await expect(page.locator("#manual-pulses button").first()).toBeEnabled();
   await fields.first().fill("1800");
   await page.locator("#manual-pulses button").first().click();
+  await expect(page.locator("#manual-end")).toBeEnabled();
   await expect.poll(() => page.locator("#manual-value").innerText()).toMatch(/^180/);
   await page.locator("#manual-reset").click();
   for (let i = 0; i < 6; i++) await expect(fields.nth(i)).toHaveValue("1500");
   await expect.poll(() => page.locator("#manual-value").innerText()).toMatch(/^149/);
   await page.locator("#workbench-tab").click();
   await page.locator("#jog-tab").click();
-  await expect(page.locator("#manual-reset")).toBeDisabled();
+  await expect(page.locator("#manual-reset")).toBeEnabled();
 });
 
 test("lost manual connection expires ownership and requires explicit recovery", async ({ page, request }) => {

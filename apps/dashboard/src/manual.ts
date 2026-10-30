@@ -4,12 +4,14 @@ type ManualStatus = components["schemas"]["ManualStatus"];
 type ManualSession = components["schemas"]["ManualSession"];
 type WorkbenchStatus = components["schemas"]["WorkbenchStatus"];
 
-
 export function mountManual(root: HTMLElement, stopArm: () => void) {
   root.innerHTML = `
     <div class="panel-heading"><div><p class="eyebrow">DIRECT ARM CONTROL</p>
       <h2 id="manual-title">Manual joints</h2></div><span id="manual-mode" class="badge">Connecting…</span></div>
     <p id="manual-message" role="status">Connecting to arm controller…</p>
+    <div class="actions manual-actions"><button id="manual-enable" disabled>Enable keyboard jogging</button>
+      <button id="manual-end" class="secondary" disabled>End manual control</button>
+      <button id="manual-stop" class="danger">Stop arm</button></div>
     <button id="manual-reset" class="secondary" disabled>Reset all servos to 1500 µs</button>
     <p id="manual-gate" role="status"></p>
     <p id="manual-next" role="status"></p>
@@ -26,11 +28,6 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       <label class="ack"><input id="manual-power-off" type="checkbox" /> Servo power is disconnected and the arm is supported.</label>
       <button id="manual-prepare" class="secondary" disabled>Prepare for Manual</button>
     </div>
-    <label id="manual-ready-label" class="ack" hidden><input id="manual-ready" type="checkbox" />
-      I applied power using the commissioned procedure and checked that the arm is ready.</label>
-    <div class="actions manual-actions"><button id="manual-enable" disabled>Enable manual control</button>
-      <button id="manual-end" class="secondary" disabled>End manual control</button>
-      <button id="manual-stop" class="danger">Stop arm</button></div>
     <p id="manual-help" class="caption">Click this panel to focus. Select 1–6 or Up/Down; hold Space + Left/Right to jog. Hold Shift for precision. Escape stops the arm.</p>
     <p class="caption">V1 assumes successful movement after each PWM write. Stop retains the last target. Manual uses the nominal 500–2500 µs range, not verified mechanical limits. No commissioning is required.</p>
     <p id="manual-error" role="alert"></p>`;
@@ -44,9 +41,8 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!;
   const button = (id: string) => el<HTMLButtonElement>(id);
 
-
   const precision = el<HTMLInputElement>("manual-precision");
-  const ready = el<HTMLInputElement>("manual-ready");
+
   const powerOff = el<HTMLInputElement>("manual-power-off");
   let status: ManualStatus | null = null;
   let token: string | null = null;
@@ -64,9 +60,9 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
   const keys = new Set<string>();
 
 
-
   let lastSentJoint: string | null = null;
   let sending = false;
+  let commanding = false;
   let polling = false;
 
   async function request<T>(path: string, body?: unknown, timeout = 1000): Promise<T> {
@@ -146,15 +142,19 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
           <input type="number" min="${j.min_us}" max="${j.max_us}" step="1" value="${j.commanded_us ?? 1500}" required /></label><button>Move</button>`;
         const field = row.querySelector("input")!;
         row.querySelector("button")!.onclick = async () => {
-          if (!token || sending || !field.reportValidity()) return;
+          if (commanding || !field.reportValidity()) return;
+          commanding = true;
           clearInput();
-          sending = true;
-          const owner = token;
+          render();
           try {
+            while (sending) await new Promise(resolve => setTimeout(resolve, 10));
+            await acquire();
+            const owner = token;
+            if (!owner) return;
             const result = await request<ManualStatus>("position", { token: owner, sequence: sequence++, joint_id: j.id, pulse_us: field.valueAsNumber });
             if (token === owner) status = result;
           } catch (error) { end(); fail(error); }
-          finally { sending = false; render(); }
+          finally { commanding = false; render(); }
         };
         el("manual-pulses").append(row);
       }
@@ -179,7 +179,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     el("manual-direction").textContent = joint?.direction ?? "";
     el("manual-next").textContent = status?.next_action ?? "";
     el("manual-preparation").hidden = !status || (status.prepared && !status.recovery_required) || !joints.length;
-    el("manual-ready-label").hidden = !status || status.simulated || !status.prepared;
+
     button("manual-prepare").disabled = pending || !powerOff.checked || !status?.can_prepare;
     const outdatedBackend = status !== null && typeof status.can_prepare !== "boolean";
     el("manual-gate").textContent = outdatedBackend
@@ -190,19 +190,19 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       : blocked ? blockedMessage
       : !status?.prepared ? "Disconnect servo power, support the arm, and prepare outputs below."
       : !status?.available ? status?.message ?? "Manual control unavailable."
-      : !status.simulated && !ready.checked ? "Check the arm-ready acknowledgement below, then enable manual control."
-      : "Click Enable manual control below to unlock Move and Reset.";
-    button("manual-reset").disabled = !active || sending || pending;
-    const validController = true;
+      : "Ready. Move applies the entered pulse immediately; Reset applies 1500 µs to all servos.";
+    const canMove = connected && !anotherOwner && !blocked && !!status?.available && !!status.prepared;
+    button("manual-reset").disabled = (!active && !canMove) || commanding || pending;
     button("manual-enable").disabled = !connected || !visible || pending || active || anotherOwner || blocked ||
-      !status?.available || !status.prepared || !validController || (!status.simulated && !ready.checked);
+      !status?.available || !status.prepared;
     button("manual-end").disabled = !active && !pending;
-    el("manual-pulses").querySelectorAll<HTMLButtonElement>("button").forEach(b => b.disabled = !active || sending);
+    el("manual-pulses").querySelectorAll<HTMLButtonElement>("button").forEach(b => b.disabled = (!active && !canMove) || commanding || pending);
 
   }
 
-  button("manual-enable").onclick = async () => {
-    if (button("manual-enable").disabled) return;
+  async function acquire() {
+    if (token) return;
+    if (button("manual-enable").disabled) throw new Error("Manual control is unavailable.");
     clearInput();
     root.focus();
     pending = true;
@@ -211,7 +211,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     render();
     try {
       const result = await request<ManualSession>("session", { ready_acknowledged: true });
-      if (attempt !== generation || !visible || !document.hasFocus()) {
+      if (attempt !== generation) {
         await request("release", { token: result.token });
         return;
       }
@@ -220,16 +220,19 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       lastSentJoint = null;
       status = result.status;
       root.focus();
-    } catch (error) { fail(error); }
-    finally { if (attempt === generation) pending = false; render(); }
-  };
+    } finally { if (attempt === generation) pending = false; render(); }
+  }
+  button("manual-enable").onclick = () => { void acquire().catch(fail); };
   button("manual-reset").onclick = async () => {
-    if (!token || sending || pending) return;
+    if (commanding || pending) return;
+    commanding = true;
     clearInput();
-    sending = true;
-    const owner = token;
     render();
     try {
+      while (sending) await new Promise(resolve => setTimeout(resolve, 10));
+      await acquire();
+      const owner = token;
+      if (!owner) return;
       const result = await request<ManualStatus>("reset", { token: owner });
       if (token === owner) {
         status = result;
@@ -237,7 +240,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
         lastSentJoint = null;
       }
     } catch (error) { end(); fail(error); }
-    finally { sending = false; render(); }
+    finally { commanding = false; render(); }
   };
   button("manual-end").onclick = end;
   button("manual-stop").onclick = () => { end(); stopArm(); };
@@ -249,11 +252,11 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       el("manual-error").textContent = "";
       status = await request<ManualStatus>("prepare", { power_disconnected_and_arm_supported: true }, 5000);
       blocked = false;
-      powerOff.checked = ready.checked = false;
+      powerOff.checked = false;
     } catch (error) { fail(error); }
     finally { pending = false; render(); }
   };
-  powerOff.onchange = ready.onchange = () => render();
+  powerOff.onchange = () => render();
   root.addEventListener("keydown", (event) => {
     if (!visible) return;
     if (event.code === "Escape" && (token || pending)) { event.preventDefault(); end(); stopArm(); return; }
@@ -266,17 +269,14 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     keys.add(event.code);
   });
   window.addEventListener("keyup", (event) => keys.delete(event.code));
-  root.addEventListener("focusout", (event) => {
-    if (!root.contains(event.relatedTarget as Node | null)) end();
-    else clearInput();
-  });
-  window.addEventListener("blur", end);
+  root.addEventListener("focusout", clearInput);
+  window.addEventListener("blur", clearInput);
   window.addEventListener("pagehide", end);
-  document.addEventListener("visibilitychange", () => { if (document.hidden) end(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) clearInput(); });
 
   setInterval(async () => {
-    if (!token || sending) return;
-    if (!visible || document.hidden || !document.hasFocus()) { end(); return; }
+    if (!token || sending || commanding) return;
+    if (!visible || document.hidden || !document.hasFocus()) clearInput();
     const owner = token;
     const joint = status?.joints?.[selected];
     if (!joint) { end(); return; }
@@ -287,7 +287,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       }, 250);
       if (token === owner) { lastSentJoint = joint.id; status = result; render(); }
     } catch (error) { if (token === owner) { end(); fail(error); } }
-    finally { sending = false; }
+    finally { sending = false; render(); }
   }, 100);
 
   async function refresh() {
@@ -311,14 +311,14 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
   setInterval(() => void refresh(), 500);
   return {
     end,
-    setVisible(value: boolean) { visible = value; if (!value) end(); else void refresh(); },
+    setVisible(value: boolean) { visible = value; clearInput(); if (value) void refresh(); },
     updateWorkbench(value: WorkbenchStatus | null) {
       connected = value !== null;
-      blocked = !!value?.recovery_required || !!value?.operation && !["completed", "clarification", "rejected", "failed", "stopped", "status"].includes(value.operation.state);
-      blockedMessage = value?.recovery_required
+      blocked = !!value?.manual?.recovery_required || !!value?.operation && !["completed", "clarification", "rejected", "failed", "stopped", "status"].includes(value.operation.state);
+      blockedMessage = value?.manual?.recovery_required
         ? "Inspect the arm and recover before enabling manual control."
         : "A retrieval request is active.";
-      if (!value || value.recovery_required && token) end();
+      if (!value || value.manual?.recovery_required && token) end();
       if (!token && !pending && value?.manual) status = value.manual;
       render();
     },

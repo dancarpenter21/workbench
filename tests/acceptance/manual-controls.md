@@ -21,16 +21,15 @@ load, and pass/fail evidence in the commissioning records. Keep runtime evidence
    do not establish collision avoidance between joints or with the bench.
 5. **Keyboard:** test selection, held enable, release, opposing keys, neutral after
    selection, Shift precision, editable-field focus, and Escape Stop.
-6. **Xbox/browser:** on the actual browser and OS, test USB and the intended Bluetooth
-   connection, controller discovery/selection, neutral stick drift, held bumper,
-   proportional input, precision, joint changes, B Stop, disconnect and reconnect.
-   Verify HTTPS/localhost access and unsupported-mapping guidance where applicable.
+6. **Browser focus:** change app tabs and window focus while jogging. Verify held
+   keys clear, targets stop changing, and the session stays enabled on return.
 7. **Ownership:** try a second browser and a retrieval request during manual control;
    both must be refused. During retrieval, manual acquisition must be refused.
 8. **Loss and hold:** release direction; end manual control; change tabs; move focus
    outside the panel; hide/close the page; interrupt network access. Measure target
-   update cessation and observe actual actuator settling. Confirm network loss triggers
-   the server watchdog and requires recovery when release cannot arrive.
+   update cessation and observe actual actuator settling. Confirm network loss during active jogging triggers
+   the server watchdog and requires recovery when release cannot arrive. Idle sessions
+   retain ownership during background timer throttling.
 9. **Faults and restart:** with appropriate support and power procedures, verify output
    failure handling without automatic retries, unknown-state readouts, re-preparation,
    and restart without session restoration. Do not induce powered wiring faults.

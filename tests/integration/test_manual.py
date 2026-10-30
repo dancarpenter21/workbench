@@ -94,7 +94,8 @@ def test_neutral_selection_stale_sequence_and_expired_session():
     with pytest.raises(HTTPException):
         control.input(value)
     assert control.deadline == 0.3  # Stale messages cannot extend the lease.
-    now[0] = 0.31
+    control.input(command(control, 1))
+    now[0] = 0.41
     control.tick()
     assert control.token is None and control.recovery_required
     held = dict(control.commanded)
@@ -197,6 +198,9 @@ async def test_watchdog_stop_recovery_and_invalid_input(stack):
         await bus.post(url + "/manual/input", json={**body, "joint_id": "wrong"})
     ).status_code == 422
     assert (await bus.post(url + "/manual/input", json=body)).status_code == 200
+    assert (
+        await bus.post(url + "/manual/input", json={**body, "sequence": 1, "speed": 1})
+    ).status_code == 200
     await asyncio.sleep(0.36)
     status = (await bus.get(url + "/status")).json()
     assert status["recovery_required"] and not status["manual"]["active"]
@@ -577,3 +581,18 @@ def test_manual_reset_sets_all_targets_to_neutral():
     control.hold()
     with pytest.raises(HTTPException):
         control.reset(ManualRelease(token="00000000-0000-0000-0000-000000000000"))
+
+
+def test_idle_manual_session_survives_background_timer_throttling():
+    control, now = controller()
+    session = control.acquire()
+    now[0] += 120
+    control.tick()
+    assert control.token == session.token
+    assert not control.recovery_required
+    control.input(command(control))
+    control.input(command(control, 1))
+    now[0] += 1
+    control.tick()
+    assert control.token is None
+    assert control.recovery_required
