@@ -58,7 +58,7 @@ export function mountGeometry(root: HTMLElement, showPart: (name: string, reveal
       </table>
       <p class="caption">Positive rotation follows the right-hand rule: about +X, +Y turns toward +Z; about +Y, +Z turns toward +X (and +X toward −Z). These are the axes at the neutral measurement pose; downstream axes move with upstream joints. Claw opening is covered by its capsule.</p>
     </section>
-    <p class="caption">Include brackets, servo bodies, and the claw at every opening. Base/channel 5 does not change height. Jog remains free play.</p>
+    <p class="caption">Include brackets, servo bodies, and the claw at every opening. Base/channel 5 does not change height. Manual remains free play.</p>
     <p id="geometry-status" role="status">Loading measurements…</p>
     <form id="geometry-form" novalidate>
       <div class="geometry-pair">

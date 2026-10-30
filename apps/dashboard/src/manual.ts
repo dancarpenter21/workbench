@@ -3,51 +3,48 @@ import type { components } from "@workbench/contracts";
 type ManualStatus = components["schemas"]["ManualStatus"];
 type ManualSession = components["schemas"]["ManualSession"];
 type WorkbenchStatus = components["schemas"]["WorkbenchStatus"];
-type Source = "keyboard" | "gamepad" | "pointer";
+
 
 export function mountManual(root: HTMLElement, stopArm: () => void) {
   root.innerHTML = `
     <div class="panel-heading"><div><p class="eyebrow">DIRECT ARM CONTROL</p>
       <h2 id="manual-title">Manual joints</h2></div><span id="manual-mode" class="badge">Connecting…</span></div>
     <p id="manual-message" role="status">Connecting to arm controller…</p>
+    <button id="manual-reset" class="secondary" disabled>Reset all servos to 1500 µs</button>
+    <p id="manual-gate" role="status"></p>
+    <p id="manual-next" role="status"></p>
     <p id="manual-clearance">Free play · table-clearance checks off · claw-current monitoring active.</p>
     <div id="manual-joints" class="manual-joints" aria-label="Select joint"></div>
     <div class="manual-readout"><strong id="manual-selected">Select a joint</strong>
       <output id="manual-value">—</output><span id="manual-limits"></span></div>
     <p id="manual-direction" class="caption"></p>
-    <div class="manual-settings">
-      <label>Input<select id="manual-source"><option value="keyboard">Keyboard</option>
-        <option value="gamepad">Xbox controller</option><option value="pointer">On-screen buttons</option></select></label>
-      <label>Controller<select id="manual-controller"><option value="">No controller detected</option></select></label>
-      <label class="ack"><input id="manual-precision" type="checkbox" /> Precision speed (25%)</label>
-    </div>
-    <p id="manual-controller-note" class="caption"></p>
+    <label class="ack"><input id="manual-precision" type="checkbox" /> Precision speed (25%)</label>
+    <div id="manual-pulses"></div>
+    <p class="caption">Move applies the pulse immediately. Control movement increments carefully.</p>
     <div id="manual-preparation" hidden>
       <p>Before preparation, disconnect servo power and support the arm. Preparation programs 1500 µs on all six servos.</p>
       <label class="ack"><input id="manual-power-off" type="checkbox" /> Servo power is disconnected and the arm is supported.</label>
-      <button id="manual-prepare" class="secondary" disabled>Prepare outputs</button>
+      <button id="manual-prepare" class="secondary" disabled>Prepare for Manual</button>
     </div>
     <label id="manual-ready-label" class="ack" hidden><input id="manual-ready" type="checkbox" />
       I applied power using the commissioned procedure and checked that the arm is ready.</label>
     <div class="actions manual-actions"><button id="manual-enable" disabled>Enable manual control</button>
       <button id="manual-end" class="secondary" disabled>End manual control</button>
       <button id="manual-stop" class="danger">Stop arm</button></div>
-    <div class="manual-jog"><button id="manual-minus" class="secondary" disabled>− Hold</button>
-      <button id="manual-plus" class="secondary" disabled>+ Hold</button></div>
     <p id="manual-help" class="caption">Click this panel to focus. Select 1–6 or Up/Down; hold Space + Left/Right to jog. Hold Shift for precision. Escape stops the arm.</p>
-    <p class="caption">V1 assumes successful movement after each PWM write. Stop retains the last target. Saved pulse limits are optional; no capsule measurements are required for Jog.</p>
+    <p class="caption">V1 assumes successful movement after each PWM write. Stop retains the last target. Manual uses the nominal 500–2500 µs range, not verified mechanical limits. No commissioning is required.</p>
     <p id="manual-error" role="alert"></p>`;
   root.tabIndex = 0;
   root.setAttribute("aria-labelledby", "manual-title");
   const guide = document.createElement("details");
   guide.className = "panel-guide";
   guide.innerHTML = "<summary>ⓘ Controls & safety guide</summary>";
-  for (const paragraph of [...root.querySelectorAll<HTMLParagraphElement>("#manual-help, #manual-controller-note, :scope > p.caption")]) guide.append(paragraph);
+  for (const paragraph of [...root.querySelectorAll<HTMLParagraphElement>("#manual-help, :scope > p.caption")]) guide.append(paragraph);
   root.append(guide);
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!;
   const button = (id: string) => el<HTMLButtonElement>(id);
-  const sourceSelect = el<HTMLSelectElement>("manual-source");
-  const controllerSelect = el<HTMLSelectElement>("manual-controller");
+
+
   const precision = el<HTMLInputElement>("manual-precision");
   const ready = el<HTMLInputElement>("manual-ready");
   const powerOff = el<HTMLInputElement>("manual-power-off");
@@ -61,13 +58,13 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
   let blockedMessage = "";
   let pending = false;
   let generation = 0;
-  let source: Source = "keyboard";
+  const source = "keyboard";
   let neutralRequired = true;
-  let pointerSpeed = 0;
+
   const keys = new Set<string>();
-  let gamepads: Gamepad[] = [];
-  let gamepadSignature = "";
-  let lastSelection = 0;
+
+
+
   let lastSentJoint: string | null = null;
   let sending = false;
   let polling = false;
@@ -90,7 +87,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
 
   function clearInput() {
     keys.clear();
-    pointerSpeed = 0;
+
     neutralRequired = true;
   }
 
@@ -110,10 +107,6 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     render();
   }
 
-  function gamepad() {
-    return gamepads.find((pad) => String(pad.index) === controllerSelect.value);
-  }
-
   function input() {
     let speed = 0;
     let enable = false;
@@ -122,17 +115,6 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       enable = keys.has("Space");
       speed = Number(keys.has("ArrowRight")) - Number(keys.has("ArrowLeft"));
       fine ||= keys.has("ShiftLeft") || keys.has("ShiftRight");
-    } else if (source === "gamepad") {
-      const pad = gamepad();
-      if (pad?.mapping === "standard") {
-        enable = !!pad.buttons[4]?.pressed;
-        const axis = pad.axes[0] ?? 0;
-        speed = Math.abs(axis) <= 0.15 ? 0 : Math.sign(axis) * (Math.abs(axis) - 0.15) / 0.85;
-        fine ||= !!pad.buttons[5]?.pressed;
-      }
-    } else {
-      enable = pointerSpeed !== 0;
-      speed = pointerSpeed;
     }
     if (neutralRequired) {
       if (!enable && speed === 0) neutralRequired = false;
@@ -153,10 +135,31 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     el("manual-mode").textContent = status?.simulated ? "SIMULATED FREE PLAY" : "FREE PLAY";
     el("manual-message").textContent = active ? "Manual control enabled · hold enable and direction to jog."
       : anotherOwner ? "Another session owns manual control."
-      : blocked ? blockedMessage
+      : blocked ? status?.message || blockedMessage
       : status?.message ?? "Connecting to arm controller…";
     const joints = status?.joints ?? [];
     const joint = joints[selected];
+    if (!el("manual-pulses").children.length && joints.length) {
+      for (const j of joints) {
+        const row = document.createElement("div");
+        row.innerHTML = `<label>${j.label} · Servo ${j.channel} · Pulse (µs)
+          <input type="number" min="${j.min_us}" max="${j.max_us}" step="1" value="${j.commanded_us ?? 1500}" required /></label><button>Move</button>`;
+        const field = row.querySelector("input")!;
+        row.querySelector("button")!.onclick = async () => {
+          if (!token || sending || !field.reportValidity()) return;
+          clearInput();
+          sending = true;
+          const owner = token;
+          try {
+            const result = await request<ManualStatus>("position", { token: owner, sequence: sequence++, joint_id: j.id, pulse_us: field.valueAsNumber });
+            if (token === owner) status = result;
+          } catch (error) { end(); fail(error); }
+          finally { sending = false; render(); }
+        };
+        el("manual-pulses").append(row);
+      }
+    }
+
     if (el("manual-joints").children.length !== joints.length) {
       el("manual-joints").replaceChildren(...joints.map((j, index) => {
         const control = document.createElement("button");
@@ -174,28 +177,33 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     el("manual-value").textContent = joint?.commanded_us != null ? `${joint.commanded_us.toFixed(1)} µs` : "Unknown";
     el("manual-limits").textContent = joint ? `${joint.min_us}–${joint.max_us} µs · max ${joint.max_rate_us_per_second} µs/s` : "";
     el("manual-direction").textContent = joint?.direction ?? "";
-    el("manual-preparation").hidden = !status || status.simulated || status.prepared || !joints.length;
+    el("manual-next").textContent = status?.next_action ?? "";
+    el("manual-preparation").hidden = !status || (status.prepared && !status.recovery_required) || !joints.length;
     el("manual-ready-label").hidden = !status || status.simulated || !status.prepared;
-    button("manual-prepare").disabled = pending || !powerOff.checked || anotherOwner || blocked && !status?.recovery_required;
-    const validController = source !== "gamepad" || gamepad()?.mapping === "standard";
+    button("manual-prepare").disabled = pending || !powerOff.checked || !status?.can_prepare;
+    const outdatedBackend = status !== null && typeof status.can_prepare !== "boolean";
+    el("manual-gate").textContent = outdatedBackend
+      ? "The backend is running an older version. Disconnect servo power, restart the app services, then reload this page."
+      : active ? "Manual enabled. Move applies a pulse immediately."
+      : !connected ? "Waiting for connection to the arm controller."
+      : anotherOwner ? "Another session owns manual control."
+      : blocked ? blockedMessage
+      : !status?.prepared ? "Disconnect servo power, support the arm, and prepare outputs below."
+      : !status?.available ? status?.message ?? "Manual control unavailable."
+      : !status.simulated && !ready.checked ? "Check the arm-ready acknowledgement below, then enable manual control."
+      : "Click Enable manual control below to unlock Move and Reset.";
+    button("manual-reset").disabled = !active || sending || pending;
+    const validController = true;
     button("manual-enable").disabled = !connected || !visible || pending || active || anotherOwner || blocked ||
       !status?.available || !status.prepared || !validController || (!status.simulated && !ready.checked);
     button("manual-end").disabled = !active && !pending;
-    button("manual-minus").disabled = button("manual-plus").disabled = !active || source !== "pointer";
-    el("manual-help").textContent = source === "gamepad"
-      ? "D-pad Up/Down selects a joint. Hold left bumper + left stick to jog; right bumper for precision. B stops the arm."
-      : source === "pointer" ? "Hold a direction button to jog. Release to retain the current target."
-      : "Click this panel to focus. Select 1–6 or Up/Down; hold Space + Left/Right to jog. Hold Shift for precision. Escape stops the arm.";
+    el("manual-pulses").querySelectorAll<HTMLButtonElement>("button").forEach(b => b.disabled = !active || sending);
+
   }
 
   button("manual-enable").onclick = async () => {
     if (button("manual-enable").disabled) return;
     clearInput();
-    const pad = gamepad();
-    if (source === "gamepad" && (pad?.buttons[4]?.pressed || pad?.buttons[1]?.pressed || Math.abs(pad?.axes[0] ?? 0) > 0.15)) {
-      fail(new Error("Release the controller buttons and center the stick before enabling."));
-      return;
-    }
     root.focus();
     pending = true;
     const attempt = ++generation;
@@ -215,6 +223,22 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     } catch (error) { fail(error); }
     finally { if (attempt === generation) pending = false; render(); }
   };
+  button("manual-reset").onclick = async () => {
+    if (!token || sending || pending) return;
+    clearInput();
+    sending = true;
+    const owner = token;
+    render();
+    try {
+      const result = await request<ManualStatus>("reset", { token: owner });
+      if (token === owner) {
+        status = result;
+        el("manual-pulses").querySelectorAll<HTMLInputElement>("input").forEach(field => field.value = "1500");
+        lastSentJoint = null;
+      }
+    } catch (error) { end(); fail(error); }
+    finally { sending = false; render(); }
+  };
   button("manual-end").onclick = end;
   button("manual-stop").onclick = () => { end(); stopArm(); };
   button("manual-prepare").onclick = async () => {
@@ -222,27 +246,14 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     pending = true;
     render();
     try {
-      status = await request<ManualStatus>("prepare", { power_disconnected_and_arm_supported: true });
+      el("manual-error").textContent = "";
+      status = await request<ManualStatus>("prepare", { power_disconnected_and_arm_supported: true }, 5000);
+      blocked = false;
       powerOff.checked = ready.checked = false;
     } catch (error) { fail(error); }
     finally { pending = false; render(); }
   };
   powerOff.onchange = ready.onchange = () => render();
-  sourceSelect.onchange = () => { clearInput(); source = sourceSelect.value as Source; render(); root.focus(); };
-  controllerSelect.onchange = () => { end(); lastSelection = 0; render(); };
-
-  for (const [id, direction] of [["manual-minus", -1], ["manual-plus", 1]] as const) {
-    const control = button(id);
-    control.onpointerdown = (event) => {
-      if (control.disabled || event.button !== 0) return;
-      event.preventDefault();
-      control.setPointerCapture(event.pointerId);
-      pointerSpeed = direction;
-    };
-    control.onpointerup = control.onpointercancel = control.onlostpointercapture = () => { pointerSpeed = 0; };
-    control.oncontextmenu = (event) => event.preventDefault();
-  }
-
   root.addEventListener("keydown", (event) => {
     if (!visible) return;
     if (event.code === "Escape" && (token || pending)) { event.preventDefault(); end(); stopArm(); return; }
@@ -262,45 +273,6 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
   window.addEventListener("blur", end);
   window.addEventListener("pagehide", end);
   document.addEventListener("visibilitychange", () => { if (document.hidden) end(); });
-
-  function scanGamepads() {
-    const previousController = gamepad();
-    try { gamepads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter((p): p is Gamepad => !!p?.connected) : []; }
-    catch { gamepads = []; }
-    const signature = gamepads.map((p) => `${p.index}:${p.id}:${p.mapping}`).join("|");
-    if (signature !== gamepadSignature) {
-      const previous = controllerSelect.value;
-      gamepadSignature = signature;
-      controllerSelect.replaceChildren(...gamepads.map((pad) => {
-        const option = document.createElement("option");
-        option.value = String(pad.index);
-        option.textContent = `${pad.id}${pad.mapping !== "standard" ? " (unsupported mapping)" : ""}`;
-        return option;
-      }));
-      if (!gamepads.length) controllerSelect.add(new Option("No controller detected", ""));
-      if (gamepads.some((p) => String(p.index) === previous)) controllerSelect.value = previous;
-      if (token && source === "gamepad" && (!gamepad() || gamepad()?.id !== previousController?.id)) end();
-      render();
-    }
-    el("manual-controller-note").textContent = !window.isSecureContext
-      ? "Controller access requires HTTPS or localhost. Keyboard and on-screen controls remain available."
-      : !navigator.getGamepads ? "This browser does not support controllers."
-      : !gamepads.length ? "Connect an Xbox controller through USB or Bluetooth, then press a controller button to detect it."
-      : gamepad()?.mapping !== "standard" ? "This controller mapping is unsupported; choose a standard Xbox-compatible controller."
-      : "Controller connected · select Xbox controller as the input to use it.";
-    if (source === "gamepad" && visible && root.contains(document.activeElement)) {
-      const pad = gamepad();
-      const selection = Number(!!pad?.buttons[13]?.pressed) - Number(!!pad?.buttons[12]?.pressed);
-      if (selection && selection !== lastSelection) selectJoint(selected + selection);
-      lastSelection = selection;
-      const stop = !!pad?.buttons[1]?.pressed;
-      if (stop && token) { end(); stopArm(); }
-    }
-    // Sample neutral state even between network updates.
-    input();
-    requestAnimationFrame(scanGamepads);
-  }
-  requestAnimationFrame(scanGamepads);
 
   setInterval(async () => {
     if (!token || sending) return;
@@ -327,7 +299,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       if (attempt === generation && !token) { status = result; connected = true; render(); }
     } catch (error) {
       connected = false;
-      status = { ...status, simulated: status?.simulated ?? true, available: false,
+      status = { blocker: "sensor", can_prepare: false, next_action: "Reconnect to the arm controller.", ...status, simulated: status?.simulated ?? true, available: false,
         prepared: status?.prepared ?? false, active: status?.active ?? false,
         recovery_required: status?.recovery_required ?? false, message: "Arm controller unavailable; reconnect before enabling manual control." };
       fail(error);

@@ -41,3 +41,25 @@ load, and pass/fail evidence in the commissioning records. Keep runtime evidence
 Do not enable manual hardware configuration until initialization, hold, fault,
 recovery and cutoff behavior have been physically reviewed. Passing these trials
 does not enable PCA9685 automated retrieval.
+
+## Independent Jog preparation and recovery
+
+Jog requires no commissioning records or measured geometry. Its nominal 500–2500 µs
+range is not a verified mechanical range. Speed remains limited to 100 µs/s.
+Disconnect ALL servo power and support the arm, acknowledge this in Jog, and select
+**Prepare for Jog**. This verifies the claw supply is off, archives an inactive
+unfinished commissioning trial without accepting it, clears recoverable interlocks,
+and programs 1500 µs on all six channels. An active owner must end its session first.
+Apply power using the bench procedure, check readiness, then explicitly enable manual
+control. A sensor fault never automatically resumes motion. Cut physical servo power
+and support the arm before repeating preparation.
+
+INA219 raw readings remain mandatory before enabling output and throughout movement
+and powered holding. Verified current must stay below 2.5 A in absolute value;
+unverified amperes and cutoff must be labeled unverified. Mock readings are simulated.
+Monitoring and PWM shutdown do not constitute a physical current limiter.
+
+Current status includes read time, sample gap, worker delay, motion-lock wait,
+persistence duration, and queued telemetry count. Sample logging runs outside the arm
+I/O lock with a bounded queue; logging failure or queue exhaustion latches a fault.
+Use these diagnostics to investigate stale samples without extending freshness limits.

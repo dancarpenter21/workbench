@@ -21,6 +21,31 @@ On this computer, run Python through `uv` (for example, `uv run python`). Use `u
 - `npm run contracts`: regenerate OpenAPI and TypeScript contracts after API model changes; commit resulting changes.
 - `npx playwright install chromium`, then `npm run test:e2e`: run browser tests against the mock stack on port 5174.
 
+## ROS Runtime and Contract Changes
+
+Normal `npm run dev` launches use the ROS backend (`--transport ros`), with an
+HTTP/WebSocket gateway for the dashboard. The Python HTTP services are an explicit
+alternative (`--transport http`); do not assume they are the running backend.
+
+ROS uses built project packages and generated interfaces under `ros/install`.
+After changing Python service code, shared contracts, or ROS control mappings:
+
+1. Run `npm run contracts` after contract/API changes to regenerate OpenAPI,
+   TypeScript, and ROS interfaces; commit the generated artifacts.
+2. Run `uv run python scripts/ros-native.py build --apps-only` to rebuild the
+   project overlay against the existing native underlay. This build starts no
+   hardware nodes. A service restart alone does not rebuild the overlay.
+3. Restart the app services and reload the dashboard to use the rebuilt packages.
+   For hardware sessions, keep servo power disconnected and the arm supported
+   during restart; do not automatically resume motion or bypass preparation.
+
+When a control remains disabled, inspect the live gateway response and compare
+the source interfaces in `ros/src/workbench_interfaces` with installed interfaces
+in `ros/install/workbench_interfaces/share/workbench_interfaces`. Missing new
+fields (for example, `ManualStatus.can_prepare`) can indicate a stale ROS overlay,
+even after restarting. Do not work around missing permission fields by enabling
+hardware controls in the browser. See `ros/README.md` for setup and smoke tests.
+
 ## Coding Style & Naming Conventions
 
 Use four-space indentation, snake_case functions/modules, and PascalCase classes in Python. Ruff targets Python 3.11, enforces import sorting, and configures a 100-character line length. Run `uv run ruff format .` to format Python. Match existing TypeScript conventions: two-space indentation, double quotes, semicolons, and camelCase identifiers.

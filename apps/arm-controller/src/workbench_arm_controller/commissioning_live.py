@@ -933,6 +933,36 @@ class LiveCommissioning:
         self.persist()
         return self.status()
 
+    def abandon_for_jog(self):
+        """Release an inactive trial after the caller verifies disconnected power."""
+        if self.token:
+            raise HTTPException(409, "End the active commissioning session first")
+        if self.output:
+            self.output.disable()
+            self.output.close()
+            self.output = None
+        if self.trial:
+            # Archive raw state without validating commissioning setup or granting acceptance.
+            self.store.put(
+                self.prefix + "abandoned:" + self.trial["trial_id"],
+                {
+                    "trial": dict(self.trial),
+                    "ended_at": now().isoformat(),
+                    "reason": "Unfinished trial ended for independent Jog preparation",
+                },
+            )
+            draft_key = self.prefix + "draft:" + self.trial["draft_id"]
+            draft = self.store.get(draft_key)
+            if isinstance(draft, dict):
+                for joint in draft.get("joints", []):
+                    for attempt in joint.get("attempts", []):
+                        if attempt.get("trial_id") == self.trial["trial_id"]:
+                            attempt["ended_at"] = now().isoformat()
+                            joint["state"] = "needs_review"
+                self.store.put(draft_key, draft)
+            self.trial = None
+            self.persist()
+
     def export(self, draft_id):
         draft = self.read(draft_id)
         return CommissionExport(

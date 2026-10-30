@@ -33,4 +33,10 @@ bool scale_verified
 bool has_shunt_ohms
 float64 shunt_ohms
 string verification_evidence
+float64 read_seconds
+float64 sample_gap_seconds
+float64 worker_delay_seconds
+float64 lock_wait_seconds
+float64 persistence_seconds
+int64 telemetry_pending
 float64 cutoff_a

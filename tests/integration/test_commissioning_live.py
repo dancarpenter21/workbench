@@ -238,7 +238,7 @@ def test_hardware_gate_domain_and_fault_latching(tmp_path):
         def close(self):
             pass
 
-    monitor = ClawCurrentMonitor(cfg, bus_factory=lambda _: SensorBus(voltage=2))
+    monitor = ClawCurrentMonitor(cfg, bus_factory=lambda _: SensorBus(voltage=2, shunt=0))
     control = LiveCommissioning(cfg, output_factory=Output, monitor=monitor)
     control.attach(store)
     draft = control.create(CommissionCreate(assembly_id="Physical arm", observer="Operator"))

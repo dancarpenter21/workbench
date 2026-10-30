@@ -22,7 +22,7 @@ export function mountHarness(root: HTMLElement, stopArm: () => void) {
       </form>
     </details>
     <details><summary>Physical session</summary>
-      <p>Prepare outputs in Jog first. Save measured joint limits in Initialization. Establish claw targets before enabling.</p>
+      <p>Prepare outputs in Manual first. Save measured joint limits in Initialization. Establish claw targets before enabling.</p>
       <label>Claw open target (µs)<input id="harness-open" type="number" min="500" max="2500" step="any" /></label>
       <label>Claw close target (µs)<input id="harness-close" type="number" min="500" max="2500" step="any" /></label>
       <label class="ack"><input id="harness-supervised" type="checkbox" /> I am supervising the arm and can cut servo power.</label>

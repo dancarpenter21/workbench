@@ -27,7 +27,7 @@ export function mountCommissioning(root: HTMLElement) {
     ${calibrationGuide()}
     <h4>Pulse positioning and optional limits</h4>
     <p class="caption">For capsule measurements, keep channels 1–5 at 1500 µs and enter your measured full-open pulse in the claw row. Move uses the current-monitored positioning flow. A new motion session first initializes all six servos at 1500 µs, then applies the requested pulse. Saving limits does not move the arm.</p>
-    <p class="caption">Clear min / Clear max marks a saved endpoint for deletion; Save limits applies it. Undo restores the field before saving. Other empty fields leave saved limits unchanged. Cleared endpoints use the nominal 500 / 2500 µs fallback when Jog loads its configuration; these are not verified safe limits.</p>
+    <p class="caption">Clear min / Clear max marks a saved endpoint for deletion; Save limits applies it. Undo restores the field before saving. Other empty fields leave saved limits unchanged. Cleared endpoints use the nominal 500 / 2500 µs fallback when Manual loads its configuration; these are not verified safe limits.</p>
     <form id="init-form" novalidate>
       <div class="init-values" role="table" aria-label="Joint pulse values in microseconds">
         <div class="init-row init-head" role="row"><span>Joint</span><span>Pulse μs</span><span>Min μs</span><span>Max μs</span><span></span></div>

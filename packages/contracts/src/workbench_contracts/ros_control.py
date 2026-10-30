@@ -42,6 +42,7 @@ from . import (
     Health,
     ManualAcquire,
     ManualInput,
+    ManualPosition,
     ManualPrepare,
     ManualRelease,
     ManualSession,
@@ -464,6 +465,26 @@ CONTROL_BINDINGS = [
         "endpoint": "manual_input",
         "parameters": {
             "request": ManualInput,
+        },
+        "result": ManualStatus,
+    },
+    {
+        "name": "ControlManualPosition",
+        "method": "POST",
+        "path": "/manual/position",
+        "endpoint": "manual_position",
+        "parameters": {
+            "request": ManualPosition,
+        },
+        "result": ManualStatus,
+    },
+    {
+        "name": "ControlManualReset",
+        "method": "POST",
+        "path": "/manual/reset",
+        "endpoint": "manual_reset",
+        "parameters": {
+            "request": ManualRelease,
         },
         "result": ManualStatus,
     },

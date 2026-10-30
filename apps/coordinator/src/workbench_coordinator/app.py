@@ -49,6 +49,7 @@ from workbench_contracts import (
     Intent,
     ManualAcquire,
     ManualInput,
+    ManualPosition,
     ManualPrepare,
     ManualRelease,
     ManualSession,
@@ -595,6 +596,18 @@ def create_app(config=None, store=None, client=None):
     @app.post("/manual/input", response_model=ManualStatus)
     async def manual_input(value: ManualInput):
         result = ManualStatus.model_validate(await manual_call("input", value))
+        state["manual"] = result
+        return result
+
+    @app.post("/manual/position", response_model=ManualStatus)
+    async def manual_position(value: ManualPosition):
+        result = ManualStatus.model_validate(await manual_call("position", value))
+        state["manual"] = result
+        return result
+
+    @app.post("/manual/reset", response_model=ManualStatus)
+    async def manual_reset(value: ManualRelease):
+        result = ManualStatus.model_validate(await manual_call("reset", value))
         state["manual"] = result
         return result
 

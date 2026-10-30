@@ -66,9 +66,7 @@ class ManualControl:
         try:
             if not self.simulated and config["arm"].get("backend") != "pca9685":
                 raise ValueError("Manual control requires the PCA9685 backend")
-            manual = config.get("manual") or (
-                mock_configuration() if self.simulated else free_play_configuration()
-            )
+            manual = free_play_configuration()
             if not isinstance(manual, dict):
                 raise ValueError("Manual configuration must be a JSON object")
             channels = manual["channels"]
@@ -118,28 +116,6 @@ class ManualControl:
             self.error = f"Manual control unavailable: {exc}"
             self.joints = []
             self.targets = {}
-
-    def use_bounds(self, bounds):
-        """Saved pulse bounds are optional; use the nominal range for missing endpoints."""
-        if self.simulated or self.prepared or self.token or self.output:
-            return
-        channels = {}
-        for index, name in enumerate(JOINT_ORDER):
-            joint = bounds.joints.get(name)
-            channels[name] = {
-                "channel": 5 - index,
-                "label": "Base" if index == 0 else "Claw" if index == 5 else f"Joint {index + 1}",
-                "min_us": joint.minimum.requested_us if joint and joint.minimum else 500,
-                "max_us": joint.maximum.requested_us if joint and joint.maximum else 2500,
-                "initial_us": 1500,
-                "max_rate_us_per_second": 100,
-                "direction": "Increasing pulse width",
-            }
-        calibration = {"bounds_context": bounds.model_dump(mode="json"), "channels": channels}
-        if self.config.get("manual") == calibration:
-            return
-        self.config["manual"] = calibration
-        self.__init__(self.config, clock=self.clock, monitor=self.monitor)
 
     def status(self, *, busy=False, recovery=False):
         message = self.error or self.message
@@ -248,6 +224,38 @@ class ManualControl:
         self.joint = value.joint_id
         self.speed = value.speed
         self.deadline = self.clock() + WATCHDOG_SECONDS
+
+    def position(self, value):
+        self.authenticate(value.token)
+        if value.sequence <= self.sequence:
+            raise HTTPException(409, "Stale manual input sequence")
+        joint = next((j for j in self.joints if j.id == value.joint_id), None)
+        if joint is None or not joint.min_us <= value.pulse_us <= joint.max_us:
+            raise HTTPException(422, "Invalid manual pulse target")
+        self.speed = 0.0
+        self.joint = value.joint_id
+        self.sequence = value.sequence
+        self.deadline = self.clock() + WATCHDOG_SECONDS
+        targets = {**self.targets, value.joint_id: value.pulse_us}
+        self.write_direct(targets)
+
+    def reset(self, value):
+        self.authenticate(value.token)
+        self.speed = 0.0
+        self.joint = None
+        self.deadline = self.clock() + WATCHDOG_SECONDS
+        self.write_direct(dict.fromkeys(self.targets, 1500))
+
+    def write_direct(self, targets):
+        try:
+            self.monitor.require()
+            pulses = self.output.write_pose(targets) if self.output else self.plan.encode(targets)
+            self.commanded = {p.joint: p.commanded_us for p in pulses}
+            self.targets = targets
+        except Exception as exc:
+            self.emergency_disable()
+            self.fault(f"{exc}. Cut physical servo power and prepare again.")
+            raise HTTPException(503, self.message) from exc
 
     def hold(self, message="Manual control ended; last PWM targets retained.", *, recovery=False):
         self.token = None

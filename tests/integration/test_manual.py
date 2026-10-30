@@ -21,40 +21,29 @@ def controller():
     return ManualControl(cfg, clock=lambda: now[0]), now
 
 
-def test_jog_needs_no_configuration_and_saved_limits_are_optional(tmp_path):
+def test_jog_ignores_commissioning_and_legacy_manual_configuration():
     cfg = settings()
     cfg["mode"] = "hardware"
     cfg["arm"]["backend"] = "pca9685"
+    cfg["manual"] = {"channels": {"invalid": {}}}
     control = ManualControl(cfg)
     assert control.status().available
     assert all(j.min_us == 500 and j.max_us == 2500 for j in control.joints)
-    store = Store("limits", tmp_path)
+
+
+def test_abandon_incomplete_trial_without_valid_commissioning_setup(tmp_path):
+    cfg = settings()
+    cfg["mode"] = "mock"
+    store = Store("abandon", tmp_path)
     commissioning = LiveCommissioning(cfg)
     commissioning.attach(store)
-    bounds = commissioning.bounds()
-    control.use_bounds(bounds)
-    assert control.status().available
-    for name in JOINT_ORDER:
-        for kind, pulse in (("minimum", 1450), ("maximum", 1550)):
-            setattr(
-                bounds.joints[name],
-                kind,
-                CommissionPulseBound(
-                    requested_us=pulse,
-                    encoded_us=pulse,
-                    observed_at=datetime.now(timezone.utc),
-                    trial_id="fixture",
-                    command_id="fixture",
-                ),
-            )
-    control.use_bounds(bounds)
-    assert control.status().available
-    assert all(j.min_us == 1450 and j.max_us == 1550 for j in control.joints)
-    bounds.assembly_id = "replacement arm"
-    bounds.joints["claw"].maximum = None
-    control.use_bounds(bounds)
-    assert control.status().available
-    assert control.joints[-1].max_us == 2500
+    commissioning.trial = {"trial_id": "unfinished", "draft_id": "missing"}
+    commissioning.abandon_for_jog()
+    assert commissioning.trial is None
+    assert (
+        store.get(commissioning.prefix + "abandoned:unfinished")["trial"]["draft_id"] == "missing"
+    )
+    commissioning.abandon_for_jog()
     store.close()
 
 
@@ -134,17 +123,17 @@ def test_fractional_motion_bounds_and_no_catch_up():
     now[0] += 0.2
     control.tick()
     assert control.targets["base"] - before == pytest.approx(2)
-    control.targets["base"] = 1999
+    control.targets["base"] = 2499
     now[0] += 0.02
     control.tick()
-    assert control.targets["base"] == 2000
-    assert control.commanded["base"] <= 2000
+    assert control.targets["base"] == 2500
+    assert control.commanded["base"] <= 2500
     control.input(command(control, -1))
-    control.targets["base"] = 1001
+    control.targets["base"] = 501
     now[0] += 0.02
     control.tick()
-    assert control.targets["base"] == 1000
-    assert control.commanded["base"] >= 1000
+    assert control.targets["base"] == 500
+    assert control.commanded["base"] >= 500
 
 
 async def test_manual_is_independent_and_blocks_retrieval(stack):
@@ -293,7 +282,7 @@ async def test_hardware_preparation_failure_and_pwm_shutdown(tmp_path, monkeypat
     from test_claw_servo_test import SensorBus
     from workbench_arm_controller.claw_current import ClawCurrentMonitor
 
-    sensor = SensorBus(voltage=2)
+    sensor = SensorBus(voltage=2, shunt=0)
     monitor = ClawCurrentMonitor(cfg, bus_factory=lambda _: sensor)
     monkeypatch.setattr("workbench_arm_controller.app.ClawCurrentMonitor", lambda _: monitor)
     opened = []
@@ -368,7 +357,7 @@ async def test_hardware_preparation_failure_and_pwm_shutdown(tmp_path, monkeypat
 
 
 @pytest.mark.parametrize("change", ["mapping", "limits", "rate", "initial", "type"])
-def test_invalid_manual_configuration_is_unavailable_without_hardware(change, monkeypatch):
+def test_legacy_manual_configuration_does_not_gate_jog(change, monkeypatch):
     cfg = settings()
     cfg["mode"] = "hardware"
     cfg["arm"]["backend"] = "pca9685"
@@ -389,9 +378,9 @@ def test_invalid_manual_configuration_is_unavailable_without_hardware(change, mo
         lambda *a, **k: pytest.fail("Opened hardware"),
     )
     control = ManualControl(cfg)
-    assert not control.status().available
-    with pytest.raises(HTTPException):
-        control.prepare()
+    assert control.status().available
+    assert not control.prepared
+    assert all(j.min_us == 500 and j.max_us == 2500 for j in control.joints)
 
 
 async def test_shutdown_waits_for_an_inflight_manual_io_thread(tmp_path, monkeypatch):
@@ -448,3 +437,143 @@ async def test_recovery_exposes_controller_refusal(stack):
     )
     assert response.status_code == 409
     assert response.json()["message"] == "Disconnect servo power and prepare outputs again"
+
+
+async def test_prepare_recovers_jog_without_separate_recover(stack):
+    bus, cfg, _, _, _ = stack
+    url = cfg["services"]["coordinator"]
+    await bus.post(url + "/stop")
+    before = (await bus.get(url + "/manual/status")).json()
+    assert before["can_prepare"]
+    result = await bus.post(
+        url + "/manual/prepare", json={"power_disconnected_and_arm_supported": True}
+    )
+    assert result.status_code == 200, result.text
+    assert result.json()["prepared"] and not result.json()["active"]
+    assert not result.json()["recovery_required"]
+    assert (
+        await bus.post(url + "/manual/session", json={"ready_acknowledged": True})
+    ).status_code == 200
+
+
+def test_slow_telemetry_does_not_block_monitoring():
+    import threading
+
+    from workbench_arm_controller.claw_current import ClawCurrentMonitor
+
+    entered, release = threading.Event(), threading.Event()
+
+    class SlowStore:
+        def append(self, stream, payload):
+            entered.set()
+            assert release.wait(2)
+
+    cfg = settings()
+    cfg["mode"] = "mock"
+    monitor = ClawCurrentMonitor(cfg)
+    monitor.store = SlowStore()
+    monitor.start_logging()
+    try:
+        assert monitor.poll(force=True)
+        assert entered.wait(1)
+        assert monitor.poll(force=True)
+        assert monitor.sample_sequence == 2
+        assert monitor.status().reading_healthy
+    finally:
+        release.set()
+        monitor.close()
+
+
+def test_telemetry_overflow_latches_fault():
+    from workbench_arm_controller.claw_current import ClawCurrentMonitor
+
+    cfg = settings()
+    cfg["mode"] = "mock"
+    monitor = ClawCurrentMonitor(cfg)
+    monitor.store = object()
+    monitor.logging_thread = True  # Queue mode with a stalled consumer.
+    for _ in range(monitor.telemetry.maxsize):
+        assert monitor.poll(force=True)
+    assert not monitor.poll(force=True)
+    assert "queue full" in monitor.fault
+    assert monitor.shutdown_required
+
+
+async def test_prepare_does_not_take_over_an_active_jog_session(stack):
+    bus, cfg, _, _, _ = stack
+    url = cfg["services"]["coordinator"]
+    acquired = await bus.post(url + "/manual/session", json={"ready_acknowledged": True})
+    assert acquired.status_code == 200
+    status = (await bus.get(url + "/manual/status")).json()
+    assert status["blocker"] == "owned" and not status["can_prepare"]
+    refused = await bus.post(
+        url + "/manual/prepare", json={"power_disconnected_and_arm_supported": True}
+    )
+    assert refused.status_code == 409
+    assert (await bus.get(url + "/manual/status")).json()["active"]
+
+
+def test_active_commissioning_trial_cannot_be_abandoned(tmp_path):
+    cfg = settings()
+    cfg["mode"] = "mock"
+    store = Store("owned-trial", tmp_path)
+    control = LiveCommissioning(cfg)
+    control.attach(store)
+    control.token = "live-owner"
+    control.trial = {"trial_id": "owned", "draft_id": "missing"}
+    with pytest.raises(HTTPException) as error:
+        control.abandon_for_jog()
+    assert error.value.status_code == 409
+    assert control.trial["trial_id"] == "owned"
+    assert store.get(control.prefix + "abandoned:owned") is None
+    store.close()
+
+
+def test_direct_position_applies_immediately_and_preserves_other_joints():
+    from workbench_contracts import ManualPosition
+
+    control, now = controller()
+    control.acquire()
+    initial = dict(control.targets)
+    control.position(
+        ManualPosition(
+            token=control.token,
+            sequence=0,
+            joint_id="base",
+            pulse_us=2000,
+        )
+    )
+    assert control.targets["base"] == 2000
+    assert all(control.targets[j] == initial[j] for j in JOINT_ORDER[1:])
+    assert control.speed == 0
+    with pytest.raises(HTTPException):
+        control.position(
+            ManualPosition(
+                token=control.token,
+                sequence=0,
+                joint_id="base",
+                pulse_us=1800,
+            )
+        )
+
+
+def test_manual_reset_sets_all_targets_to_neutral():
+    from workbench_contracts import ManualPosition, ManualRelease
+
+    control, now = controller()
+    control.acquire()
+    control.position(
+        ManualPosition(
+            token=control.token,
+            sequence=0,
+            joint_id="base",
+            pulse_us=2000,
+        )
+    )
+    control.reset(ManualRelease(token=control.token))
+    assert set(control.targets.values()) == {1500}
+    assert control.speed == 0
+    assert control.joint is None
+    control.hold()
+    with pytest.raises(HTTPException):
+        control.reset(ManualRelease(token="00000000-0000-0000-0000-000000000000"))

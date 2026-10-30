@@ -913,6 +913,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/arm-controller/manual/position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manual Position */
+        post: operations["arm_controller_manual_position_manual_position_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/arm-controller/manual/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manual Reset */
+        post: operations["arm_controller_manual_reset_manual_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/arm-controller/manual/release": {
         parameters: {
             query?: never;
@@ -1924,6 +1958,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/coordinator/manual/position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manual Position */
+        post: operations["coordinator_manual_position_manual_position_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/coordinator/manual/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manual Reset */
+        post: operations["coordinator_manual_reset_manual_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/coordinator/manual/release": {
         parameters: {
             query?: never;
@@ -2435,6 +2503,36 @@ export interface components {
              * @default
              */
             verification_evidence: string;
+            /**
+             * Read Seconds
+             * @default 0
+             */
+            read_seconds: number;
+            /**
+             * Sample Gap Seconds
+             * @default 0
+             */
+            sample_gap_seconds: number;
+            /**
+             * Worker Delay Seconds
+             * @default 0
+             */
+            worker_delay_seconds: number;
+            /**
+             * Lock Wait Seconds
+             * @default 0
+             */
+            lock_wait_seconds: number;
+            /**
+             * Persistence Seconds
+             * @default 0
+             */
+            persistence_seconds: number;
+            /**
+             * Telemetry Pending
+             * @default 0
+             */
+            telemetry_pending: number;
             /**
              * Cutoff A
              * @default 2.5
@@ -3385,6 +3483,20 @@ export interface components {
             /** Commanded Us */
             commanded_us?: number | null;
         };
+        /** ManualPosition */
+        ManualPosition: {
+            /**
+             * Token
+             * Format: uuid
+             */
+            token: string;
+            /** Sequence */
+            sequence: number;
+            /** Joint Id */
+            joint_id: string;
+            /** Pulse Us */
+            pulse_us: number;
+        };
         /** ManualPrepare */
         ManualPrepare: {
             /**
@@ -3412,6 +3524,22 @@ export interface components {
         };
         /** ManualStatus */
         ManualStatus: {
+            /**
+             * Blocker
+             * @default
+             * @enum {string}
+             */
+            blocker: "" | "busy" | "owned" | "configuration" | "sensor" | "prepare" | "recovery";
+            /**
+             * Can Prepare
+             * @default false
+             */
+            can_prepare: boolean;
+            /**
+             * Next Action
+             * @default
+             */
+            next_action: string;
             servo_hat?: components["schemas"]["PeripheralStatus"] | null;
             neutral_evidence?: components["schemas"]["NeutralEvidence"] | null;
             claw_current?: components["schemas"]["ClawCurrentStatus"] | null;
@@ -7389,6 +7517,126 @@ export interface operations {
             };
         };
     };
+    arm_controller_manual_position_manual_position_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPosition"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    arm_controller_manual_reset_manual_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualRelease"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     arm_controller_manual_release_manual_release_post: {
         parameters: {
             query?: never;
@@ -11269,6 +11517,126 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ManualInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_manual_position_manual_position_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualPosition"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManualStatus"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    coordinator_manual_reset_manual_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualRelease"];
             };
         };
         responses: {

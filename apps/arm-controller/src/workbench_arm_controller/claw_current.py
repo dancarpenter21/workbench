@@ -2,6 +2,8 @@
 
 import math
 import time
+from queue import Empty, Full, Queue
+from threading import Event, Thread
 from uuid import uuid4
 
 from workbench_contracts import ClawCurrentStatus, OffCurrentBounds, now
@@ -66,6 +68,15 @@ class ClawCurrentMonitor:
         self.factory = bus_factory
         self.bus = None
         self.store = None
+        self.telemetry = Queue(maxsize=256)
+        self.logging_stop = Event()
+        self.logging_thread = None
+        self.logging_error = ""
+        self.read_seconds = 0.0
+        self.sample_gap_seconds = 0.0
+        self.worker_delay_seconds = 0.0
+        self.lock_wait_seconds = 0.0
+        self.persistence_seconds = 0.0
         self.stream = "claw:service"
         self.last = None
         self.last_attempt = None
@@ -112,6 +123,26 @@ class ClawCurrentMonitor:
             self.fault = previous
             self.shutdown_required = True
 
+    def start_logging(self):
+        """Persist samples outside the arm I/O lock; queue overflow is a fault."""
+        self.logging_thread = Thread(target=self._log_samples, daemon=True)
+        self.logging_thread.start()
+
+    def _log_samples(self):
+        while not self.logging_stop.is_set() or not self.telemetry.empty():
+            try:
+                stream, payload = self.telemetry.get(timeout=0.1)
+            except Empty:
+                continue
+            started = self.clock()
+            try:
+                self.store.append(stream, payload)
+            except Exception as exc:
+                self.logging_error = f"Current telemetry persistence failed: {exc}"
+            finally:
+                self.persistence_seconds = self.clock() - started
+                self.telemetry.task_done()
+
     def trip(self, reason):
         if not self.fault:
             self.shutdown_required = True
@@ -120,6 +151,9 @@ class ClawCurrentMonitor:
     def poll(self, force=False):
         if not self.enabled:
             return
+        if self.logging_error:
+            self.trip(self.logging_error)
+            return False
         if not force and self.last_attempt is not None and self.clock() - self.last_attempt < 0.1:
             return
         self.last_read_ok = False
@@ -146,11 +180,19 @@ class ClawCurrentMonitor:
             check_current(sample)
             if self.clock() - started >= 0.3:
                 raise ValueError("INA219 read exceeded freshness deadline")
+            self.read_seconds = self.clock() - started
+            self.sample_gap_seconds = 0.0 if self.last is None else started - self.last
             self.last = started
             self.last_read_ok = True
             if self.store:
                 payload = self.status().model_dump(mode="json")
-                self.store.append(self.stream, payload)
+                if self.logging_thread:
+                    try:
+                        self.telemetry.put_nowait((self.stream, payload))
+                    except Full as exc:
+                        raise RuntimeError("Current telemetry queue full") from exc
+                else:
+                    self.store.append(self.stream, payload)
             return True
         except Exception as exc:
             self.last_read_ok = False
@@ -190,7 +232,15 @@ class ClawCurrentMonitor:
         if self.last is None or self.clock() - self.last >= 0.3:
             raise RuntimeError(self.fault or "INA219 unavailable")
         check_current(self.sample)
-        if require_power_off and not self.simulated and self.sample["bus_v"] > 0.5:
+        if (
+            require_power_off
+            and not self.simulated
+            and (
+                self.off_baseline_error
+                or (self.off_bounds and self.status().power_state != "off")
+                or (not self.off_bounds and self.sample["bus_v"] > 0.5)
+            )
+        ):
             raise RuntimeError("Claw supply present; disconnect ALL servo power before preparation")
         # A failed poll (including logging) must not be cleared with an older sample.
         if self.sampled_at is None or self.last < self.clock() - 0.3:
@@ -232,6 +282,12 @@ class ClawCurrentMonitor:
             else "ok"
         )
         return ClawCurrentStatus(
+            read_seconds=self.read_seconds,
+            sample_gap_seconds=self.sample_gap_seconds,
+            worker_delay_seconds=self.worker_delay_seconds,
+            lock_wait_seconds=self.lock_wait_seconds,
+            persistence_seconds=self.persistence_seconds,
+            telemetry_pending=self.telemetry.qsize(),
             reading_state=reading_state,
             reset_required=bool(self.fault),
             monitor_session_id=self.session_id,
@@ -255,6 +311,9 @@ class ClawCurrentMonitor:
         )
 
     def close(self):
+        self.logging_stop.set()
+        if self.logging_thread:
+            self.logging_thread.join(timeout=2)
         if self.bus:
             self.bus.close()
             self.bus = None

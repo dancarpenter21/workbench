@@ -3957,6 +3957,142 @@
         }
       }
     },
+    "/arm-controller/manual/position": {
+      "post": {
+        "summary": "Manual Position",
+        "operationId": "arm_controller_manual_position_manual_position_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualPosition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/arm-controller/manual/reset": {
+      "post": {
+        "summary": "Manual Reset",
+        "operationId": "arm_controller_manual_reset_manual_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualRelease"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/arm-controller/manual/release": {
       "post": {
         "summary": "Manual Release",
@@ -8340,6 +8476,142 @@
         }
       }
     },
+    "/coordinator/manual/position": {
+      "post": {
+        "summary": "Manual Position",
+        "operationId": "coordinator_manual_position_manual_position_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualPosition"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coordinator/manual/reset": {
+      "post": {
+        "summary": "Manual Reset",
+        "operationId": "coordinator_manual_reset_manual_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualRelease"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/coordinator/manual/release": {
       "post": {
         "summary": "Manual Release",
@@ -9839,6 +10111,36 @@
             "type": "string",
             "title": "Verification Evidence",
             "default": ""
+          },
+          "read_seconds": {
+            "type": "number",
+            "title": "Read Seconds",
+            "default": 0.0
+          },
+          "sample_gap_seconds": {
+            "type": "number",
+            "title": "Sample Gap Seconds",
+            "default": 0.0
+          },
+          "worker_delay_seconds": {
+            "type": "number",
+            "title": "Worker Delay Seconds",
+            "default": 0.0
+          },
+          "lock_wait_seconds": {
+            "type": "number",
+            "title": "Lock Wait Seconds",
+            "default": 0.0
+          },
+          "persistence_seconds": {
+            "type": "number",
+            "title": "Persistence Seconds",
+            "default": 0.0
+          },
+          "telemetry_pending": {
+            "type": "integer",
+            "title": "Telemetry Pending",
+            "default": 0
           },
           "cutoff_a": {
             "type": "number",
@@ -12043,6 +12345,39 @@
         ],
         "title": "ManualJoint"
       },
+      "ManualPosition": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Token"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Sequence"
+          },
+          "joint_id": {
+            "type": "string",
+            "title": "Joint Id"
+          },
+          "pulse_us": {
+            "type": "integer",
+            "maximum": 2500.0,
+            "minimum": 500.0,
+            "title": "Pulse Us"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "token",
+          "sequence",
+          "joint_id",
+          "pulse_us"
+        ],
+        "title": "ManualPosition"
+      },
       "ManualPrepare": {
         "properties": {
           "power_disconnected_and_arm_supported": {
@@ -12094,6 +12429,30 @@
       },
       "ManualStatus": {
         "properties": {
+          "blocker": {
+            "type": "string",
+            "enum": [
+              "",
+              "busy",
+              "owned",
+              "configuration",
+              "sensor",
+              "prepare",
+              "recovery"
+            ],
+            "title": "Blocker",
+            "default": ""
+          },
+          "can_prepare": {
+            "type": "boolean",
+            "title": "Can Prepare",
+            "default": false
+          },
+          "next_action": {
+            "type": "string",
+            "title": "Next Action",
+            "default": ""
+          },
           "servo_hat": {
             "anyOf": [
               {

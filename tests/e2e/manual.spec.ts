@@ -62,85 +62,23 @@ test("keyboard jogging, joint mapping, precision, release and focus loss", async
   await expect(page.locator("#manual-enable")).toBeEnabled();
 });
 
-test("on-screen jog buttons stop on release and tab change ends ownership", async ({ page, request }) => {
-  await page.locator("#manual-source").selectOption("pointer");
+test("numeric moves and neutral reset with keyboard-only jogging", async ({ page }) => {
+  await expect(page.locator("#jog-tab")).toContainText("Manual");
+  await expect(page.locator("#manual-controller, #manual-source, #manual-plus")).toHaveCount(0);
+  const fields = page.locator("#manual-pulses input");
+  await expect(fields).toHaveCount(6);
+  await expect(page.locator("#manual-reset")).toBeDisabled();
   await page.locator("#manual-enable").click();
-  await expect(page.locator("#manual-end")).toBeEnabled();
-  await page.waitForTimeout(150);
-  const before = await page.locator("#manual-value").innerText();
-  await page.locator("#manual-plus").hover();
-  await page.mouse.down();
-  await expect.poll(() => page.locator("#manual-value").innerText()).not.toBe(before);
-  await page.mouse.up();
-  await page.waitForTimeout(200);
-  const held = await page.locator("#manual-value").innerText();
-  await page.waitForTimeout(250);
-  await expect(page.locator("#manual-value")).toHaveText(held);
-  await page.locator("#diagnostics-tab").click();
-  await expect(page.locator("#manual-panel")).toBeHidden();
-  await expect.poll(async () => (await (await request.get("/api/coordinator/manual/status")).json()).active).toBe(false);
+  await fields.first().fill("1800");
+  await page.locator("#manual-pulses button").first().click();
+  await expect.poll(() => page.locator("#manual-value").innerText()).toMatch(/^180/);
+  await page.locator("#manual-reset").click();
+  for (let i = 0; i < 6; i++) await expect(fields.nth(i)).toHaveValue("1500");
+  await expect.poll(() => page.locator("#manual-value").innerText()).toMatch(/^149/);
+  await page.locator("#workbench-tab").click();
   await page.locator("#jog-tab").click();
-  await expect(page.locator("#manual-enable")).toBeEnabled();
-  await expect(page.locator("#manual-end")).toBeDisabled();
+  await expect(page.locator("#manual-reset")).toBeDisabled();
 });
-
-test("Xbox dead zone, neutral selection, proportional movement, disconnect and stop", async ({ page }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  await page.evaluate(() => {
-    const pad = {
-      index: 0, id: "Xbox test controller", connected: true, mapping: "standard",
-      axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0, touched: false })),
-    };
-    (window as any).__manualPad = pad;
-    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => [pad.connected ? pad : null] });
-  });
-  const padInput = async (axis: number, bumper: boolean, down = false) => {
-    await page.evaluate(({ axis, bumper, down }) => {
-      const pad = (window as any).__manualPad;
-      pad.axes[0] = axis;
-      pad.buttons[4].pressed = bumper;
-      pad.buttons[13].pressed = down;
-    }, { axis, bumper, down });
-  };
-  await expect(page.locator("#manual-controller-note")).toContainText("Controller connected");
-  await page.locator("#manual-source").selectOption("gamepad");
-  await page.locator("#manual-enable").click();
-  await expect(page.locator("#manual-end")).toBeEnabled();
-  await page.waitForTimeout(150);
-  const before = await page.locator("#manual-value").innerText();
-  await padInput(0.1, true);
-  await page.waitForTimeout(300);
-  await expect(page.locator("#manual-value")).toHaveText(before);
-  await padInput(0.7, true);
-  await expect.poll(() => page.locator("#manual-value").innerText()).not.toBe(before);
-  await padInput(0.7, true, true);
-  await expect(page.locator("#manual-selected")).toHaveText("Joint 2 · Servo 4");
-  await page.waitForTimeout(200);
-  const neutral = await page.locator("#manual-value").innerText();
-  await page.waitForTimeout(250);
-  await expect(page.locator("#manual-value")).toHaveText(neutral); // Must release after selection.
-  await padInput(0, false);
-  await page.waitForTimeout(150);
-  await padInput(0.8, true);
-  await expect.poll(() => page.locator("#manual-value").innerText()).not.toBe(neutral);
-  await page.locator("#manual-panel").screenshot({ path: "test-results/manual-xbox.png" });
-  await page.evaluate(() => { (window as any).__manualPad.connected = false; });
-  await expect(page.locator("#manual-end")).toBeDisabled();
-  await page.evaluate(() => {
-    const pad = (window as any).__manualPad;
-    pad.connected = true; pad.axes[0] = 0; pad.buttons[4].pressed = false;
-  });
-  await expect(page.locator("#manual-enable")).toBeEnabled();
-  await page.locator("#manual-enable").click();
-  await expect(page.locator("#manual-end")).toBeEnabled();
-  expect(errors).toEqual([]);
-  await expect(page.locator("#manual-panel")).toBeFocused();
-  await page.evaluate(() => { (window as any).__manualPad.buttons[1].pressed = true; });
-  await expect(page.locator("#recovery")).toHaveCount(0);
-  await expect(page.locator("#manual-end")).toBeDisabled();
-});
-
 
 test("lost manual connection expires ownership and requires explicit recovery", async ({ page, request }) => {
   await page.locator("#manual-enable").click();
@@ -156,4 +94,14 @@ test("lost manual connection expires ownership and requires explicit recovery", 
   await request.post("/api/coordinator/recover", { data: { acknowledged: true } });
   await expect(page.locator("#manual-enable")).toBeEnabled();
   await expect(page.locator("#manual-end")).toBeDisabled();
+});
+
+test("Manual recovers through preparation without visiting Initialization", async ({ page, request }) => {
+  await request.post("/api/coordinator/stop");
+  await expect(page.locator("#manual-preparation")).toBeVisible();
+  await page.locator("#manual-power-off").check();
+  await page.locator("#manual-prepare").click();
+  await expect(page.locator("#manual-enable")).toBeEnabled();
+  await expect(page.locator("#manual-error")).toBeEmpty();
+  await page.locator("#manual-panel").screenshot({ path: "test-results/jog-recovered.png" });
 });

@@ -23,7 +23,7 @@ root.innerHTML = `
   <nav class="view-navigation" aria-label="Workbench views">
     <button id="workbench-tab" class="secondary" aria-pressed="true">⌂ Workbench</button>
     <button id="pulse-tab" class="secondary" aria-pressed="false">↔ Initialization</button>
-    <button id="jog-tab" class="secondary" aria-pressed="false">✥ Jog</button>
+    <button id="jog-tab" class="secondary" aria-pressed="false">✥ Manual</button>
     <button id="diagnostics-tab" aria-label="Diagnostics" class="secondary" aria-pressed="false">⚙ Diagnostics</button>
   </nav>
   <p id="startup-status" role="status">Checking commissioning…</p>

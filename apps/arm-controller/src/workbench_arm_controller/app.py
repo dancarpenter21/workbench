@@ -1,4 +1,5 @@
 import asyncio
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException
@@ -46,6 +47,7 @@ from workbench_contracts import (
     Health,
     ManualAcquire,
     ManualInput,
+    ManualPosition,
     ManualPrepare,
     ManualRelease,
     ManualSession,
@@ -99,13 +101,38 @@ def create_app(config=None, store=None):
         return hardware.snapshot(commanded_neutral=commanded_neutral()).neutral_evidence
 
     def manual_snapshot():
-        manual.use_bounds(commissioning.bounds())
         if cfg["mode"] == "hardware" and cfg["arm"].get("backend") == "pca9685":
             state["error"] = manual.error
         snapshot = manual.status(
             busy=busy() or commissioning.reserved, recovery=current().recovery_required
         )
         status = hardware.snapshot(commanded_neutral=commanded_neutral())
+        owned = bool(manual.token or commissioning.token)
+        snapshot.can_prepare = not (busy() or owned or manual.error)
+        snapshot.blocker = (
+            "busy"
+            if busy()
+            else "owned"
+            if owned
+            else "configuration"
+            if manual.error
+            else "sensor"
+            if monitor.fault
+            else "prepare"
+            if not manual.prepared
+            else "recovery"
+            if current().recovery_required
+            else ""
+        )
+        snapshot.next_action = (
+            "End the active arm session before preparing Manual."
+            if owned or busy()
+            else "Disconnect all servo power, support the arm, then Prepare for Manual."
+            if snapshot.blocker in ("sensor", "prepare", "recovery")
+            else "Apply servo power, check the arm, then enable manual control."
+        )
+        if commissioning.reserved and not commissioning.token:
+            snapshot.message += " Prepare for Manual will archive the unfinished trial."
         snapshot.claw_current = status.claw_current
         snapshot.neutral_evidence = status.neutral_evidence
         snapshot.servo_hat = status.servo_hat
@@ -181,8 +208,12 @@ def create_app(config=None, store=None):
 
     async def manual_worker():
         while True:
+            due = time.monotonic() + 0.02
             await asyncio.sleep(0.02)
+            requested = time.monotonic()
             async with lock:
+                monitor.worker_delay_seconds = max(0, requested - due)
+                monitor.lock_wait_seconds = time.monotonic() - requested
                 try:
                     await manual_io(monitor_tick)
                     await manual_io(hat_presence.poll)
@@ -238,8 +269,8 @@ def create_app(config=None, store=None):
         worker = None
         try:
             commissioning.attach(state["store"])
-            manual.use_bounds(commissioning.bounds())
             monitor.attach(state["store"])
+            monitor.start_logging()
             harness.attach(state["store"])
             scales.attach(state["store"])
             await manual_io(monitor_tick)
@@ -422,13 +453,11 @@ def create_app(config=None, store=None):
             ):
                 raise HTTPException(409, "End active arm control before changing limits")
             result = await manual_io(commissioning.set_bounds, value)
-            manual.use_bounds(result)
             return result
 
     @app.get("/commissioning/ready", response_model=CommissionReadiness)
     async def commissioning_readiness():
         async with lock:
-            manual.use_bounds(commissioning.bounds())
             if cfg["mode"] == "hardware" and cfg["arm"].get("backend") == "pca9685":
                 state["error"] = manual.error
             return CommissionReadiness(ready=manual.error == "")
@@ -628,11 +657,16 @@ def create_app(config=None, store=None):
     @app.post("/manual/prepare", response_model=ManualStatus)
     async def manual_prepare(request: ManualPrepare):
         async with lock:
-            manual.use_bounds(commissioning.bounds())
-            if busy() or manual.token or commissioning.reserved:
-                raise HTTPException(409, "Arm is busy")
-            # Preparation is allowed during recovery only with power disconnected.
-            await manual_io(manual.prepare)
+            if busy() or manual.token or commissioning.token:
+                raise HTTPException(409, "End the active arm session before preparing Manual")
+            try:
+                await manual_io(monitor.prepare)
+                await manual_io(commissioning.abandon_for_jog)
+                await manual_io(manual.prepare)
+            except Exception:
+                monitor.trip("Manual preparation failed")
+                await manual_io(monitor_tick)
+                raise
             await save(ArmStatus(state="idle", message=manual.message))
             await state["store"].aput("manual_active", False)
             return manual_snapshot()
@@ -640,7 +674,6 @@ def create_app(config=None, store=None):
     @app.post("/manual/session", response_model=ManualSession)
     async def manual_acquire(request: ManualAcquire):
         async with lock:
-            manual.use_bounds(commissioning.bounds())
             if busy() or commissioning.reserved or current().recovery_required:
                 raise HTTPException(409, "Arm is busy or requires recovery")
             if manual.token or not manual.status().available or not manual.prepared:
@@ -654,6 +687,18 @@ def create_app(config=None, store=None):
     async def manual_input(request: ManualInput):
         async with lock:
             await manual_io(manual.input, request)
+            return manual_snapshot()
+
+    @app.post("/manual/position", response_model=ManualStatus)
+    async def manual_position(request: ManualPosition):
+        async with lock:
+            await manual_io(manual.position, request)
+            return manual_snapshot()
+
+    @app.post("/manual/reset", response_model=ManualStatus)
+    async def manual_reset(request: ManualRelease):
+        async with lock:
+            await manual_io(manual.reset, request)
             return manual_snapshot()
 
     @app.post("/manual/release", response_model=ManualStatus)

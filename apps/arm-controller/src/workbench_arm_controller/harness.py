@@ -22,7 +22,7 @@ class HarnessExecutor:
         self.limits = {}
         self.claw = {}
         self.deadline = self.heartbeat_until = self.started = self.updated = 0.0
-        self.message = "Prepare outputs in Jog, then enable a supervised harness session."
+        self.message = "Prepare outputs in Manual, then enable a supervised harness session."
         self.submissions = 0
 
     @property

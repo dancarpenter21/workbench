@@ -122,6 +122,12 @@ class ClawCurrentStatus(Contract):
     scale_verified: bool = False
     shunt_ohms: float | None = None
     verification_evidence: str = ""
+    read_seconds: float = 0.0
+    sample_gap_seconds: float = 0.0
+    worker_delay_seconds: float = 0.0
+    lock_wait_seconds: float = 0.0
+    persistence_seconds: float = 0.0
+    telemetry_pending: int = 0
     cutoff_a: float = 2.5
 
 
@@ -216,6 +222,9 @@ class ArmHardwareStatus(Contract):
 
 
 class ManualStatus(Contract):
+    blocker: Literal["", "busy", "owned", "configuration", "sensor", "prepare", "recovery"] = ""
+    can_prepare: bool = False
+    next_action: str = ""
     servo_hat: PeripheralStatus | None = None
     neutral_evidence: NeutralEvidence | None = None
     claw_current: ClawCurrentStatus | None = None
@@ -249,6 +258,12 @@ class ManualInput(ManualRelease):
     sequence: int = Field(ge=0, strict=True)
     joint_id: str
     speed: float = Field(ge=-1, le=1, strict=True)
+
+
+class ManualPosition(ManualRelease):
+    sequence: int = Field(ge=0, strict=True)
+    joint_id: str
+    pulse_us: int = Field(ge=500, le=2500, strict=True)
 
 
 OperationState = Literal[

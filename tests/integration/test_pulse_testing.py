@@ -327,6 +327,7 @@ def test_raw_scale_fault_latch_staleness_and_explicit_power_off_reset():
     with pytest.raises(RuntimeError):
         monitor.require()
     sensor.values[2] = 2
+    sensor.values[1] = 0  # Off baseline requires both bus and raw shunt near zero.
     monitor.prepare()
     monitor.require()
     sensor.values[2] = 3
@@ -342,7 +343,7 @@ async def test_service_keeps_sampling_after_release_and_sensor_fault_disables_pw
     cfg = settings()
     cfg["mode"] = "hardware"
     cfg["arm"].update(backend="pca9685", commissioning_enabled=True)
-    sensor = SensorBus(voltage=2)
+    sensor = SensorBus(voltage=2, shunt=0)
     monitor = ClawCurrentMonitor(cfg, bus_factory=lambda _: sensor)
     monkeypatch.setattr("workbench_arm_controller.app.ClawCurrentMonitor", lambda _: monitor)
     outputs = []
