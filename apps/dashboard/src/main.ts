@@ -32,7 +32,8 @@ root.innerHTML = `
       <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><button id="stop" class="danger">■ Stop arm</button></div>
         <div class="camera-view"><video id="camera" hidden autoplay muted playsinline aria-label="Overhead view of the workbench"></video></div>
         <p id="camera-status" role="status">Connecting…</p>
-        <details class="camera-details"><summary>Camera diagnostics</summary><p id="camera-timing">Waiting for video…</p></details>
+        <div class="camera-footer"><details class="camera-details"><summary>Camera diagnostics</summary><p id="camera-timing">Waiting for video…</p></details><button id="camera-record" class="camera-record" aria-label="Record camera video" title="Record camera video" aria-pressed="false" disabled></button></div>
+        <p id="recording-status" class="caption" role="status"></p>
         <p id="camera-note" class="caption" role="status">Connecting to camera…</p>
       </div>
       <div class="tab-content">

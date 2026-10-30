@@ -860,3 +860,19 @@ header #header-current {
 .harness-panel details { margin: 0.8rem 0; }
 .harness-panel summary { cursor: pointer; }
 .harness-output { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; font-size: 0.8rem; }
+
+.camera-footer { display: flex; align-items: flex-start; gap: 12px; }
+.camera-footer .camera-details { flex: 1; min-width: 0; }
+.camera-record { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border-radius: 4px; }
+.camera-record::before { content: ""; width: 14px; height: 14px; border-radius: 50%; background: #e53935; }
+.camera-record[aria-pressed="true"]::before { border-radius: 2px; }
+.camera-record:disabled { opacity: 0.65; }
+
+button.camera-record,
+button.camera-record:hover,
+button.camera-record:disabled,
+button.camera-record:disabled:hover {
+  background: #666;
+  min-height: 32px;
+}
+button.camera-record:focus-visible { outline-color: #999; }

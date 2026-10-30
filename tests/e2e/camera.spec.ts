@@ -54,3 +54,31 @@ test("abruptly closed viewers release capacity for new viewers", async ({ browse
     }
   }
 });
+
+test("unsupported MP4 recording is explained", async ({ page }) => {
+  await page.addInitScript(() => {
+    MediaRecorder.isTypeSupported = () => false;
+  });
+  await page.goto("/");
+  await expect(page.locator("#camera-record")).toBeDisabled();
+  await expect(page.locator("#recording-status")).toContainText("MP4 recording is unavailable");
+});
+
+test("camera recording downloads an MP4 and leaves preview live", async ({ page }) => {
+  await page.goto("/");
+  const supported = await page.evaluate(() => typeof MediaRecorder !== "undefined" &&
+    ["video/mp4;codecs=avc1.424028", "video/mp4;codecs=avc1"].some(type => MediaRecorder.isTypeSupported(type)));
+  test.skip(!supported, "Browser lacks native H.264 MP4 encoding");
+  await expect(page.locator("#camera-status")).toContainText("Live · WebRTC", { timeout: 20000 });
+  const button = page.locator("#camera-record");
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#recording-status")).toContainText("Recording · 2 s");
+  const downloadPromise = page.waitForEvent("download");
+  await button.click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^workbench-demo-.*\.mp4$/);
+  expect(await download.failure()).toBeNull();
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#camera-status")).toContainText("Live · WebRTC");
+});

@@ -1,3 +1,4 @@
+import { mountRecording } from "./recording";
 import type { components } from "@workbench/contracts";
 
 type VideoAnswer = components["schemas"]["VideoAnswer"];
@@ -9,6 +10,7 @@ export function mountCamera() {
   const timing = document.querySelector<HTMLElement>("#camera-timing")!;
   video.hidden = false;
   video.style.visibility = "hidden";
+  const recordingAvailable = mountRecording(video);
   let closed = false;
   let disposeAttempt = () => {};
   let retryTimer = 0;
@@ -30,6 +32,7 @@ export function mountCamera() {
     function cleanup() {
       if (disposed) return;
       disposed = true;
+      recordingAvailable(false);
       clearTimeout(deadline);
       clearInterval(monitor);
       controller.abort();
@@ -64,6 +67,7 @@ export function mountCamera() {
       }
       video.style.visibility = "visible";
       lastFrame = now;
+      recordingAvailable(true);
       frames.push(now);
       frames = frames.filter(t => now - t < 3000);
       const fps = frames.length > 1 ? (frames.length - 1) * 1000 / (now - frames[0]) : 0;
@@ -118,6 +122,7 @@ export function mountCamera() {
       await peer.setRemoteDescription({ type: answer.type, sdp: answer.sdp });
       monitor = window.setInterval(() => {
         if (lastFrame && performance.now() - lastFrame >= 3000) {
+          recordingAvailable(false);
           status.textContent = "Camera stalled · no new video frames";
           status.dataset.state = "stale";
           video.style.visibility = "hidden";
