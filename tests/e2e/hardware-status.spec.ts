@@ -50,7 +50,7 @@ for (const state of ["off", "energized", "latched_off", "latched_on", "error", "
     page.on("request", request => { if (request.method() === "POST" && !request.url().endsWith("/camera/webrtc/offer")) posts.push(request.url()); });
     await page.goto("/");
     const power = state === "off" || state === "latched_off" ? "Powered off" : state === "energized" || state === "latched_on" ? "Powered" : "Power unknown";
-    for (const tab of ["workbench", "pulse", "jog", "diagnostics"]) {
+    for (const tab of ["workbench", "config", "jog", "diagnostics"]) {
       await page.locator(`#${tab}-tab`).click();
       await expect(page.locator("#servo-power .power-label")).toHaveText(power);
       if (state.startsWith("latched")) {

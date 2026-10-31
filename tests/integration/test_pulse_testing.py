@@ -29,6 +29,7 @@ from workbench_contracts import (
 def pulse(tmp_path):
     cfg = settings()
     cfg["mode"] = "mock"
+    cfg["arm"]["claw_current"] = {"scale_verified": False, "shunt_ohms": None}
     clock = [0.0]
     monitor = ClawCurrentMonitor(cfg, clock=lambda: clock[0])
     store = Store("pulse", tmp_path)
@@ -312,6 +313,7 @@ def test_verified_scale_trips_at_absolute_cutoff(shunt):
 def test_raw_scale_fault_latch_staleness_and_explicit_power_off_reset():
     cfg = settings()
     cfg["mode"] = "hardware"
+    cfg["arm"]["claw_current"] = {"scale_verified": False, "shunt_ohms": None}
     cfg["arm"]["backend"] = "pca9685"
     clock = [0.0]
     sensor = SensorBus(shunt=-400)

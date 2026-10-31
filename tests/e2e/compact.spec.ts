@@ -39,7 +39,7 @@ for (const state of ["off", "noise", "voltage", "on", "fault", "stale", "missing
     });
     }, { state });
     await page.goto("/");
-    await page.locator("#pulse-tab").click();
+    await page.locator("#jog-tab").click();
     const current = page.locator("#header-current");
     await expect(current).toHaveAttribute("data-state", state === "off" || state === "noise" ? "off" : state === "on" || state === "voltage" ? "ok" : state === "missing" || state === "stale" ? "waiting" : "error");
     if (state === "off" || state === "noise") {
@@ -57,7 +57,7 @@ for (const state of ["off", "noise", "voltage", "on", "fault", "stale", "missing
 
 test("small display has separate views, visible stop and no horizontal scrolling", async ({ page }) => {
   await page.goto("/");
-  for (const view of ["workbench", "pulse", "jog", "diagnostics"]) {
+  for (const view of ["workbench", "config", "jog", "diagnostics"]) {
     await page.locator(`#${view}-tab`).click();
     await expect(page.locator("#stop")).toBeVisible();
     await expect(page.locator("#header-current")).toBeInViewport({ ratio: 1 });

@@ -54,8 +54,10 @@ def config():
 def test_prepares_all_six_once_with_power_off_then_monitors_hold_and_disables(tmp_path):
     clock = Clock()
     bus = BenchBus(clock)
+    cfg = config()
+    cfg["arm"]["claw_current"].update(scale_verified=False, shunt_ohms=None)
     report = run(
-        config(),
+        cfg,
         tmp_path / "hold",
         duration=1,
         bus_factory=lambda _: bus,

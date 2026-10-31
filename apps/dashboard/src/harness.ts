@@ -22,7 +22,7 @@ export function mountHarness(root: HTMLElement, stopArm: () => void) {
       </form>
     </details>
     <details><summary>Physical session</summary>
-      <p>Prepare outputs in Manual first. Save measured joint limits in Initialization. Establish claw targets before enabling.</p>
+      <p>Prepare outputs in Manual first. Save joint limits in Config. Establish claw targets before enabling.</p>
       <label>Claw open target (µs)<input id="harness-open" type="number" min="500" max="2500" step="any" /></label>
       <label>Claw close target (µs)<input id="harness-close" type="number" min="500" max="2500" step="any" /></label>
       <label class="ack"><input id="harness-supervised" type="checkbox" /> I am supervising the arm and can cut servo power.</label>
@@ -41,15 +41,29 @@ export function mountHarness(root: HTMLElement, stopArm: () => void) {
     <pre id="harness-trace" class="harness-output" aria-label="Harness execution trace"></pre>
     <details><summary>External MCP activity</summary><pre id="harness-activity" class="harness-output"></pre></details>
     <p class="caption">Local MCP: http://127.0.0.1:8100/mcp · External clients use this same supervised session.</p>`;
-  const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!;
+  const settings = document.getElementById("harness-config")!.closest("details")!;
+  settings.open = true;
+  document.getElementById("llm-config-panel")!.append(settings);
+  const targets = document.createElement("section");
+  targets.innerHTML = "<h2>Claw targets</h2>";
+  for (const id of ["harness-open", "harness-close"]) targets.append(document.getElementById(id)!.closest("label")!);
+  document.getElementById("llm-config-panel")!.prepend(targets);
+  const el = <T extends HTMLElement = HTMLElement>(id: string) => document.querySelector<T>(`#${id}`)!;
   const input = (id: string) => el<HTMLInputElement>(id);
+  const configMessage = document.createElement("p");
+  configMessage.setAttribute("role", "status");
+  settings.append(configMessage);
   let config: Config | null = null;
   let lease: { token: string } | null = null;
   let running = false;
   let stream: WebSocket | null = null;
   let refreshing = false;
   let heartbeatBusy = false;
-  const message = (value: unknown) => { el("harness-message").textContent = value instanceof Error ? value.message : String(value); };
+  const message = (value: unknown) => {
+    const text = value instanceof Error ? value.message : String(value);
+    el("harness-message").textContent = text;
+    configMessage.textContent = text;
+  };
   async function request<T>(path: string, method = "GET", body?: unknown): Promise<T> {
     const response = await fetch(`/api/coordinator/harness${path}`, { method,
       headers: body === undefined ? {} : { "Content-Type": "application/json" },
@@ -110,8 +124,8 @@ export function mountHarness(root: HTMLElement, stopArm: () => void) {
         credential_env: input("harness-credential").value, supports_images: input("harness-images").checked,
         system_prompt: el<HTMLTextAreaElement>("harness-prompt").value,
         tools: (config.tools ?? []).map(t => ({ ...t,
-          enabled: root.querySelector<HTMLInputElement>(`[data-tool="${t.name}"]`)!.checked,
-          description: root.querySelector<HTMLTextAreaElement>(`[data-description="${t.name}"]`)!.value,
+          enabled: document.querySelector<HTMLInputElement>(`[data-tool="${t.name}"]`)!.checked,
+          description: document.querySelector<HTMLTextAreaElement>(`[data-description="${t.name}"]`)!.value,
         })),
       });
       message(`Saved revision ${config.revision}`);

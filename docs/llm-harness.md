@@ -7,7 +7,7 @@ latency. The existing automatic retrieval/MoveIt physical gate remains closed.
 
 ## Configure and run
 
-1. Start the normal ROS stack. In **Prompts and tool configuration**, set an
+1. Start the normal ROS stack. In **Config → Prompts and tool configuration**, set an
    OpenAI-compatible chat-completions base URL (including `/v1` when required)
    and model. The endpoint must support function tools. Enable image support only
    for a model that accepts images in chat messages.
@@ -15,13 +15,13 @@ latency. The existing automatic retrieval/MoveIt physical gate remains closed.
    environment, or specify another `WORKBENCH_LLM_*` environment variable. The UI
    accepts the variable name, never its secret value. Endpoint URLs cannot embed
    credentials. Requests do not follow redirects.
-3. Edit the system prompt, descriptions, and enabled tools. Schemas and handlers
+3. In Config, edit the system prompt, descriptions, and enabled tools. Schemas and handlers
    are fixed in code. Save before starting a run. A running conversation retains
    its saved configuration revision.
-4. For motion, establish joint limits in Initialization and prepare outputs through
+4. For motion, establish joint limits in Config and prepare outputs through
    the existing Jog procedure with servo power disconnected and the arm supported.
    The harness does not prepare, home, reset faults, or verify sensor calibration.
-5. Enter established claw open/close targets in microseconds, acknowledge supervision,
+5. In Config, enter established claw open/close targets in microseconds, acknowledge supervision,
    and enable the physical session. If scale is unverified, explicitly acknowledge
    that amperes and the 2.5 A cutoff are unverified. Keep the operator browser open.
 6. Submit a request. Review the tool trace and live current display. **Stop arm**

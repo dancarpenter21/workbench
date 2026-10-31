@@ -56,21 +56,11 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
       await expect(page.locator("#header-current .current-recovery")).toContainText("previous monitoring interruption");
       if (state === "recovered_off") await page.screenshot({ path: "test-results/powered-off-normal.png" });
       await page.locator("#header-current summary").click();
-      await page.route("**/api/coordinator/commissioning/bounds", route => route.fulfill({
-        status: 503, contentType: "application/json",
-        body: JSON.stringify({ message: "Stale INA219 readings. CUT PHYSICAL SERVO POWER; support the arm." }),
-      }));
-      await page.locator("#pulse-tab").click();
-      const error = page.locator("#init-error");
-      await expect(error).toBeVisible();
       if (state === "recovered_off") {
-        await expect(error).toHaveText("Powered off. A previous monitoring interruption requires a reset before motion.");
-        await page.screenshot({ path: "test-results/initialization-powered-off.png" });
         await page.evaluate(() => { (window as any).__pauseCurrent = true; });
         await expect(page.locator("#header-current")).toHaveAttribute("data-device-state", "waiting");
-      await expect(badge).toContainText("Powered off");
+        await expect(badge).toContainText("Powered off");
       }
-      await expect(error).toContainText("CUT PHYSICAL SERVO POWER");
     }
     if (state === "off") {
       await expect(page.locator("#servo-power .power-label")).toHaveText("Powered off");

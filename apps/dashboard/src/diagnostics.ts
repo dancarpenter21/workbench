@@ -1,6 +1,5 @@
 import createClient from "openapi-fetch";
 import type { paths, components } from "@workbench/contracts";
-import { mountCurrentScale } from "./current-scale";
 import { ageCurrent, currentPresentation, renderCurrent, renderHatPresence, renderServoPower } from "./current";
 
 type Report = components["schemas"]["DiagnosticsReport"];
@@ -47,8 +46,7 @@ export function mountDiagnostics(root: HTMLElement) {
           <dl id="diagnostic-neutral-measurements"></dl></details></section>
     </div>
     <div id="diagnostic-checks" class="diagnostic-grid" aria-live="polite"></div>
-    <section id="diagnostic-current-scale" class="diagnostic-card"></section>`;
-  const scales = mountCurrentScale(root.querySelector<HTMLElement>("#diagnostic-current-scale")!);
+`;
   const el = <T extends HTMLElement = HTMLElement>(id: string) => root.querySelector<T>(`#${id}`)!;
   const recovery = el<HTMLButtonElement>("diagnostic-recovery");
   const recoveryAck = el<HTMLInputElement>("diagnostic-recovery-ack");
@@ -266,7 +264,6 @@ export function mountDiagnostics(root: HTMLElement) {
       connected = value !== null;
       if (value) { workbench = value; receivedAt = performance.now(); }
       if (!root.hidden) renderHardware();
-      scales.update(value?.commissioning ?? null);
     },
   };
 }

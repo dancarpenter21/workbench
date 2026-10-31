@@ -28,6 +28,7 @@ def rig(tmp_path):
     cfg = settings()
     cfg["mode"] = "mock"
     cfg["arm"]["backend"] = "pca9685"
+    cfg["arm"]["claw_current"] = {"scale_verified": False, "shunt_ohms": None}
     clock = [0.0]
     manual = ManualControl(cfg, clock=lambda: clock[0])
     store = Store("harness-test", tmp_path)
