@@ -581,10 +581,10 @@ header .device-pill[data-pill-state="error"] .status-light { background: var(--d
 #servo-power .power-label { inline-size: 14ch; }
 header #servo-power[data-pill-state="off"] { background: var(--off-bg); border-color: var(--border); }
 #servo-power[data-pill-state="off"] .status-light { background: var(--surface); color: var(--text-muted); }
-header:has(#servo-power[data-pill-state="off"]) :is(#header-current, #connection) {
+header:has(#servo-power[data-pill-state="off"]) #header-current {
   background: var(--off-bg); border-color: var(--border);
 }
-header:has(#servo-power[data-pill-state="off"]) :is(#header-current, #connection) .status-light {
+header:has(#servo-power[data-pill-state="off"]) #header-current .status-light {
   background: var(--surface); color: var(--text-muted);
 }
 #header-current .current-label[hidden] { display: none; }

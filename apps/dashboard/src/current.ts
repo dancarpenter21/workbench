@@ -37,6 +37,8 @@ export function currentPresentation(sample?: Current | null) {
   };
 }
 
+const monitorBadge = new WeakMap<HTMLElement, { state: string; pending: string; since: number }>();
+
 export function renderCurrent(root: HTMLElement, sample?: Current | null) {
   if (!root.querySelector(".current-main")) {
     root.classList.add("current-status", "device-pill");
@@ -56,7 +58,16 @@ export function renderCurrent(root: HTMLElement, sample?: Current | null) {
   root.dataset.state = state;
   root.dataset.simulated = String(sample?.simulated === true);
   root.dataset.deviceState = fresh ? "ok" : reading === "error" ? "error" : "waiting";
-  root.dataset.pillState = root.dataset.deviceState;
+  const desired = root.dataset.deviceState;
+  const now = performance.now();
+  let badge = monitorBadge.get(root);
+  if (!badge) {
+    badge = { state: desired, pending: desired, since: now };
+    monitorBadge.set(root, badge);
+  }
+  if (badge.pending !== desired) { badge.pending = desired; badge.since = now; }
+  if (now - badge.since >= 3000) badge.state = desired;
+  root.dataset.pillState = badge.state;
   set(".status-light", state === "error" ? "✕" : state === "waiting" ? "…" : state === "off" ? "○" : "✓");
   set(".current-label", fresh ? "" : presentation.sensorLabel);
   root.querySelector<HTMLElement>(".current-label")!.hidden = fresh;
@@ -93,6 +104,10 @@ const confirmedPower = new WeakMap<HTMLElement, {
   monitorSession: string | null | undefined;
 }>();
 
+const lastSupplyVoltage = new WeakMap<HTMLElement, { voltage: number; at: number }>();
+const abruptSupplyDrop = new WeakSet<HTMLElement>();
+const pendingPower = new WeakMap<HTMLElement, { power: "off" | "energized"; since: number }>();
+
 export function renderServoPower(root: HTMLElement, sample?: Current | null) {
   if (!root.querySelector(".power-label")) {
     root.innerHTML = '<span class="status-light" aria-hidden="true"></span><span class="power-label"></span>';
@@ -100,23 +115,57 @@ export function renderServoPower(root: HTMLElement, sample?: Current | null) {
   const presentation = currentPresentation(sample);
   const now = performance.now();
   let power = presentation.power;
+  // The nominal 5 V supply is distinct from residual off-state sensor noise.
+  // Hysteresis avoids switching the badge around a single voltage threshold.
+  const previous = confirmedPower.get(root);
+  const voltageAvailable = sample != null && Number.isFinite(sample.bus_v) &&
+    sample.age_seconds != null && sample.age_seconds >= 0 && sample.age_seconds < 5 &&
+    sample.reading_state !== "error";
+  if (voltageAvailable) {
+    const voltage = sample!.bus_v!;
+    const lastVoltage = lastSupplyVoltage.get(root);
+    if (lastVoltage && lastVoltage.voltage >= 4 && voltage <= 1 && now - lastVoltage.at < 2000) {
+      abruptSupplyDrop.add(root);
+      confirmedPower.delete(root);
+      pendingPower.delete(root);
+    }
+    if (voltage >= 4 || (voltage > 1 && voltage < 4)) abruptSupplyDrop.delete(root);
+    lastSupplyVoltage.set(root, { voltage, at: now });
+    const observed = abruptSupplyDrop.has(root) ? "unknown" : voltage >= 4 ? "energized" : voltage <= 1 ? "off" : previous?.power ?? "unknown";
+    power = abruptSupplyDrop.has(root) ? "unknown" : previous?.power ?? "unknown";
+    if (observed === "unknown" || observed === power) {
+      pendingPower.delete(root);
+    } else {
+      let pending = pendingPower.get(root);
+      if (pending?.power !== observed) {
+        pending = { power: observed, since: now };
+        pendingPower.set(root, pending);
+      }
+      // Supply capacitance makes real transitions slow; reject short excursions.
+      if (now - pending.since >= 2000) {
+        power = observed;
+        pendingPower.delete(root);
+      }
+    }
+  }
   let cached = false;
-  if (presentation.fresh && (power === "off" || power === "energized")) {
+  if (voltageAvailable && (power === "off" || power === "energized")) {
     confirmedPower.set(root, {
       power,
-      expiresAt: now + (CURRENT_DISPLAY_GRACE_SECONDS - sample!.age_seconds!) * 1000,
+      expiresAt: now + Math.max(0, 5 - sample!.age_seconds!) * 1000,
       simulated: sample?.simulated === true,
       monitorSession: sample?.monitor_session_id,
     });
   } else {
+    if (!voltageAvailable) pendingPower.delete(root);
     const confirmed = confirmedPower.get(root);
     const delayed = !sample || (sample.reading_state === "stale" &&
       sample.age_seconds != null && sample.age_seconds >= 0 &&
-      sample.age_seconds < CURRENT_DISPLAY_GRACE_SECONDS &&
+      sample.age_seconds < 5 &&
       Number.isFinite(sample.bus_v) && Number.isFinite(sample.shunt_mv));
     const sameMonitor = !sample || (sample.simulated === confirmed?.simulated &&
       sample.monitor_session_id === confirmed?.monitorSession);
-    if (confirmed && delayed && sameMonitor && now < confirmed.expiresAt) {
+    if (confirmed && sameMonitor && (confirmed.power === "off" || (delayed && now < confirmed.expiresAt))) {
       power = confirmed.power;
       cached = true;
     } else {
@@ -133,12 +182,22 @@ export function renderServoPower(root: HTMLElement, sample?: Current | null) {
   const simulated = sample?.simulated ?? confirmedPower.get(root)?.simulated;
   root.setAttribute("aria-label", `Servo power: ${label}${simulated ? " (simulated)" : ""}`);
   root.title = cached
-    ? "Last confirmed supply state, less than one second old; awaiting an update. Not a motion-readiness indication."
+    ? "Last observed supply state; awaiting a valid voltage update. Sensor health is reported separately. Not a motion-readiness indication."
     : "Servo supply state inferred from the ammeter; not a motion-readiness indication.";
 }
 
+const confirmedHat = new WeakMap<HTMLElement, { sample: components["schemas"]["PeripheralStatus"]; expiresAt: number }>();
+
 export function renderHatPresence(root: HTMLElement, sample: components["schemas"]["PeripheralStatus"] | null | undefined, elapsed: number, connected: boolean) {
-  const fresh = connected && sample?.age_seconds != null && sample.age_seconds + elapsed < 3;
+  const now = performance.now();
+  const reportedFresh = connected && sample?.age_seconds != null && sample.age_seconds + elapsed < 3;
+  if (reportedFresh && sample) {
+    confirmedHat.set(root, { sample, expiresAt: now + Math.max(0, 15 - sample.age_seconds! - elapsed) * 1000 });
+  }
+  const confirmed = confirmedHat.get(root);
+  const retained = !reportedFresh && confirmed != null && now < confirmed.expiresAt;
+  if (retained) sample = confirmed.sample;
+  const fresh = reportedFresh || retained;
   const state = !fresh ? "waiting" : sample?.state === "detected" ? "ok" : sample?.state === "error" ? "error" : "waiting";
   root.classList.add("device-pill");
   root.dataset.state = state;
@@ -148,5 +207,5 @@ export function renderHatPresence(root: HTMLElement, sample: components["schemas
   }
   root.querySelector(".status-light")!.textContent = state === "ok" ? "✓" : state === "error" ? "✕" : "…";
   root.setAttribute("aria-label", `Servo HAT: ${state === "ok" ? "detected" : state === "error" ? "not detected" : "unknown"}`);
-  root.title = !fresh ? "HAT status unavailable or stale; device status unknown" : `${sample?.simulated ? "SIMULATED · " : ""}PCA9685 · ${sample?.address != null ? "0x" + sample.address.toString(16) : "address unknown"} · ${sample?.detail ?? "Waiting for device check"}`;
+  root.title = retained ? "Last confirmed HAT detection; awaiting device update." : !fresh ? "HAT status unavailable or stale; device status unknown" : `${sample?.simulated ? "SIMULATED · " : ""}PCA9685 · ${sample?.address != null ? "0x" + sample.address.toString(16) : "address unknown"} · ${sample?.detail ?? "Waiting for device check"}`;
 }
