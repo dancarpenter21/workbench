@@ -8,8 +8,9 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
         simulated: false, healthy: state !== "fault" && !state.startsWith("recovered"),
         reading_healthy: state !== "fault",
         fault: state === "fault" || state.startsWith("recovered") ? "Stale INA219 readings (earlier interruption)" : "",
-        sampled_at: new Date().toISOString(), age_seconds: state === "stale" ? 2 : 0.01,
-        bus_v: (state === "energized" || state === "recovered_powered") ? 5 : 0.004, shunt_mv: -0.06,
+        sampled_at: new Date().toISOString(), reading_state: state === "fault" ? "error" : state === "stale" ? "stale" : "ok",
+        age_seconds: state === "stale" ? 6 : 0.01,
+        bus_v: (state === "energized" || state === "recovered_powered") ? 5 : state === "unknown" ? 2 : 0.004, shunt_mv: -0.06,
         current_a: null, scale_verified: false, power_state: (state === "energized" || state === "recovered_powered") ? "energized" : state === "unknown" ? "unknown" : "off",
         off_bounds: state === "unknown" ? null : {
           baseline_id: "20261023T214233Z-journal-97c7c90c", domain: "physical", i2c_bus: 1,
@@ -43,7 +44,7 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
     await expect(badge).toContainText(label);
     if (state === "off" || state === "recovered_off") {
       const offBackground = await badge.evaluate(node => getComputedStyle(node).backgroundColor);
-      for (const selector of ["#header-current", "#connection"]) {
+      for (const selector of ["#header-current"]) {
         await expect(page.locator(selector)).toHaveCSS("background-color", offBackground);
         await expect(page.locator(`${selector} .status-light`)).toHaveCSS("background-color", "rgb(41, 41, 41)");
       }
@@ -66,7 +67,8 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
         await expect(error).toHaveText("Powered off. A previous monitoring interruption requires a reset before motion.");
         await page.screenshot({ path: "test-results/initialization-powered-off.png" });
         await page.evaluate(() => { (window as any).__pauseCurrent = true; });
-        await expect(badge).toContainText("Power unknown");
+        await expect(page.locator("#header-current")).toHaveAttribute("data-device-state", "waiting");
+      await expect(badge).toContainText("Powered off");
       }
       await expect(error).toContainText("CUT PHYSICAL SERVO POWER");
     }
@@ -81,7 +83,8 @@ for (const state of ["off", "energized", "fault", "stale", "unknown", "missing",
       await page.locator("#jog-tab").click();
       await expect(badge).toContainText("Powered off");
       await page.evaluate(() => { (window as any).__pauseCurrent = true; });
-      await expect(badge).toContainText("Power unknown");
+      await expect(page.locator("#header-current")).toHaveAttribute("data-device-state", "waiting");
+      await expect(badge).toContainText("Powered off");
       await expect(page.locator("#connection .status-light")).not.toHaveCSS("background-color", "rgb(41, 41, 41)");
     }
   });

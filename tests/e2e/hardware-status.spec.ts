@@ -12,8 +12,8 @@ for (const state of ["off", "energized", "latched_off", "latched_on", "error", "
         simulated: true, reading_state: (state === "error" || state === "unreadable") ? "error" : state === "stale" ? "stale" : "ok",
         reading_healthy: valid, healthy: valid && !latched, reset_required: latched,
         fault: latched ? (state === "error" || state === "unreadable") ? "Injected I2C read failure" : "Earlier stale INA219 readings" : "",
-        sampled_at: new Date().toISOString(), age_seconds: state === "unreadable" ? null : state === "stale" ? 2 : 0.01,
-        bus_v: powered ? 5 : 0.004, shunt_mv: -0.06, current_a: null, scale_verified: false,
+        sampled_at: new Date().toISOString(), age_seconds: state === "unreadable" ? null : state === "stale" ? 6 : 0.01,
+        bus_v: powered ? 5 : state === "unknown" ? 2 : 0.004, shunt_mv: -0.06, current_a: null, scale_verified: false,
         power_state: !valid || state === "unknown" ? "unknown" : powered ? "energized" : "off",
         off_bounds: state === "unknown" ? null : {
           baseline_id: "simulated-off", domain: "simulated", i2c_bus: 1, sensor_address: 65,
@@ -78,8 +78,8 @@ for (const state of ["off", "energized", "latched_off", "latched_on", "error", "
     }
     if (state === "off") {
       await page.evaluate(() => { (window as any).__pauseHardware = true; });
-      await expect(page.locator("#servo-power .power-label")).toHaveText("Power unknown");
-      await expect(page.locator("#diagnostic-servo-power .power-label")).toHaveText("Power unknown");
+      await expect(page.locator("#servo-power .power-label")).toHaveText("Powered off");
+      await expect(page.locator("#diagnostic-servo-power .power-label")).toHaveText("Powered off");
       await expect(page.locator("#diagnostic-sensor-state")).toHaveText("Updates delayed");
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

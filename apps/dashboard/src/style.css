@@ -876,3 +876,6 @@ button.camera-record:disabled:hover {
   min-height: 32px;
 }
 button.camera-record:focus-visible { outline-color: #999; }
+
+/* Keep the record label readable on its dark control surface. */
+#camera-record { color: var(--text); }

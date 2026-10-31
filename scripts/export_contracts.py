@@ -27,6 +27,10 @@ def main():
         spec = import_module(f"{module}.app").create_app(config=config).openapi()
         for path, operations in spec["paths"].items():
             for operation in operations.values():
+                # Python versions use different HTTP 422 reason phrases.
+                response = operation.get("responses", {}).get("422", {})
+                if response.get("description") in ("Unprocessable Entity", "Unprocessable Content"):
+                    response["description"] = "Unprocessable Content"
                 operation["operationId"] = name.replace("-", "_") + "_" + operation["operationId"]
             combined["paths"][f"/{name}{path}"] = operations
         for name, schema in spec["components"]["schemas"].items():
