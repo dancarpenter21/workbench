@@ -3,6 +3,9 @@
 import asyncio
 import base64
 import contextlib
+import hashlib
+import json
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -209,7 +212,33 @@ class HarnessService:
                     "grip": "unknown",
                     "claw_current": status.claw_current.model_dump(mode="json"),
                 }
-            return status.model_dump(mode="json")
+            manual = await self.control("manual_status")
+            bounds = await self.control("commissioning_bounds")
+            calibration = bounds.model_dump(mode="json")
+            revision = hashlib.sha256(
+                json.dumps(calibration, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+            result = status.model_dump(mode="json")
+            result.update(
+                retrieved_at=datetime.now(timezone.utc).isoformat(),
+                snapshot_atomic=False,
+                position_observation="assumed_commanded"
+                if any(joint.commanded_us is not None for joint in status.joints)
+                else "unavailable",
+                measured_position_available=False,
+                ownership={
+                    "harness_active": status.active,
+                    "manual_active": manual.active,
+                    "manual_blocker": manual.blocker,
+                },
+                calibration={
+                    "revision": revision,
+                    "revision_source": "sha256_saved_bounds",
+                    "saved_bounds": calibration,
+                    "camera_extrinsics": "unavailable",
+                },
+            )
+            return result
         if name == "execute_sequence":
             if not internal and self.task and not self.task.done():
                 raise HTTPException(409, "Workbench run owns harness dispatch")
@@ -253,8 +282,17 @@ class HarnessService:
                     b"".join(bytes(p) for p in codec.encode(frame) + codec.encode(None))
                 ).decode()
 
+            image = await asyncio.to_thread(encode)
+            age = (datetime.now(timezone.utc) - sample[2]).total_seconds()
+            if not 0 <= age <= self.cfg["observation_max_age_seconds"]:
+                raise HTTPException(503, "Camera frame became stale before delivery")
             return {
-                "image": await asyncio.to_thread(encode),
+                "image": image,
+                "age_seconds": age,
+                "frame_reference": sample[2].isoformat(),
+                "frame_reference_source": "acquisition_timestamp",
+                "camera_owner": "vision",
+                "observation_state": "fresh",
                 "mime_type": "image/jpeg",
                 "captured_at": sample[2].isoformat(),
                 "timestamp_source": sample[3],

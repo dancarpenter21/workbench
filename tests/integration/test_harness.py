@@ -317,13 +317,30 @@ async def test_camera_jpeg_and_no_image_in_persistent_activity(gateway):
 
     import numpy as np
 
-    _, service, _ = gateway
+    client, service, _ = gateway
     sample = (0, np.zeros((48, 64, 3), dtype=np.uint8), now(), "simulated")
     service.bridge().latest = lambda: sample
     config = service.config().model_copy(update={"supports_images": True})
     result = await service.call("capture_image", {}, config)
     assert base64.b64decode(result["image"]).startswith(b"\xff\xd8")
     assert result["simulated"]
+    assert result["age_seconds"] >= 0
+    assert result["frame_reference"] == sample[2].isoformat()
+    assert result["camera_owner"] == "vision"
+    service.config = lambda: config
+    response = await client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 12,
+            "method": "tools/call",
+            "params": {"name": "capture_image", "arguments": {}},
+        },
+    )
+    content = response.json()["result"]
+    assert not content["isError"]
+    assert content["content"][1]["type"] == "image"
+    assert base64.b64decode(content["content"][1]["data"]).startswith(b"\xff\xd8")
     activity = service.store.get("activity")
     assert "image" not in activity[-1]["data"]["result"]
     assert activity[-1]["data"]["result"]["captured_at"] == sample[2].isoformat()
@@ -432,3 +449,63 @@ def test_session_budget_is_not_extended_by_heartbeats(rig):
     with pytest.raises(HTTPException):
         executor.heartbeat(lease)
     assert not executor.active and manual.recovery_required
+
+
+async def test_camera_rejects_frame_stale_at_delivery(gateway):
+    from datetime import timedelta
+
+    import numpy as np
+
+    _, service, _ = gateway
+    stamp = now() - timedelta(seconds=service.cfg["observation_max_age_seconds"] + 1)
+    service.bridge().latest = lambda: (0, np.zeros((48, 64, 3), dtype=np.uint8), stamp, "simulated")
+    config = service.config().model_copy(update={"supports_images": True})
+    with pytest.raises(HTTPException, match="stale before delivery"):
+        await service.call("capture_image", {}, config)
+
+
+async def test_state_metadata_shared_by_internal_and_mcp(gateway):
+    import json
+
+    client, service, _ = gateway
+    internal = await service.call("get_workbench_state", {}, internal=True)
+    assert internal["measured_position_available"] is False
+    assert internal["snapshot_atomic"] is False
+    assert len(internal["calibration"]["revision"]) == 64
+    assert internal["claw_current"]["simulated"]
+    assert "shunt_mv" in internal["claw_current"]
+    assert "scale_verified" in internal["claw_current"]
+    response = await client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "tools/call",
+            "params": {"name": "get_workbench_state", "arguments": {}},
+        },
+    )
+    result = response.json()["result"]
+    assert not result["isError"]
+    assert all(item["type"] == "text" for item in result["content"])
+    external = json.loads(result["content"][0]["text"])
+    assert external["calibration"] == internal["calibration"]
+    assert external["ownership"] == internal["ownership"]
+
+
+async def test_mcp_camera_loss_is_error_without_image(gateway):
+    client, service, _ = gateway
+    config = service.config().model_copy(update={"supports_images": True})
+    service.config = lambda: config
+    response = await client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 11,
+            "method": "tools/call",
+            "params": {"name": "capture_image", "arguments": {}},
+        },
+    )
+    result = response.json()["result"]
+    assert result["isError"]
+    assert all(item["type"] == "text" for item in result["content"])
+    assert "fresh camera" in result["content"][0]["text"]
