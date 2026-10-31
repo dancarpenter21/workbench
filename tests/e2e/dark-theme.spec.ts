@@ -5,16 +5,9 @@ for (const viewport of [{ width: 800, height: 480 }, { width: 390, height: 844 }
     await page.setViewportSize(viewport);
     await page.goto("/");
     await expect(page.locator("#header-current .current-raw")).toContainText("mV");
-    for (const view of ["workbench", "pulse", "jog", "diagnostics"]) {
+    for (const view of ["workbench", "config", "jog", "diagnostics"]) {
       await page.locator(`#${view}-tab`).click();
-      if (view === "pulse") {
-        await expect(page.locator("#robot-model-revision")).toBeEnabled();
-        await page.locator("#robot-model-links > details").first().locator("summary").click();
-        await page.locator("#robot-model-joints > details").first().locator("summary").click();
-        await page.locator("#legacy-geometry > summary").click();
-        await expect(page.locator("#geometry-clearance")).toBeEnabled();
-        await page.locator("#geometry-joint-details summary").click();
-      }
+      if (view === "config") await expect(page.locator("#init-save")).toBeEnabled();
       if (view === "jog") await expect(page.locator("#manual-joints button")).toHaveCount(6);
       await page.evaluate(() => Promise.all(document.getAnimations().map(animation => animation.finished.catch(() => {}))));
       const ratios = await page.evaluate(() => {

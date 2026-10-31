@@ -879,3 +879,11 @@ button.camera-record:focus-visible { outline-color: #999; }
 
 /* Keep the record label readable on its dark control surface. */
 #camera-record { color: var(--text); }
+
+#init-form .init-row { grid-template-columns: minmax(65px, 1fr) repeat(2, minmax(0, 1fr)); }
+
+#init-form .limit-clear-actions { grid-column: 1 / -1; }
+#llm-config-panel { min-width: 0; }
+#llm-config-panel label { display: block; margin: .6rem 0; overflow-wrap: anywhere; }
+#llm-config-panel input:not([type="checkbox"]), #llm-config-panel textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+#llm-config-panel .harness-form, #llm-config-panel .harness-form > * { min-width: 0; }

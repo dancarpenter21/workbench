@@ -1,47 +1,30 @@
-# Initialization: direct joint values
+# DF Robot v2 positioning and configuration
 
-Initialization contains six rows: Base, Joints 2–5, and Claw. Each row has editable
-**Pulse**, **Min**, and **Max** fields in microseconds and a **Move** button.
-**Save limits** stores any entered limits; unfinished joints can remain blank. There are no step buttons,
-range-extension controls, feedback prompts, checklist, or recovery panels on this tab.
-Errors appear only when loading or an action fails. Live ammeter readings remain in
-the shared header, and simulated data is labelled SIMULATED.
+Use **Manual** for preparation, keyboard jogging, and direct pulse positioning.
+Preparation requests 1500 µs on all six channels. Later moves retain other targets.
+Faults require inspection and explicit recovery through Diagnostics.
 
-Click **Move** on a row to command that joint's entered pulse. The first move of a
-new session initializes all six joints to the established 1500 μs neutral request,
-then applies the entered pulse. Confirm that starting arrangement is safe. Later
-moves affect only the requested joint; other outputs retain their targets. Direct
-entry accepts 500–2500 μs independently of saved Jog limits; Min/Max can remain blank. It does not use the old
-40 μs step limit, split moves into steps, or retry failed commands. Repeated commands
-remain at least 250 ms apart. Pulses are commands, not measured joint positions.
+Use **Config** for saved harness pulse limits, claw open/close targets, and LLM
+endpoint, model, prompt, and tools. Saving limits never opens an output device or
+moves the arm. Existing saved limits remain in their existing store. Manual uses
+fixed independent assembly bounds; the harness additionally requires saved bounds.
 
-Edit any minimum or maximum and click **Save limits**. Blank fields preserve existing
-values; you can save one joint or one endpoint at a time. Each completed range must
-include 1500 μs, have minimum below maximum, fit inside 500–2500 μs, and contain a
-representable PWM pulse. Saving never moves the arm or opens an output device. Values persist for
-the current physical/simulated domain, assembly and hardware setup. Manually entered
-limits are marked `source: manual`; they are not fabricated trial observations.
-Jog uses saved limits after its output preparation. Automatic retrieval remains disabled.
+Wiring is fixed: base 5, shoulder 4, elbow 3, wrist bend 2, claw rotation 1, claw 0.
+The physical Pi configuration records the operator-verified 0.1 Ω INA219 shunt.
+Persisted active scale records override launch settings; inspect live current details
+for the effective scale. The app does not silently overwrite those records.
 
-Leaving the page, losing focus, disconnecting, or pressing the shared Stop ends motion
-ownership and retains the last PWM target. A later explicit Move can resume a normally
-stopped session from its retained targets. It does not return to neutral in that case.
-When a stopped session cannot resume, an explicit Move starts a fresh monitored neutral
-initialization. The previous session remains in history with unverified observations.
-Latched sensor faults still require explicit recovery before movement.
-Use **Diagnostics → Motion interlock**: inspect the interruption, support the arm,
-disconnect servo power, acknowledge that preparation, then clear the stopped session
-and reset monitoring. A reset requires a fresh valid sensor reading and never moves
-the arm. Faults are never cleared automatically by Move or Save limits.
+**Diagnostics** shows live readings, device checks, reports, and explicit recovery.
+It has no scale-entry form. ROS-model and capsule editors are removed from the normal
+UI; their backend validation and planned-execution gates remain intact.
 
-Every physical session reads the claw INA219 at **0x41** before enabling output and
-continuously during movement and powered holding. Missing, stale, invalid or failed
-readings stop testing and attempt PWM shutdown; cut physical servo power. With a
-verified shunt resistance, **abs(current) >= 2.5 A** aborts testing. Otherwise raw
-shunt voltage remains visible and amperes and the cutoff are labelled unverified.
-Polling and PWM shutdown are not a physical current limiter.
+Every physical claw output and powered hold requires INA219 readings at 0x41 before
+output and continuously thereafter. Missing, stale, invalid, or failed readings stop
+motion and attempt PWM shutdown; cut physical servo power. Verified current at
+abs(current) >= 2.5 A trips software shutdown. Raw shunt readings remain available;
+unverified and simulated readings remain labeled. Sampling and shutdown have latency.
 
-The channel mapping is Base 5, Joints 2–5 on 4–1, and Claw 0. Physical tests use hardware
-mode with the PCA9685 backend. Simulated tests do not establish physical acceptance.
-The commissioning APIs retain trial histories, feedback, and bounded step testing for
-commissioning tools; the Initialization page uses direct value entry.
+Pulses are commands, not measured position. Independent bounds do not prevent joint
+combinations from colliding. No calibration notebook is required for the pulse driver
+or supervised LLM harness. Physical planned execution and automatic retrieval remain
+gated separately. No hardware services are automatically restarted by UI changes.

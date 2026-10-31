@@ -22,11 +22,11 @@ root.innerHTML = `
   </header>
   <nav class="view-navigation" aria-label="Workbench views">
     <button id="workbench-tab" class="secondary" aria-pressed="true">⌂ Workbench</button>
-    <button id="pulse-tab" class="secondary" aria-pressed="false">↔ Initialization</button>
+    <button id="config-tab" class="secondary" aria-pressed="false">Config</button>
     <button id="jog-tab" class="secondary" aria-pressed="false">✥ Manual</button>
     <button id="diagnostics-tab" aria-label="Diagnostics" class="secondary" aria-pressed="false">⚙ Diagnostics</button>
   </nav>
-  <p id="startup-status" role="status">Checking commissioning…</p>
+  <p id="startup-status" role="status">Connecting…</p>
   <main id="workbench-view" hidden>
     <div class="workbench-layout">
       <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><button id="stop" class="danger">■ Stop arm</button></div>
@@ -49,7 +49,7 @@ root.innerHTML = `
         <div class="controls"><button id="reset" class="secondary" hidden>Reset mock scene</button></div>
         <section id="harness-panel" class="harness-panel"></section>
       </div>
-    <section id="commissioning-panel" class="manual-panel"></section>
+    <section id="config-view" hidden><h1>Config</h1><p>DF Robot v2 · Base 5 → Claw 0 · INA219 0x41 · Shunt 0.1 Ω · Software trip at |current| ≥ 2.5 A</p><p>Independent bounds (µs): Base 500–2500; Shoulder 600–2100; Elbow 775–2500; Wrist bend 500–2500; Claw rotation 500–2500; Claw 850–1600.</p><section id="commissioning-panel" class="manual-panel"></section><section id="llm-config-panel"></section></section>
     <section id="manual-panel" class="manual-panel"></section>
     <section id="diagnostics-view" hidden></section>
       </div>
@@ -75,22 +75,21 @@ const terminal = new Set([
 ]);
 const diagnosticsView = el("diagnostics-view");
 const diagnostics = mountDiagnostics(diagnosticsView);
-const commissioning = mountCommissioning(el("commissioning-panel"));
 const manual = mountManual(el("manual-panel"), () => button("stop").click());
+mountCommissioning(el("commissioning-panel"));
 let selectedView = false;
-type View = "workbench" | "pulse" | "jog" | "diagnostics";
+type View = "workbench" | "config" | "jog" | "diagnostics";
 function showView(view: View) {
   manual.setVisible(view === "jog");
-  commissioning.setVisible(view === "pulse");
   diagnosticsView.hidden = view !== "diagnostics";
   el("tools-view").hidden = view !== "workbench";
-  el("commissioning-panel").hidden = view !== "pulse";
+  el("config-view").hidden = view !== "config";
   el("manual-panel").hidden = view !== "jog";
-  for (const name of ["workbench", "pulse", "jog", "diagnostics"] as const) {
+  for (const name of ["workbench", "config", "jog", "diagnostics"] as const) {
     button(`${name}-tab`).setAttribute("aria-pressed", String(name === view));
   }
 }
-for (const view of ["workbench", "pulse", "jog", "diagnostics"] as const) {
+for (const view of ["workbench", "config", "jog", "diagnostics"] as const) {
   button(`${view}-tab`).onclick = () => { selectedView = true; showView(view); };
 }
 showView("workbench");
@@ -122,10 +121,9 @@ function render(status: Status) {
   currentReceivedAt = performance.now();
   refreshCurrent();
   manual.updateWorkbench(status);
-  commissioning.updateWorkbench(status);
   diagnostics.updateWorkbench(status);
   if (!selectedView) {
-    showView(status.commissioning_ready === true ? "workbench" : "pulse");
+    showView("workbench");
     if (status.commissioning_ready !== null && status.commissioning_ready !== undefined) {
       selectedView = true;
     }
@@ -171,7 +169,6 @@ el("request-form").addEventListener("submit", async (event) => {
 
 button("stop").onclick = async () => {
   manual.end();
-  void commissioning.end();
   try {
     const { data, error } = await api.POST("/coordinator/stop");
     if (error) throw new Error(error.message);
@@ -232,7 +229,6 @@ function refreshCurrent() {
   const sample = ageCurrent(latest?.claw_current, elapsed, connected);
   renderCurrent(el("header-current"), sample);
   renderServoPower(el("servo-power"), sample);
-  commissioning.updateCurrent(sample);
   renderHatPresence(el("connection"), connected ? latest?.servo_hat : null, elapsed, connected);
 }
 refreshCurrent();
@@ -249,7 +245,6 @@ function reconnectEvents() {
   events = null;
   previous?.close?.();
   manual.updateWorkbench(null);
-  commissioning.updateWorkbench(null);
   diagnostics.updateWorkbench(null);
   connected = false;
   refreshCurrent();

@@ -29,9 +29,9 @@
   },
   "arm": {
     "claw_current": {
-      "scale_verified": false,
-      "shunt_ohms": null,
-      "verification_evidence": "",
+      "scale_verified": true,
+      "shunt_ohms": 0.1,
+      "verification_evidence": "Operator verified 0.1 ohm shunt by inspection; issue #5",
       "off_baseline": {
         "baseline_id": "20261023T214233Z-journal-97c7c90c",
         "domain": "physical",

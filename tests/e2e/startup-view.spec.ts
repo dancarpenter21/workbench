@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 for (const ready of [false, true]) {
-  test(`opens ${ready ? "Workbench" : "Initialization"} from commissioning limits`, async ({ page }) => {
+  test(`opens Workbench regardless of commissioning limits (${ready}) from commissioning limits`, async ({ page }) => {
     await page.addInitScript(({ ready }) => {
       class StartupEvents {
       static OPEN = 1;
@@ -25,7 +25,7 @@ for (const ready of [false, true]) {
     });
     }, { ready });
     await page.goto("/");
-    await expect(page.locator(ready ? "#workbench-tab" : "#pulse-tab"))
+    await expect(page.locator("#workbench-tab"))
       .toHaveAttribute("aria-pressed", "true");
     await page.locator("#diagnostics-tab").click();
     await expect(page.locator("#diagnostics-tab")).toHaveAttribute("aria-pressed", "true");
