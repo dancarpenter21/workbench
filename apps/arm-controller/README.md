@@ -39,9 +39,11 @@ uv run --no-sync python -m workbench_arm_controller.pca9685 \
 ```
 
 The calibration contains `calibrated: true` and six `channels` entries keyed by actual
-joint labels. Each entry supplies a unique `channel` (0-15), `min_us`, and `max_us`
-within the documented 500-2500 microsecond envelope. The pose supplies one requested
-pulse per label. Actual usable limits must be measured; no channel map or safe home
+joint labels. Each entry supplies a unique `channel` (0-5), `min_us`, and `max_us`
+within the documented 500-2500 microsecond envelope. Saved limits are intersected
+with the versioned [assembly profile](../../docs/assembly-profile.md); incompatible
+limits and out-of-bounds targets are rejected before output. The pose supplies one
+requested pulse per label. Actual usable limits must be measured; no channel map or safe home
 is supplied. The initial frame rate is approximately 50 Hz; clock accuracy and servo
 behavior require physical validation. `--reference-clock-hz` supports clock calibration.
 

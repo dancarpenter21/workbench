@@ -57,8 +57,9 @@ rejected, and measurements are scoped to the assembly, I2C setup, and operating
 mode. The REST interface is `GET/POST /commissioning/geometry`, proxied by the
 coordinator. Draft storage never changes saved PWM limits.
 
-**Jog requires no measurement or pulse-limit configuration.** Missing limits use
-the nominal 500–2500-us range; saved endpoints remain optional constraints. Jog
+**Jog requires no measurement or pulse-limit configuration.** Manual uses the
+[independent assembly bounds](assembly-profile.md). Saved commissioning endpoints
+constrain only LLM harness mode and do not narrow Manual. Jog
 always displays **Free play · table-clearance checks off**, even if a geometry
 model has been activated. Startup remains 1500 us. Current monitoring, the
 hold-to-jog input, rate limits, watchdog, and fault handling still apply. A complete

@@ -217,7 +217,7 @@ def test_cli_is_offline_quantizes_and_reports_rejection(tmp_path, monkeypatch, c
         )
     )
     monkeypatch.setitem(sys.modules, "smbus2", None)
-    target.write_text(json.dumps({str(c): 500 if c == 4 else 1500 for c in range(6)}))
+    target.write_text(json.dumps({str(c): 600 if c == 4 else 1500 for c in range(6)}))
     args = ["--geometry", str(model), "--calibration", str(calibration), "--target", str(target)]
     assert main(args) == 1
     result = json.loads(capsys.readouterr().out)

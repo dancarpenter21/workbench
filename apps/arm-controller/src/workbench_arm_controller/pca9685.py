@@ -11,6 +11,7 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from .assembly_profile import intersect_limits
 from .device_lock import DeviceLock
 from .movement import MovementRejected, MovementSession
 
@@ -56,8 +57,8 @@ class PulsePlan:
                 raise ValueError("Invalid joint calibration")
             channel = data.get("channel")
             low, high = data.get("min_us"), data.get("max_us")
-            if type(channel) is not int or not 0 <= channel <= 15 or channel in seen:
-                raise ValueError("Channels must be unique integers from 0 to 15")
+            if type(channel) is not int or not 0 <= channel <= 5 or channel in seen:
+                raise ValueError("Channels must be unique integers from 0 to 5")
             if (
                 any(
                     isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v)
@@ -66,6 +67,7 @@ class PulsePlan:
                 or not 500 <= low < high <= 2500
             ):
                 raise ValueError("Measured pulse limits must lie within 500-2500 microseconds")
+            low, high = intersect_limits(channel, low, high)
             minimum, maximum = math.ceil(low / self.tick_us), math.floor(high / self.tick_us)
             if minimum > maximum:
                 raise ValueError("Pulse limits contain no representable PCA9685 tick")

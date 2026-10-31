@@ -29,7 +29,7 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       <button id="manual-prepare" class="secondary" disabled>Prepare for Manual</button>
     </div>
     <p id="manual-help" class="caption">Click this panel to focus. Select 1–6 or Up/Down; hold Space + Left/Right to jog. Hold Shift for precision. Escape stops the arm.</p>
-    <p class="caption">V1 assumes successful movement after each PWM write. Stop retains the last target. Manual uses the nominal 500–2500 µs range, not verified mechanical limits. No commissioning is required.</p>
+    <p class="caption">V1 assumes successful movement after each PWM write. Stop retains the last target. Manual uses each servo’s independent assembly bounds. In-bounds combinations can still collide. Saved commissioning limits apply only to LLM harness mode; no commissioning is required for Manual.</p>
     <p id="manual-error" role="alert"></p>`;
   root.tabIndex = 0;
   root.setAttribute("aria-labelledby", "manual-title");
@@ -139,16 +139,19 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       for (const j of joints) {
         const row = document.createElement("div");
         row.innerHTML = `<label>${j.label} · Servo ${j.channel} · Pulse (µs)
-          <input type="number" min="${j.min_us}" max="${j.max_us}" step="1" value="1500" required /></label><button type="button">Move</button>`;
+          <input type="number" min="${j.min_us}" max="${j.max_us}" step="1" value="1500" required aria-describedby="manual-range-${j.id}" /></label><button type="button">Move</button>
+          <span id="manual-range-${j.id}" class="caption"></span>`;
         const field = row.querySelector("input")!;
         const move = row.querySelector("button")!;
+        field.addEventListener("input", () => render());
         field.addEventListener("keydown", (event) => {
           if (event.key !== "Enter") return;
           event.preventDefault();
           if (!event.repeat) move.click();
         });
         move.onclick = async () => {
-          if (commanding || !field.reportValidity()) return;
+          if (move.disabled || commanding || !field.reportValidity()) return;
+          const pulse = field.valueAsNumber;
           commanding = true;
           clearInput();
           render();
@@ -157,7 +160,9 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
             await acquire();
             const owner = token;
             if (!owner) return;
-            const result = await request<ManualStatus>("position", { token: owner, sequence: sequence++, joint_id: j.id, pulse_us: field.valueAsNumber });
+            const currentJoint = status?.joints?.find(joint => joint.id === j.id);
+            if (!currentJoint || pulse < currentJoint.min_us || pulse > currentJoint.max_us) return;
+            const result = await request<ManualStatus>("position", { token: owner, sequence: sequence++, joint_id: j.id, pulse_us: pulse });
             if (token === owner) status = result;
           } catch (error) { end(); fail(error); }
           finally { commanding = false; render(); }
@@ -202,7 +207,20 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     button("manual-enable").disabled = !connected || !visible || pending || active || anotherOwner || blocked ||
       !status?.available || !status.prepared;
     button("manual-end").disabled = !active && !pending;
-    el("manual-pulses").querySelectorAll<HTMLButtonElement>("button").forEach(b => b.disabled = (!active && !canMove) || commanding || pending);
+    [...el("manual-pulses").children].forEach((row, index) => {
+      const field = row.querySelector("input")!;
+      const move = row.querySelector("button")!;
+      const currentJoint = joints[index];
+      if (currentJoint) {
+        field.min = String(currentJoint.min_us);
+        field.max = String(currentJoint.max_us);
+        row.querySelector("span")!.textContent = `Allowed: ${currentJoint.min_us}–${currentJoint.max_us} µs`;
+      }
+      const invalid = !field.validity.valid;
+      field.setAttribute("aria-invalid", String(invalid));
+      field.disabled = commanding || pending || !currentJoint;
+      move.disabled = (!active && !canMove) || commanding || pending || !currentJoint || invalid;
+    });
 
   }
 
@@ -287,9 +305,11 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     const joint = status?.joints?.[selected];
     if (!joint) { end(); return; }
     sending = true;
+    // Sample released keys even when the first request for a joint must be neutral.
+    const speed = input();
     try {
       const result = await request<ManualStatus>("input", {
-        token: owner, sequence: sequence++, joint_id: joint.id, speed: lastSentJoint === joint.id ? input() : 0,
+        token: owner, sequence: sequence++, joint_id: joint.id, speed: lastSentJoint === joint.id ? speed : 0,
       }, 250);
       if (token === owner) { lastSentJoint = joint.id; status = result; render(); }
     } catch (error) { if (token === owner) { end(); fail(error); } }

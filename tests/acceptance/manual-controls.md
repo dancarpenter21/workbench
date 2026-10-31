@@ -43,8 +43,9 @@ does not enable PCA9685 automated retrieval.
 
 ## Independent Jog preparation and recovery
 
-Jog requires no commissioning records or measured geometry. Its nominal 500–2500 µs
-range is not a verified mechanical range. Speed remains limited to 100 µs/s.
+Jog requires no commissioning records or measured geometry. It enforces the
+[independent assembly bounds](../../docs/assembly-profile.md), which do not establish
+collision-free combinations or measured geometry. Speed remains limited to 100 µs/s.
 Disconnect ALL servo power and support the arm, acknowledge this in Jog, and select
 **Prepare for Jog**. This verifies the claw supply is off, archives an inactive
 unfinished commissioning trial without accepting it, clears recoverable interlocks,

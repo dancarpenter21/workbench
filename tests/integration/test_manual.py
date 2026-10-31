@@ -28,7 +28,14 @@ def test_jog_ignores_commissioning_and_legacy_manual_configuration():
     cfg["manual"] = {"channels": {"invalid": {}}}
     control = ManualControl(cfg)
     assert control.status().available
-    assert all(j.min_us == 500 and j.max_us == 2500 for j in control.joints)
+    assert [(j.min_us, j.max_us) for j in control.joints] == [
+        (500, 2500),
+        (600, 2100),
+        (775, 2500),
+        (500, 2500),
+        (500, 2500),
+        (850, 1600),
+    ]
 
 
 def test_abandon_incomplete_trial_without_valid_commissioning_setup(tmp_path):
@@ -384,7 +391,14 @@ def test_legacy_manual_configuration_does_not_gate_jog(change, monkeypatch):
     control = ManualControl(cfg)
     assert control.status().available
     assert not control.prepared
-    assert all(j.min_us == 500 and j.max_us == 2500 for j in control.joints)
+    assert [(j.min_us, j.max_us) for j in control.joints] == [
+        (500, 2500),
+        (600, 2100),
+        (775, 2500),
+        (500, 2500),
+        (500, 2500),
+        (850, 1600),
+    ]
 
 
 async def test_shutdown_waits_for_an_inflight_manual_io_thread(tmp_path, monkeypatch):

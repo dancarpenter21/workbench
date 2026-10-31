@@ -54,10 +54,10 @@ class FakeBus:
 def test_quantization_stays_inside_measured_limits(edge):
     plan = PulsePlan(calibration())
     assert plan.prescale == 121
-    commands = plan.encode({joint: edge for joint in pose()})
+    commands = plan.encode({joint: min(edge, plan.channels[joint][2]) for joint in pose()})
     assert [c.channel for c in commands] == list(range(6))
     assert all(1101 <= c.commanded_us <= 1901 for c in commands)
-    assert all(abs(c.commanded_us - edge) < plan.tick_us for c in commands)
+    assert all(abs(c.commanded_us - c.requested_us) < plan.tick_us for c in commands)
 
 
 @pytest.mark.parametrize(

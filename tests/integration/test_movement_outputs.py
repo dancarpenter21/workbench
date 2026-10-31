@@ -81,7 +81,7 @@ def test_collision_rejection_has_no_writes_and_preserves_holding(kind, output_fa
     before = list(bus.writes)
     assumed = dict(output.movement.commanded)
     with pytest.raises(MovementRejected, match="clearance"):
-        move(output, kind, 4, 500)
+        move(output, kind, 4, 600)
     assert bus.writes == before and output.movement.commanded == assumed
     assert not output.faulted and not output.movement.faulted
     move(output, kind, 5, 1600)  # A normal rejection does not latch a hardware fault.

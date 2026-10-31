@@ -3,6 +3,7 @@
 import math
 import time
 
+from .assembly_profile import intersect_limits
 from .device_lock import DeviceLock
 from .movement import ClearanceResult, MovementRejected, MovementSession
 
@@ -21,6 +22,8 @@ def encode_pulse(pulse_us, minimum=MIN_US, maximum=MAX_US):
         or not minimum <= pulse_us <= maximum
     ):
         raise ValueError(f"Requested pulse must be within {minimum}-{maximum} us")
+    if math.ceil(minimum / TICK_US) > math.floor(maximum / TICK_US):
+        raise ValueError("Pulse limits contain no representable PCA9685 tick")
     # Keep quantized output inside the trial window too.
     ticks = max(
         math.ceil(minimum / TICK_US), min(math.floor(maximum / TICK_US), round(pulse_us / TICK_US))
@@ -61,6 +64,7 @@ def write_pulse(bus, address, pulse_us, channel=5, *, minimum=MIN_US, maximum=MA
 def _write_pulse(bus, address, pulse_us, channel=5, *, minimum=MIN_US, maximum=MAX_US):
     if type(channel) is not int or not 0 <= channel <= 5:
         raise ValueError("Trial channel must be 0–5")
+    minimum, maximum = intersect_limits(channel, minimum, maximum)
     ticks, actual_us = encode_pulse(pulse_us, minimum, maximum)
     register = 0x06 + 4 * channel
     data = [0, 0, ticks & 0xFF, ticks >> 8]
@@ -180,6 +184,7 @@ class SingleServoOutput:
     def write_joint(self, channel, target, minimum, maximum):
         if self.closed or self.faulted or self.channel is None:
             raise RuntimeError("Trial output unavailable")
+        minimum, maximum = intersect_limits(channel, minimum, maximum)
         actual = encode_pulse(target, minimum, maximum)[1]
 
         def dispatch():

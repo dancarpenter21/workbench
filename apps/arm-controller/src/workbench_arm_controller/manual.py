@@ -7,6 +7,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 from workbench_contracts import ManualJoint, ManualSession, ManualStatus
 
+from .assembly_profile import intersect_limits
 from .claw_current import ClawCurrentMonitor
 from .movement import MovementRejected, MovementSession
 from .pca9685 import Pca9685Output, PulsePlan
@@ -35,7 +36,8 @@ def mock_configuration():
 def free_play_configuration():
     config = mock_configuration()
     for joint in config["channels"].values():
-        joint.update(min_us=500, max_us=2500, direction="Positive increases pulse width")
+        low, high = intersect_limits(joint["channel"], 500, 2500)
+        joint.update(min_us=low, max_us=high, direction="Positive increases pulse width")
     return config
 
 

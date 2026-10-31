@@ -204,3 +204,11 @@ PWM full-off before closing the current monitor. Never resume motion
 automatically after a fault. Support the links throughout shutdown and **cut
 physical servo power**. Resume the main arm service after the standalone runner
 has exited; starting the app does not restore neutral targets or motion ownership.
+
+## Manual pulse entry bounds
+
+Manual displays each servo’s independent assembly range beside its pulse input.
+Empty, fractional, or out-of-range entries disable Move and cannot submit via Enter.
+Values are not silently clamped. Saved commissioning limits apply only to LLM
+harness mode; Manual requires no commissioning. In-bounds combinations can still
+collide. See the [assembly profile](assembly-profile.md) for the channel bounds.
