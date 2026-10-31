@@ -11,11 +11,13 @@ test("independent Pi heartbeat detects failure and recovers", async ({ page }) =
   await expect(network).toHaveAttribute("data-state", "connected");
   await network.locator("summary").click();
   await expect(page.locator("#network-details")).toContainText("Failed probes: 0/");
+  await expect(page.locator("#servo-power .power-label")).toHaveText(/Powered/);
+  const initialPower = await page.locator("#servo-power .power-label").textContent();
   fail = true;
   await expect(network).toHaveAttribute("data-state", "offline", { timeout: 10000 });
   await expect(page.locator("#network-details")).toContainText("Last probe failed");
   // A failed HTTP heartbeat does not impersonate an ammeter power change.
-  await expect(page.locator("#servo-power")).toContainText("Powered off");
+  await expect(page.locator("#servo-power .power-label")).toHaveText(initialPower!);
   await page.screenshot({ path: "test-results/network-heartbeat-offline.png" });
   fail = false;
   await expect(network).toHaveAttribute("data-state", "connected");

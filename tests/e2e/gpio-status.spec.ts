@@ -49,7 +49,8 @@ for (const state of ["detected", "hat_missing", "hat_stale", "ammeter_missing", 
         (window as any).__deviceDisconnected = true;
         (window as any).__deviceEvents.onerror();
       });
-      await expect(hat).toHaveAttribute("data-state", "waiting");
+      await expect(hat).toHaveAttribute("data-state", "ok");
+      await expect(hat).toHaveAttribute("data-state", "waiting", { timeout: 17000 });
       await expect(ammeter).toHaveAttribute("data-device-state", "waiting");
     }
   });

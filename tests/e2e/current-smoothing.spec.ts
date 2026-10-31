@@ -49,7 +49,7 @@ test("brief late updates keep ammeter status steady, but actual read failures sh
   await expect(meter).toContainText("CUT PHYSICAL SERVO POWER");
 });
 
-test("short status gaps retain confirmed power, but expiry, faults and power changes do not", async ({ page }) => {
+test("power ignores noise, retains off through gaps, and distinguishes gradual discharge from abrupt loss", async ({ page }) => {
   await page.addInitScript(() => {
     (window as any).__powerSample = {
       simulated: true, reading_state: "ok", reading_healthy: true, healthy: true,
@@ -86,33 +86,39 @@ test("short status gaps retain confirmed power, but expiry, faults and power cha
   await page.waitForTimeout(300);
   await expect(power).toContainText("Powered off");
   await expect(power).toHaveAttribute("aria-label", /simulated/);
-  await expect(power).toContainText("Power unknown", { timeout: 2000 });
-  await expect(power).toHaveAttribute("data-cached", "false");
+  await page.waitForTimeout(2200);
+  await expect(power).toContainText("Powered off");
 
   await page.evaluate(sample => { (window as any).__powerSample = sample; }, healthy);
   await expect(power).toContainText("Powered off");
   await page.evaluate(sample => {
     (window as any).__powerSample = { ...sample, reading_state: "stale", reading_healthy: false, power_state: "unknown", age_seconds: 0.4 };
   }, healthy);
-  await expect(power).toHaveAttribute("data-cached", "true");
   await expect(power).toContainText("Powered off");
   await expect(page.locator("#header-current .current-label")).toHaveText("Updates delayed");
-  await expect(power).toContainText("Power unknown", { timeout: 2000 });
+  await expect(power).toContainText("Powered off");
 
   await page.evaluate(sample => { (window as any).__powerSample = sample; }, healthy);
   await expect(power).toContainText("Powered off");
   await page.evaluate(sample => {
     (window as any).__powerSample = { ...sample, reading_state: "error", reading_healthy: false, power_state: "unknown", reset_required: true, fault: "I2C read failure" };
   }, healthy);
-  await expect(power).toContainText("Power unknown", { timeout: 500 });
-  await expect(power).toHaveAttribute("data-cached", "false");
+  await expect(power).toContainText("Powered off");
+  await expect(page.locator("#header-current")).toHaveAttribute("data-device-state", "error");
 
   await page.evaluate(sample => { (window as any).__powerSample = sample; }, healthy);
   await expect(power).toContainText("Powered off");
   await page.evaluate(sample => {
     (window as any).__powerSample = { ...sample, power_state: "energized", bus_v: 5 };
   }, healthy);
-  await expect(power.locator(".power-label")).toHaveText("Powered", { timeout: 500 });
+  await expect(power.locator(".power-label")).toHaveText("Powered", { timeout: 4000 });
+  await page.evaluate(sample => { (window as any).__powerSample = { ...sample, bus_v: 2 }; }, healthy);
+  await page.waitForTimeout(2200);
+  await expect(power.locator(".power-label")).toHaveText("Powered");
+  await page.evaluate(sample => { (window as any).__powerSample = sample; }, healthy);
+  await expect(power.locator(".power-label")).toHaveText("Powered off");
+  await page.evaluate(sample => { (window as any).__powerSample = { ...sample, bus_v: 5 }; }, healthy);
+  await expect(power.locator(".power-label")).toHaveText("Powered");
   await page.evaluate(sample => {
     (window as any).__powerSample = { ...sample, power_state: "unknown" };
   }, healthy);
