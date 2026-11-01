@@ -26,11 +26,12 @@ root.innerHTML = `
     <button id="model-tab" class="secondary" aria-pressed="false">Model</button>
     <button id="jog-tab" class="secondary" aria-pressed="false">✥ Manual</button>
     <button id="diagnostics-tab" aria-label="Diagnostics" class="secondary" aria-pressed="false">⚙ Diagnostics</button>
+    <button id="stop" class="danger">■ Stop arm</button>
   </nav>
   <p id="startup-status" role="status">Connecting…</p>
   <main id="workbench-view" hidden>
     <div class="workbench-layout">
-      <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2><button id="stop" class="danger">■ Stop arm</button></div>
+      <div class="camera-panel"><div class="panel-heading"><h2>Workbench view</h2></div>
         <div class="camera-view"><video id="camera" hidden autoplay muted playsinline aria-label="Overhead view of the workbench"></video></div>
         <p id="camera-status" role="status">Connecting…</p>
         <div class="camera-footer"><details class="camera-details"><summary>Camera diagnostics</summary><p id="camera-timing">Waiting for video…</p></details><button id="camera-record" class="camera-record" aria-label="Record camera video" title="Record camera video" aria-pressed="false" disabled></button></div>
