@@ -1755,6 +1755,142 @@
         }
       }
     },
+    "/arm-controller/commissioning/robot-model/preview": {
+      "post": {
+        "summary": "Robot Model Preview",
+        "operationId": "arm_controller_robot_model_preview_commissioning_robot_model_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RobotModelMeasurementsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotModelPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/arm-controller/commissioning/robot-model/inspect": {
+      "post": {
+        "summary": "Robot Model Inspection",
+        "operationId": "arm_controller_robot_model_inspection_commissioning_robot_model_inspect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RobotModelInspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotModelInspectionResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/arm-controller/commissioning/geometry": {
       "get": {
         "summary": "Geometry Measurements",
@@ -6225,6 +6361,142 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RobotModelMeasurements"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coordinator/commissioning/robot-model/preview": {
+      "post": {
+        "summary": "Robot Model Preview",
+        "operationId": "coordinator_robot_model_preview_commissioning_robot_model_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RobotModelMeasurementsUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotModelPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/coordinator/commissioning/robot-model/inspect": {
+      "post": {
+        "summary": "Robot Model Inspection",
+        "operationId": "coordinator_robot_model_inspection_commissioning_robot_model_inspect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RobotModelInspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RobotModelInspectionResult"
                 }
               }
             }
@@ -12876,6 +13148,131 @@
         ],
         "title": "ReferenceStatistics"
       },
+      "RobotModelInspectionRequest": {
+        "properties": {
+          "context_key": {
+            "type": "string",
+            "title": "Context Key"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Revision"
+          },
+          "model": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Model"
+          },
+          "joint_positions": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Joint Positions"
+          },
+          "check_collisions": {
+            "type": "boolean",
+            "title": "Check Collisions",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "context_key",
+          "revision",
+          "model"
+        ],
+        "title": "RobotModelInspectionRequest"
+      },
+      "RobotModelInspectionResult": {
+        "properties": {
+          "context_key": {
+            "type": "string",
+            "title": "Context Key"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "model_hash": {
+            "type": "string",
+            "title": "Model Hash"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "default": false
+          },
+          "in_bounds": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Bounds"
+          },
+          "collision": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collision"
+          },
+          "colliding_pairs": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Colliding Pairs"
+          },
+          "tool_xyz": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Tool Xyz"
+          },
+          "tool_xyzw": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Tool Xyzw"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "bundle": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Bundle"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "context_key",
+          "revision",
+          "model_hash"
+        ],
+        "title": "RobotModelInspectionResult"
+      },
       "RobotModelMeasurements": {
         "properties": {
           "context_key": {
@@ -12945,6 +13342,43 @@
           "model"
         ],
         "title": "RobotModelMeasurementsUpdate"
+      },
+      "RobotModelPreview": {
+        "properties": {
+          "context_key": {
+            "type": "string",
+            "title": "Context Key"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "urdf": {
+            "type": "string",
+            "title": "Urdf"
+          },
+          "omissions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Omissions"
+          },
+          "visible_boxes": {
+            "type": "integer",
+            "title": "Visible Boxes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "context_key",
+          "revision",
+          "urdf",
+          "omissions",
+          "visible_boxes"
+        ],
+        "title": "RobotModelPreview"
       },
       "DiagnosticsReport": {
         "properties": {

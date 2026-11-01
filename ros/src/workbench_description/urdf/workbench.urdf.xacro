@@ -5,22 +5,27 @@
   <xacro:arg name="mock_control" default="false"/>
   <xacro:property name="model" value="${xacro.load_yaml('$(arg model)')}"/>
   <material name="arm"><color rgba="0.3 0.5 0.7 1"/></material>
+  <xacro:macro name="boxes" params="items">
+    <xacro:if value="${len(items) > 0}">
+      <xacro:property name="box" value="${items[0]}"/>
+      <visual>
+        <origin xyz="${' '.join(str(v) for v in box['xyz'])}" rpy="${' '.join(str(v) for v in box.get('rpy', [0, 0, 0]))}"/>
+        <geometry><box size="${' '.join(str(v) for v in box['size'])}"/></geometry>
+        <material name="arm"/>
+      </visual>
+      <collision>
+        <origin xyz="${' '.join(str(v) for v in box['xyz'])}" rpy="${' '.join(str(v) for v in box.get('rpy', [0, 0, 0]))}"/>
+        <geometry><box size="${' '.join(str(v + 2 * (box.get('margin_m', 0) if model['schema_version'] == 2 else 0)) for v in box['size'])}"/></geometry>
+      </collision>
+      <xacro:boxes items="${items[1:]}"/>
+    </xacro:if>
+  </xacro:macro>
   <xacro:macro name="links" params="items">
     <xacro:if value="${len(items) > 0}">
       <xacro:property name="item" value="${items[0]}"/>
       <link name="${item['name']}">
         <xacro:unless value="${item['name'] == 'tool0'}">
-        <visual>
-          <origin xyz="${' '.join(str(v) for v in item['xyz'])}"
-                  rpy="${' '.join(str(v) for v in item.get('rpy', [0, 0, 0]))}"/>
-          <geometry><box size="${' '.join(str(v) for v in item['size'])}"/></geometry>
-          <material name="arm"/>
-        </visual>
-        <collision>
-          <origin xyz="${' '.join(str(v) for v in item['xyz'])}"
-                  rpy="${' '.join(str(v) for v in item.get('rpy', [0, 0, 0]))}"/>
-          <geometry><box size="${' '.join(str(v) for v in item['size'])}"/></geometry>
-        </collision>
+        <xacro:boxes items="${(item['boxes'] + (model.get('claw_envelope', []) if item['name'] == 'hand_link' else [])) if model['schema_version'] == 2 else [item]}"/>
         </xacro:unless>
       </link>
       <xacro:links items="${items[1:]}"/>

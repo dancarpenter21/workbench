@@ -1,5 +1,6 @@
 """Mock-only model/planning launch. No I2C adapter or physical output is loaded."""
 
+import json
 from pathlib import Path
 
 import xacro
@@ -11,6 +12,7 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from workbench_common import ROOT
+from workbench_common.model_geometry import model_srdf
 from workbench_common.robot_model import load_model
 
 
@@ -40,7 +42,9 @@ def start(context):
     }
     parameters = {
         "robot_description": ParameterValue(robot, value_type=str),
-        "robot_description_semantic": (config / "workbench.srdf").read_text(),
+        "robot_description_semantic": model_srdf(
+            measurements, (config / "workbench.srdf").read_text()
+        ),
         "robot_description_kinematics": read("kinematics.yaml"),
         "robot_description_planning": {"joint_limits": limits},
         "planning_pipelines": ["ompl"],
@@ -97,6 +101,12 @@ def start(context):
                 {
                     "mode": "mock",
                     "model_revision": measurements["revision"],
+                    "scene_json": json.dumps(
+                        measurements.get(
+                            "scene",
+                            json.loads((description / "config/simulated-scene.json").read_text()),
+                        )
+                    ),
                     "journal_directory": LaunchConfiguration("journal_directory").perform(context),
                 },
             ],

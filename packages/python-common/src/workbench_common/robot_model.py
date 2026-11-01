@@ -4,6 +4,8 @@ import json
 import math
 from pathlib import Path
 
+from .model_geometry import link_boxes, validate_geometry
+
 ARM_JOINTS = ("base_joint", "shoulder_joint", "elbow_joint", "wrist_joint", "wrist_roll_joint")
 ACTUATED_JOINTS = (*ARM_JOINTS, "claw_joint")
 CHANNELS = dict(zip(ACTUATED_JOINTS, (5, 4, 3, 2, 1, 0), strict=True))
@@ -61,7 +63,7 @@ def validate_model(data, *, mode):
         raise ValueError("mode must be mock or hardware")
     if not isinstance(data, dict):
         raise ValueError("Robot model must be an object")
-    if type(data.get("schema_version")) is not int or data.get("schema_version") != 1:
+    if type(data.get("schema_version")) is not int or data.get("schema_version") not in (1, 2):
         raise ValueError("Unsupported robot model schema")
     expected = "simulated" if mode == "mock" else "physical"
     if data.get("domain") != expected:
@@ -81,7 +83,7 @@ def validate_model(data, *, mode):
         if not isinstance(name, str) or not name.isidentifier() or name in names:
             raise ValueError("Links require unique identifiers")
         names.add(name)
-        if name == "tool0":
+        if name == "tool0" or data["schema_version"] == 2:
             continue  # Tool datum frame has no physical collision geometry.
         vector(link.get("size"), f"{name}.size", positive=True)
         vector(link.get("xyz"), f"{name}.xyz")
@@ -137,4 +139,128 @@ def validate_model(data, *, mode):
     tool = next(j for j in joints if j["child"] == "tool0")
     if tool["type"] != "fixed" or tool["parent"] != arm[-1]["child"]:
         raise ValueError("tool0 must be fixed to the wrist roll link")
+    validate_geometry(data, complete=True)
     return data
+
+
+def render_preview(data, *, include_scene=True, measured_limits=False):
+    """Render only measured draft geometry; never produce control interfaces.
+
+    Unresolved parent transforms omit their subtree. Preview limits are not evidence
+    of measured speed or effort and this document cannot qualify physical execution.
+    """
+    from xml.etree.ElementTree import Element, SubElement, tostring
+
+    def measured(value):
+        return (
+            isinstance(value, list)
+            and len(value) == 3
+            and all(type(v) in (int, float) and math.isfinite(v) for v in value)
+        )
+
+    def coordinates(value):
+        return " ".join(str(v) for v in value)
+
+    robot = Element("robot", name="workbench")
+    known = {"base_link"}
+    omitted = []
+    joints = []
+    for joint in data.get("joints", []):
+        name = joint["name"]
+        valid = (
+            joint["parent"] in known and measured(joint.get("xyz")) and measured(joint.get("rpy"))
+        )
+        if not valid:
+            omitted.append(f"{name}: incomplete frame or parent")
+            continue
+        if joint["type"] != "fixed":
+            axis = joint.get("axis")
+            lower, upper = joint.get("lower"), joint.get("upper")
+            movable = (
+                measured(axis)
+                and math.isclose(sum(v * v for v in axis), 1, abs_tol=1e-6)
+                and type(lower) in (int, float)
+                and type(upper) in (int, float)
+                and math.isfinite(lower)
+                and math.isfinite(upper)
+                and lower < upper
+            )
+            if not movable:
+                if measured_limits:
+                    raise ValueError(f"{name}: complete measured joint limits are required")
+                omitted.append(f"{name}: shown fixed at reference; axis or limits incomplete")
+                joint = dict(joint, type="fixed")
+        known.add(joint["child"])
+        joints.append(joint)
+    count = 0
+    for link in data.get("links", []):
+        if link["name"] not in known:
+            continue
+        element = SubElement(robot, "link", name=link["name"])
+        if link["name"] == "tool0":
+            continue
+        for box in link_boxes(data, link):
+            size, xyz, rpy = box.get("size"), box.get("xyz"), box.get("rpy", [0, 0, 0])
+            if not (
+                measured(size) and all(v > 0 for v in size) and measured(xyz) and measured(rpy)
+            ):
+                omitted.append(
+                    f"{link['name']}/{box.get('name', 'body')}: incomplete box dimensions or pose"
+                )
+                continue
+            margin = box.get("margin_m") if data["schema_version"] == 2 else 0
+            if margin is None:
+                omitted.append(
+                    f"{link['name']}/{box.get('name', 'body')}: uncertainty allowance missing"
+                )
+            count += 1
+            for kind in ("visual", "collision"):
+                if kind == "collision" and margin is None:
+                    continue
+                shape = SubElement(element, kind)
+                SubElement(shape, "origin", xyz=coordinates(xyz), rpy=coordinates(rpy))
+                dimensions = size if kind == "visual" else [v + 2 * margin for v in size]
+                SubElement(SubElement(shape, "geometry"), "box", size=coordinates(dimensions))
+                if kind == "visual":
+                    SubElement(
+                        SubElement(shape, "material", name="measured"),
+                        "color",
+                        rgba="0.2 0.65 0.85 0.65",
+                    )
+    for box in data.get("scene", []) if include_scene and data["schema_version"] == 2 else []:
+        size, xyz, rpy = box.get("size"), box.get("xyz"), box.get("rpy")
+        if not (measured(size) and all(v > 0 for v in size) and measured(xyz) and measured(rpy)):
+            omitted.append(f"scene/{box['name']}: incomplete dimensions or pose")
+            continue
+        name = "scene_" + box["name"]
+        element = SubElement(robot, "link", name=name)
+        shape = SubElement(element, "visual")
+        SubElement(SubElement(shape, "geometry"), "box", size=coordinates(size))
+        SubElement(
+            SubElement(shape, "material", name="environment"), "color", rgba="0.65 0.55 0.3 0.45"
+        )
+        attachment = SubElement(robot, "joint", name=name + "_mount", type="fixed")
+        SubElement(attachment, "parent", link="base_link")
+        SubElement(attachment, "child", link=name)
+        SubElement(attachment, "origin", xyz=coordinates(xyz), rpy=coordinates(rpy))
+        count += 1
+    for joint in joints:
+        element = SubElement(robot, "joint", name=joint["name"], type=joint["type"])
+        SubElement(element, "parent", link=joint["parent"])
+        SubElement(element, "child", link=joint["child"])
+        SubElement(element, "origin", xyz=coordinates(joint["xyz"]), rpy=coordinates(joint["rpy"]))
+        if joint["type"] != "fixed":
+            SubElement(element, "axis", xyz=coordinates(joint["axis"]))
+            SubElement(
+                element,
+                "limit",
+                lower=str(joint["lower"]),
+                upper=str(joint["upper"]),
+                effort=str(joint["effort"]) if measured_limits else "1",
+                velocity=str(joint["velocity"]) if measured_limits else "1",
+            )
+    return {
+        "urdf": tostring(robot, encoding="unicode"),
+        "omissions": omitted,
+        "visible_boxes": count,
+    }

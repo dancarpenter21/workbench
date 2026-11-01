@@ -435,10 +435,37 @@ class RobotModelMeasurements(Contract):
     validation_error: str = ""
 
 
+class RobotModelPreview(Contract):
+    context_key: str
+    revision: int
+    urdf: str
+    omissions: list[str]
+    visible_boxes: int
+
+
 class RobotModelMeasurementsUpdate(Contract):
     context_key: str
     revision: int = Field(ge=0)
     model: dict
+
+
+class RobotModelInspectionRequest(RobotModelMeasurementsUpdate):
+    joint_positions: dict[str, float] = Field(default_factory=dict)
+    check_collisions: bool = True
+
+
+class RobotModelInspectionResult(Contract):
+    context_key: str
+    revision: int
+    model_hash: str
+    available: bool = False
+    in_bounds: bool | None = None
+    collision: bool | None = None
+    colliding_pairs: list[list[str]] = Field(default_factory=list)
+    tool_xyz: list[float] = Field(default_factory=list)
+    tool_xyzw: list[float] = Field(default_factory=list)
+    errors: list[str] = Field(default_factory=list)
+    bundle: dict = Field(default_factory=dict)
 
 
 class GeometryMeasurements(Contract):

@@ -49,8 +49,11 @@ from . import (
     ManualStatus,
     NeutralEvidence,
     Recovery,
+    RobotModelInspectionRequest,
+    RobotModelInspectionResult,
     RobotModelMeasurements,
     RobotModelMeasurementsUpdate,
+    RobotModelPreview,
 )
 
 CONTROL_BINDINGS = [
@@ -137,6 +140,26 @@ CONTROL_BINDINGS = [
             "value": RobotModelMeasurementsUpdate,
         },
         "result": RobotModelMeasurements,
+    },
+    {
+        "name": "ControlRobotModelPreview",
+        "method": "POST",
+        "path": "/commissioning/robot-model/preview",
+        "endpoint": "robot_model_preview",
+        "parameters": {
+            "value": RobotModelMeasurementsUpdate,
+        },
+        "result": RobotModelPreview,
+    },
+    {
+        "name": "ControlRobotModelInspection",
+        "method": "POST",
+        "path": "/commissioning/robot-model/inspect",
+        "endpoint": "robot_model_inspection",
+        "parameters": {
+            "value": RobotModelInspectionRequest,
+        },
+        "result": RobotModelInspectionResult,
     },
     {
         "name": "ControlGeometryMeasurements",

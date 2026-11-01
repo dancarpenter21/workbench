@@ -61,8 +61,11 @@ from workbench_contracts import (
     Observations,
     Operation,
     Recovery,
+    RobotModelInspectionRequest,
+    RobotModelInspectionResult,
     RobotModelMeasurements,
     RobotModelMeasurementsUpdate,
+    RobotModelPreview,
     TextRequest,
     Tool,
     Transcript,
@@ -321,7 +324,7 @@ def create_app(config=None, store=None, client=None):
                 "GET" if value is None else "POST",
                 "/" + prefix + "/" + path,
                 **({} if value is None else {"json": value.model_dump(mode="json")}),
-                timeout=1,
+                timeout=18 if prefix == "commissioning" and path == "robot-model/inspect" else 1,
             )
             return result.json()
         except httpx.HTTPStatusError as exc:
@@ -407,6 +410,14 @@ def create_app(config=None, store=None, client=None):
     async def robot_model_measurements_save(value: RobotModelMeasurementsUpdate):
         async with gate:
             return await manual_call("robot-model", value, prefix="commissioning")
+
+    @app.post("/commissioning/robot-model/preview", response_model=RobotModelPreview)
+    async def robot_model_preview(value: RobotModelMeasurementsUpdate):
+        return await manual_call("robot-model/preview", value, prefix="commissioning")
+
+    @app.post("/commissioning/robot-model/inspect", response_model=RobotModelInspectionResult)
+    async def robot_model_inspection(value: RobotModelInspectionRequest):
+        return await manual_call("robot-model/inspect", value, prefix="commissioning")
 
     @app.get("/commissioning/geometry", response_model=GeometryMeasurements)
     async def geometry_measurements():

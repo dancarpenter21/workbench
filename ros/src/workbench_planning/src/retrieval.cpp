@@ -250,14 +250,19 @@ class RetrievalNode : public rclcpp::Node {
     if (!interface.getAttachedObjects().empty())
       throw std::runtime_error("Unresolved attached payload; inspect before planning");
     std::vector<moveit_msgs::msg::CollisionObject> objects;
-    geometry_msgs::msg::Pose table;
-    table.orientation.w = 1.0;
-    table.position.z = -0.022;  // Synthetic tabletop 2 mm below the fixed mounting link.
-    objects.push_back(box("workbench_table", table, {1.0, 1.0, 0.04}));
-    geometry_msgs::msg::Pose obstacle;
-    obstacle.orientation.w = 1.0;
-    obstacle.position.x = 0.12; obstacle.position.y = -0.15; obstacle.position.z = 0.12;
-    objects.push_back(box("workbench_obstacle", obstacle, {0.06, 0.06, 0.20}));
+    const auto measured_scene = nlohmann::json::parse(get_parameter("scene_json").as_string());
+    for (const auto& item : measured_scene) {
+      geometry_msgs::msg::Pose object_pose;
+      object_pose.position.x = item.at("xyz")[0]; object_pose.position.y = item.at("xyz")[1]; object_pose.position.z = item.at("xyz")[2];
+      const auto angles = item.at("rpy");
+      Eigen::Quaterniond q(Eigen::AngleAxisd(angles[2].get<double>(), Eigen::Vector3d::UnitZ()) *
+                           Eigen::AngleAxisd(angles[1].get<double>(), Eigen::Vector3d::UnitY()) *
+                           Eigen::AngleAxisd(angles[0].get<double>(), Eigen::Vector3d::UnitX()));
+      object_pose.orientation.x = q.x(); object_pose.orientation.y = q.y(); object_pose.orientation.z = q.z(); object_pose.orientation.w = q.w();
+      std::vector<double> dimensions;
+      for (double size : item.at("size")) dimensions.push_back(size + 2 * item.at("margin_m").get<double>());
+      objects.push_back(box("workbench_" + item.at("name").get<std::string>(), object_pose, dimensions));
+    }
     // Fixed synthetic holders: derive object poses from this fixture's joint goals.
     // Only these owned IDs are updated; other mapped obstacles remain in the scene.
     for (const auto& [tool, base] : bases_)

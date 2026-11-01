@@ -1,0 +1,331 @@
+{
+  "schema_version": 2,
+  "revision": "arm-dimension-notes-neutral-draft-v1",
+  "domain": "physical",
+  "complete": false,
+  "links": [
+    {
+      "name": "base_link",
+      "size": null,
+      "xyz": null,
+      "rpy": null,
+      "boxes": [
+        {
+          "name": "body",
+          "size": null,
+          "xyz": null,
+          "rpy": null,
+          "margin_m": null
+        }
+      ]
+    },
+    {
+      "name": "turntable_link",
+      "size": null,
+      "xyz": null,
+      "rpy": null,
+      "boxes": [
+        {
+          "name": "body",
+          "size": null,
+          "xyz": null,
+          "rpy": null,
+          "margin_m": null
+        }
+      ]
+    },
+    {
+      "name": "upper_arm_link",
+      "size": null,
+      "xyz": null,
+      "rpy": null,
+      "boxes": [
+        {
+          "name": "body",
+          "size": null,
+          "xyz": null,
+          "rpy": null,
+          "margin_m": null
+        }
+      ]
+    },
+    {
+      "name": "forearm_link",
+      "size": null,
+      "xyz": null,
+      "rpy": null,
+      "boxes": [
+        {
+          "name": "body",
+          "size": null,
+          "xyz": null,
+          "rpy": null,
+          "margin_m": null
+        }
+      ]
+    },
+    {
+      "name": "wrist_link",
+      "size": null,
+      "xyz": null,
+      "rpy": null,
+      "boxes": [
+        {
+          "name": "body",
+          "size": null,
+          "xyz": null,
+          "rpy": null,
+          "margin_m": null
+        }
+      ]
+    },
+    {
+      "name": "hand_link",
+      "size": null,
+      "xyz": null,
+      "rpy": null,
+      "boxes": [
+        {
+          "name": "body",
+          "size": null,
+          "xyz": null,
+          "rpy": null,
+          "margin_m": null
+        }
+      ]
+    },
+    {
+      "name": "claw_link",
+      "size": null,
+      "xyz": null,
+      "rpy": null,
+      "boxes": []
+    },
+    {
+      "name": "tool0",
+      "boxes": []
+    }
+  ],
+  "joints": [
+    {
+      "name": "base_joint",
+      "type": "revolute",
+      "parent": "base_link",
+      "child": "turntable_link",
+      "xyz": [
+        0,
+        0,
+        0
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 5
+    },
+    {
+      "name": "shoulder_joint",
+      "type": "revolute",
+      "parent": "turntable_link",
+      "child": "upper_arm_link",
+      "xyz": [
+        0.0,
+        0,
+        0.09525
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 4
+    },
+    {
+      "name": "elbow_joint",
+      "type": "revolute",
+      "parent": "upper_arm_link",
+      "child": "forearm_link",
+      "xyz": [
+        0.04399409051224948,
+        0,
+        0.06985
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 3
+    },
+    {
+      "name": "wrist_joint",
+      "type": "revolute",
+      "parent": "forearm_link",
+      "child": "wrist_link",
+      "xyz": [
+        0.05214641496546048,
+        0,
+        0.05556249999999999
+      ],
+      "rpy": [
+        0,
+        0,
+        0
+      ],
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 2
+    },
+    {
+      "name": "wrist_roll_joint",
+      "type": "revolute",
+      "parent": "wrist_link",
+      "child": "hand_link",
+      "xyz": null,
+      "rpy": null,
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 1
+    },
+    {
+      "name": "claw_joint",
+      "type": "revolute",
+      "parent": "hand_link",
+      "child": "claw_link",
+      "xyz": null,
+      "rpy": null,
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "lower": null,
+      "upper": null,
+      "velocity": null,
+      "effort": null,
+      "channel": 0
+    },
+    {
+      "name": "tool_mount",
+      "type": "fixed",
+      "parent": "hand_link",
+      "child": "tool0",
+      "xyz": null,
+      "rpy": null
+    }
+  ],
+  "scene": [],
+  "collision_exclusions": [],
+  "claw_envelope": [],
+  "source_notes": {
+    "source": "test-results/Arm-Dimension-Notes.jpg",
+    "sha256": "1c331d23a23907155b28dc2b6a032f5f95712085bbed58dea8e22cd8a7b8e434",
+    "status": "Operator-confirmed dimensions at all-1500-microsecond neutral; planar reconstruction with provisional base registration",
+    "readings_in": {
+      "shoulder_height": 3.75,
+      "shoulder_to_elbow": 3.25,
+      "elbow_height": 6.5,
+      "elbow_to_wrist": 3.0,
+      "distal_section": 7.25,
+      "claw_width": 4.0,
+      "claw_thickness": 2.0,
+      "claw_centre_y_tentative": -1.0,
+      "claw_rotation_y_tentative": -0.5,
+      "wrist_height": 8.6875,
+      "claw_tip_height": 13.0
+    },
+    "unresolved": [
+      "Locate wrist-roll pivot and tool datum",
+      "Map annotated claw axes into hand_link frame",
+      "Measure box widths/thicknesses, full claw sweep, and uncertainty allowances",
+      "Pivot distances do not establish full servo/bracket collision-box extents",
+      "Side-view reference polyline assumes coplanar pivots; actual lateral offsets remain unmeasured",
+      "Confirm shoulder/base-yaw registration: planar draft co-locates their vertical projection"
+    ],
+    "note": "Neutral link frames are chosen parallel to base axes. X/Z offsets are reconstructed from confirmed pivot distances and heights. Y=0 and shoulder/base-yaw co-location are provisional planar assumptions, not measured offsets. Wrist-roll origin, tool datum and collision volumes remain unset. The dashed reference is not collision geometry.",
+    "confirmed": {
+      "neutral_pulse_us": 1500,
+      "distal_length_in": 7.25,
+      "distal_endpoints": [
+        "channel_2_axle",
+        "claw_tip"
+      ],
+      "shoulder_height_in": 3.75,
+      "shoulder_to_elbow_in": 3.25,
+      "elbow_height_in": 6.5,
+      "elbow_to_wrist_in": 3.0,
+      "wrist_height_in": 8.6875,
+      "claw_tip_height_in": 13.0
+    },
+    "reference_polyline_label": "Confirmed neutral side-view dimensions; planar registration is provisional, not collision geometry",
+    "reference_polyline_m": [
+      [
+        0.0,
+        0,
+        0.09525
+      ],
+      [
+        0.04399409051224948,
+        0,
+        0.1651
+      ],
+      [
+        0.09614050547770996,
+        0,
+        0.22066249999999998
+      ],
+      [
+        0.24417009236408208,
+        0,
+        0.3302
+      ]
+    ],
+    "neutral_segment_elevations_deg": [
+      57.795772496027965,
+      46.81657820382604,
+      36.500342087215024
+    ]
+  }
+}

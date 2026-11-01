@@ -40,7 +40,7 @@ export function poseGuide() {
 
 export function orientationGuide() {
   return `<div class="measurement-help">
-    <p><strong>Joint origin:</strong> start at the parent link’s marked origin; end at this joint’s pivot centre. Enter signed X, Y and Z distances along the <em>parent’s</em> axes in inches. A diagonal pivot-to-pivot length alone is not three coordinates. For tool0, measure to your chosen gripping datum instead of a pivot.</p>
+    <p><strong>Joint origin:</strong> start at the parent link’s marked origin; end at this joint’s pivot centre. Enter signed X, Y and Z distances along the <em>parent’s</em> axes in inches. A diagonal pivot-to-pivot length alone is not three coordinates. For the claw’s gripping reference point, measure to the chosen point between the fingers instead of a pivot.</p>
     ${illustration("pivot")}${measurementDiagram("origin")}
     <p><strong>Mounting orientation:</strong> roll, pitch and yaw orient the joint frame at zero. They are not the current servo angle. With the new-model convention in step 1, aligned frames have roll = pitch = yaw = 0°, even if a metal link slopes. Enter zeros only when you have chosen and checked that alignment. Existing models may use different frames.</p>
     ${measurementDiagram("rotation")}

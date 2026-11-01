@@ -360,7 +360,9 @@ class RosBrowserBridge:
         for parameter, annotation in binding["parameters"].items():
             spec = field_type(annotation)
             setattr(request, ros_field(parameter, spec), encode(arguments[parameter], spec))
-        response = await self.call(client, request, timeout=15)
+        response = await self.call(
+            client, request, timeout=18 if name == "ControlRobotModelInspection" else 15
+        )
         if response.domain != self.domain:
             raise RuntimeError("Control response evidence domain mismatch")
         if not response.success:

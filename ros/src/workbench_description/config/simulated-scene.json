@@ -1,0 +1,4 @@
+[
+  {"name": "table", "kind": "table", "size": [1.0, 1.0, 0.04], "xyz": [0, 0, -0.022], "rpy": [0, 0, 0], "margin_m": 0},
+  {"name": "obstacle", "kind": "obstacle", "size": [0.06, 0.06, 0.20], "xyz": [0.12, -0.15, 0.12], "rpy": [0, 0, 0], "margin_m": 0}
+]

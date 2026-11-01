@@ -68,6 +68,8 @@ def test_stale_setup_and_revision_never_overwrite(models):
         lambda model: model["links"][0].update(rpy=[0, 0]),
         lambda model: model["joints"][0].update(parent="tool0"),
         lambda model: model.update(links=[]),
+        lambda model: model.update(schema_version=2, links=[None] * 8),
+        lambda model: model.update(schema_version=2, joints=[None] * 7),
     ],
 )
 def test_invalid_drafts_leave_previous_record_intact(models, mutation):
@@ -102,3 +104,79 @@ def test_box_rotation_drafts_persist_independently_of_joint_frames(models):
     del saved.model["links"][2]["rpy"]
     legacy = control.robot_model.save(update(saved))
     assert "rpy" not in legacy.model["links"][2]
+
+
+def test_preview_is_read_only_and_reports_missing_measurements(models):
+    control, _ = models
+    state = control.robot_model.read()
+    result = control.robot_model.preview(update(state))
+    assert result.visible_boxes == 0
+    assert result.omissions
+    assert "ros2_control" not in result.urdf
+    assert control.robot_model.read() == state
+    assert not control.reserved
+
+
+def test_preview_preserves_box_and_joint_transforms(models):
+    from xml.etree import ElementTree
+
+    control, _ = models
+    state = control.robot_model.read()
+    state.model["links"][0].update(size=[0.1, 0.02, 0.03], xyz=[0.05, 0, 0], rpy=[0, -0.5, 0])
+    state.model["joints"][0].update(xyz=[0, 0, 0.1], rpy=[0.2, 0, 0], lower=-1, upper=1)
+    result = control.robot_model.preview(update(state))
+    root = ElementTree.fromstring(result.urdf)
+    assert result.visible_boxes == 1
+    assert root.find("link/visual/origin").attrib["rpy"] == "0 -0.5 0"
+    assert root.find("joint/origin").attrib["rpy"] == "0.2 0 0"
+    assert root.find("joint/axis").attrib["xyz"] == "0 0 1"
+    assert len(root.findall("joint")) == 1
+
+
+def test_preview_rejects_stale_revision_and_domain_changes(models):
+    control, _ = models
+    state = control.robot_model.read()
+    control.robot_model.save(update(state))
+    with pytest.raises(HTTPException) as error:
+        control.robot_model.preview(update(state))
+    assert error.value.status_code == 409
+    state = control.robot_model.read()
+    state.model["domain"] = "simulated"
+    with pytest.raises(HTTPException) as error:
+        control.robot_model.preview(update(state))
+    assert error.value.status_code == 422
+
+
+def test_dimension_notes_draft_imports_without_physical_qualification(models):
+    import json
+
+    from workbench_common import ROOT
+
+    control, _ = models
+    state = control.robot_model.read()
+    candidate = json.loads((ROOT / "config/workbench/arm-dimension-notes.draft.json").read_text())
+    saved = control.robot_model.save(update(state, candidate))
+    assert not saved.valid
+    assert saved.model["complete"] is False
+    assert saved.model["source_notes"]["confirmed"]["neutral_pulse_us"] == 1500
+    assert saved.model["source_notes"]["confirmed"]["distal_length_in"] == 7.25
+    assert not control.reserved
+
+
+def test_dimension_notes_show_static_reference_without_invented_limits(models):
+    import json
+    from xml.etree import ElementTree
+
+    from workbench_common import ROOT
+
+    control, _ = models
+    state = control.robot_model.read()
+    model = json.loads((ROOT / "config/workbench/arm-dimension-notes.draft.json").read_text())
+    result = control.robot_model.preview(update(state, model))
+    robot = ElementTree.fromstring(result.urdf)
+    assert len(robot.findall("joint")) == 4
+    assert all(joint.get("type") == "fixed" for joint in robot.findall("joint"))
+    assert not robot.findall("joint/limit")
+    assert result.visible_boxes == 0
+    assert any("shown fixed" in message for message in result.omissions)
+    assert model["source_notes"]["confirmed"]["claw_tip_height_in"] == 13

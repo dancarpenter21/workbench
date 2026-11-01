@@ -19,4 +19,11 @@ target_link_libraries(retrieval PRIVATE
   ${workbench_interfaces_TARGETS} ${sensor_msgs_TARGETS} ${std_srvs_TARGETS}
   ${shape_msgs_TARGETS} nlohmann_json::nlohmann_json)
 install(TARGETS retrieval DESTINATION lib/${PROJECT_NAME})
+
+add_executable(model_validator src/model_validator.cpp)
+target_compile_features(model_validator PUBLIC cxx_std_20)
+target_link_libraries(model_validator PRIVATE ${moveit_ros_planning_interface_TARGETS}
+  ${shape_msgs_TARGETS} nlohmann_json::nlohmann_json)
+install(TARGETS model_validator DESTINATION lib/${PROJECT_NAME})
+
 ament_package()

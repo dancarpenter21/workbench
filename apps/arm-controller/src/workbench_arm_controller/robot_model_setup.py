@@ -5,8 +5,9 @@ import math
 
 from fastapi import HTTPException
 from workbench_common import ROOT
-from workbench_common.robot_model import validate_model
-from workbench_contracts import RobotModelMeasurements
+from workbench_common.model_geometry import validate_geometry
+from workbench_common.robot_model import render_preview, validate_model
+from workbench_contracts import RobotModelMeasurements, RobotModelPreview
 
 
 class RobotModelSetup:
@@ -37,7 +38,7 @@ class RobotModelSetup:
             validation_error=error,
         )
 
-    def save(self, request):
+    def validate_request(self, request):
         current = self.read()
         if request.context_key != current.context_key or request.revision != current.revision:
             raise HTTPException(409, "Robot model or arm setup changed; reload before saving")
@@ -54,7 +55,7 @@ class RobotModelSetup:
 
         valid = (
             type(model.get("schema_version")) is int
-            and model.get("schema_version") == 1
+            and model.get("schema_version") in (1, 2)
             and model.get("domain") == current.domain
             and isinstance(model.get("complete"), bool)
             and isinstance(model.get("revision"), str)
@@ -80,8 +81,22 @@ class RobotModelSetup:
         if not valid:
             raise HTTPException(422, "Robot model draft has invalid structure or evidence domain")
         try:
+            validate_geometry(model)
+        except (ValueError, KeyError, TypeError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+        try:
             portable = json.loads(json.dumps(model, allow_nan=False))
         except (ValueError, TypeError) as exc:
             raise HTTPException(422, "Robot model must contain finite JSON values") from exc
+        return current, portable
+
+    def preview(self, request):
+        current, model = self.validate_request(request)
+        return RobotModelPreview(
+            context_key=current.context_key, revision=current.revision, **render_preview(model)
+        )
+
+    def save(self, request):
+        current, portable = self.validate_request(request)
         self.store.put(current.context_key, {"revision": current.revision + 1, "model": portable})
         return self.read()

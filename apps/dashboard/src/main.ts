@@ -23,6 +23,7 @@ root.innerHTML = `
   <nav class="view-navigation" aria-label="Workbench views">
     <button id="workbench-tab" class="secondary" aria-pressed="true">⌂ Workbench</button>
     <button id="config-tab" class="secondary" aria-pressed="false">Config</button>
+    <button id="model-tab" class="secondary" aria-pressed="false">Model</button>
     <button id="jog-tab" class="secondary" aria-pressed="false">✥ Manual</button>
     <button id="diagnostics-tab" aria-label="Diagnostics" class="secondary" aria-pressed="false">⚙ Diagnostics</button>
   </nav>
@@ -52,6 +53,7 @@ root.innerHTML = `
     <section id="config-view" hidden><h1>Config</h1><p>DF Robot v2 · Base 5 → Claw 0 · INA219 0x41 · Shunt 0.1 Ω · Software trip at |current| ≥ 2.5 A</p><p>Independent bounds (µs): Base 500–2500; Shoulder 600–2100; Elbow 775–2500; Wrist bend 500–2500; Claw rotation 500–2500; Claw 850–1600.</p><section id="commissioning-panel" class="manual-panel"></section><section id="llm-config-panel"></section></section>
     <section id="manual-panel" class="manual-panel"></section>
     <section id="diagnostics-view" hidden></section>
+    <section id="model-view" hidden><h1>Model workspace</h1><p>Build a measured model of the fixed DF Robot v2 arm. Preview geometry, inspect collisions and compare reference poses. Physical execution remains gated.</p><section id="model-panel"></section></section>
       </div>
     </div>
     <footer><span>LOCAL PROCESSING</span><div id="services">Checking applications…</div></footer>
@@ -77,19 +79,33 @@ const diagnosticsView = el("diagnostics-view");
 const diagnostics = mountDiagnostics(diagnosticsView);
 const manual = mountManual(el("manual-panel"), () => button("stop").click());
 mountCommissioning(el("commissioning-panel"));
+let robotModel: ReturnType<typeof import("./robot-model").mountRobotModel> | null = null;
+let loadingModel: Promise<void> | null = null;
 let selectedView = false;
-type View = "workbench" | "config" | "jog" | "diagnostics";
+type View = "workbench" | "config" | "jog" | "diagnostics" | "model";
 function showView(view: View) {
+  el("workbench-view").classList.toggle("model-active", view === "model");
+  el("model-view").hidden = view !== "model";
+  if (view === "model" && !robotModel && !loadingModel) {
+    el("model-panel").textContent = "Loading model editor…";
+    loadingModel = import("./robot-model").then(module => {
+      robotModel = module.mountRobotModel(el("model-panel"));
+      robotModel.setVisible(!el("model-view").hidden);
+    }).catch(() => {
+      el("model-panel").textContent = "Model editor could not load. Select Model again to retry.";
+    }).finally(() => { loadingModel = null; });
+  }
+  robotModel?.setVisible(view === "model");
   manual.setVisible(view === "jog");
   diagnosticsView.hidden = view !== "diagnostics";
   el("tools-view").hidden = view !== "workbench";
   el("config-view").hidden = view !== "config";
   el("manual-panel").hidden = view !== "jog";
-  for (const name of ["workbench", "config", "jog", "diagnostics"] as const) {
+  for (const name of ["workbench", "config", "jog", "diagnostics", "model"] as const) {
     button(`${name}-tab`).setAttribute("aria-pressed", String(name === view));
   }
 }
-for (const view of ["workbench", "config", "jog", "diagnostics"] as const) {
+for (const view of ["workbench", "config", "jog", "diagnostics", "model"] as const) {
   button(`${view}-tab`).onclick = () => { selectedView = true; showView(view); };
 }
 showView("workbench");

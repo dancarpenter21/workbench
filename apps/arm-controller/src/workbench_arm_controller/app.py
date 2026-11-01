@@ -54,8 +54,11 @@ from workbench_contracts import (
     ManualStatus,
     NeutralEvidence,
     Recovery,
+    RobotModelInspectionRequest,
+    RobotModelInspectionResult,
     RobotModelMeasurements,
     RobotModelMeasurementsUpdate,
+    RobotModelPreview,
 )
 
 from workbench_arm_controller.claw_current import ClawCurrentMonitor
@@ -66,6 +69,7 @@ from workbench_arm_controller.hardware_status import HardwareStatus
 from workbench_arm_controller.harness import HarnessExecutor
 from workbench_arm_controller.hat_presence import HatPresence
 from workbench_arm_controller.manual import ManualControl
+from workbench_arm_controller.model_inspection import inspect_model
 from workbench_arm_controller.neutral_reference import NeutralReference
 from workbench_arm_controller.pca9685 import AUTOMATION_UNAVAILABLE
 
@@ -424,6 +428,17 @@ def create_app(config=None, store=None):
                 return commissioning.robot_model.save(value)
             except OSError as exc:
                 raise HTTPException(503, "Could not save robot model measurements") from exc
+
+    @app.post("/commissioning/robot-model/preview", response_model=RobotModelPreview)
+    async def robot_model_preview(value: RobotModelMeasurementsUpdate):
+        async with lock:
+            return commissioning.robot_model.preview(value)
+
+    @app.post("/commissioning/robot-model/inspect", response_model=RobotModelInspectionResult)
+    async def robot_model_inspection(value: RobotModelInspectionRequest):
+        async with lock:
+            _, model = commissioning.robot_model.validate_request(value)
+        return await asyncio.to_thread(inspect_model, model, value)
 
     @app.get("/commissioning/geometry", response_model=GeometryMeasurements)
     async def geometry_measurements():

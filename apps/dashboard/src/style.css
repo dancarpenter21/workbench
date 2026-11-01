@@ -887,3 +887,28 @@ button.camera-record:focus-visible { outline-color: #999; }
 #llm-config-panel label { display: block; margin: .6rem 0; overflow-wrap: anywhere; }
 #llm-config-panel input:not([type="checkbox"]), #llm-config-panel textarea { width: 100%; min-width: 0; box-sizing: border-box; }
 #llm-config-panel .harness-form, #llm-config-panel .harness-form > * { min-width: 0; }
+
+#model-view { min-width: 0; }
+#model-panel label { display: grid; gap: 6px; }
+#model-panel input { min-width: 0; width: 100%; box-sizing: border-box; }
+#robot-model-preview { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin: 16px 0; }
+.model-canvas { width: 100%; min-height: 360px; }
+.model-canvas canvas { display: block; max-width: 100%; }
+.model-camera-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.model-sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.model-preview-status { font-size: 12px; }
+
+.model-active .workbench-layout { display: block; }
+.model-active .camera-panel { min-height: 0; height: auto; margin-bottom: 16px; }
+.model-active .camera-panel > :not(.panel-heading) { display: none; }
+.model-active .tab-content { width: 100%; }
+#model-panel { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(320px, 1fr); gap: 12px 24px; align-items: start; }
+#model-panel > * { grid-column: 1 / -1; }
+#model-panel > #robot-model-preview { grid-column: 1; grid-row: 7; position: sticky; top: 130px; }
+#model-panel > #robot-model-form { grid-column: 2; grid-row: 7; }
+@media (max-width: 800px) {
+  #model-panel { display: block; }
+  #model-panel > #robot-model-preview { position: static; }
+}
+#model-panel input[type="checkbox"] { width: auto; justify-self: start; }
+#model-panel select { width: 100%; padding: 6px; }
