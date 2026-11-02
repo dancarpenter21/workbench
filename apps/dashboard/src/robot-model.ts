@@ -254,7 +254,7 @@ export function mountRobotModel(root: HTMLElement) {
       vector(reference, "Gripping reference orientation (degrees)", grip.rpy, value => { grip.rpy = value; }, Math.PI / 180);
       containers.get("hand_link")!.append(reference);
     }
-    const jointLabels: Record<number, string> = { 5: "Base turntable", 4: "Shoulder", 3: "Elbow", 2: "Claw assembly bend", 1: "Claw assembly rotation", 0: "Claw opening / closing" };
+    const jointLabels: Record<number, string> = { 5: "Base", 4: "Shoulder", 3: "Elbow", 2: "Wrist Bend", 1: "Wrist Rotation", 0: "Claw" };
     model.joints.filter(joint => joint.child !== "tool0").forEach(joint => {
       const card = document.createElement("details"); card.className = "geometry-card";
       const title = document.createElement("summary"); title.textContent = joint.channel == null ? joint.name : `${jointLabels[joint.channel]} · channel ${joint.channel}`; card.append(title);

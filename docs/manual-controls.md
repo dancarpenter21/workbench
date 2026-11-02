@@ -17,10 +17,10 @@ Panel selection numbers follow the physical order from base to claw:
 | Selection | Identifier | Label | PCA9685 channel |
 | --- | --- | --- | --- |
 | 1 | `base` | Base | 5 |
-| 2 | `joint_2` | Joint 2 | 4 |
-| 3 | `joint_3` | Joint 3 | 3 |
-| 4 | `joint_4` | Joint 4 | 2 |
-| 5 | `joint_5` | Joint 5 | 1 |
+| 2 | `joint_2` | Shoulder | 4 |
+| 3 | `joint_3` | Elbow | 3 |
+| 4 | `joint_4` | Wrist Bend | 2 |
+| 5 | `joint_5` | Wrist Rotation | 1 |
 | 6 | `claw` | Claw | 0 |
 
 The channel mapping is fixed from base 5 through claw 0.

@@ -157,10 +157,10 @@ any part's height.
 | Dashboard joint | PCA9685 channel | Geometry entry |
 | --- | ---: | --- |
 | Base | 5 | No height-axis calibration; assumes vertical rotation axis |
-| Joint 2 | 4 | Joint channel 4 and parts attached after it |
-| Joint 3 | 3 | Joint channel 3 and parts attached after it |
-| Joint 4 | 2 | Joint channel 2 and parts attached after it |
-| Joint 5 | 1 | Joint channel 1 and wrist/claw assembly |
+| Shoulder | 4 | Joint channel 4 and parts attached after it |
+| Elbow | 3 | Joint channel 3 and parts attached after it |
+| Wrist Bend | 2 | Joint channel 2 and parts attached after it |
+| Wrist Rotation | 1 | Joint channel 1 and wrist/claw assembly |
 | Claw | 0 | Covered by the full-opening claw shape attached to channel 1 |
 
 ### Measure and enter the part shapes

@@ -51,7 +51,7 @@ root.innerHTML = `
         <div class="controls"><button id="reset" class="secondary" hidden>Reset mock scene</button></div>
         <section id="harness-panel" class="harness-panel"></section>
       </div>
-    <section id="config-view" hidden><h1>Config</h1><p>DF Robot v2 · Base 5 → Claw 0 · INA219 0x41 · Shunt 0.1 Ω · Software trip at |current| ≥ 2.5 A</p><p>Independent bounds (µs): Base 500–2500; Shoulder 600–2100; Elbow 775–2500; Wrist bend 500–2500; Claw rotation 500–2500; Claw 850–1600.</p><section id="commissioning-panel" class="manual-panel"></section><section id="llm-config-panel"></section></section>
+    <section id="config-view" hidden><h1>Config</h1><p>DF Robot v2 · Base 5 → Claw 0 · INA219 0x41 · Shunt 0.1 Ω · Software trip at |current| ≥ 2.5 A</p><p>Independent bounds (µs): Base 500–2500; Shoulder 600–2100; Elbow 775–2500; Wrist Bend 500–2500; Wrist Rotation 500–2500; Claw 850–1600.</p><section id="commissioning-panel" class="manual-panel"></section><section id="llm-config-panel"></section></section>
     <section id="manual-panel" class="manual-panel"></section>
     <section id="diagnostics-view" hidden></section>
     <section id="model-view" hidden><h1>Model workspace</h1><p>Build a measured model of the fixed DF Robot v2 arm. Preview geometry, inspect collisions and compare reference poses. Physical execution remains gated.</p><section id="model-panel"></section></section>

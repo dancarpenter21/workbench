@@ -49,11 +49,11 @@ export function mountGeometry(root: HTMLElement, showPart: (name: string, reveal
       <table class="geometry-axis-table">
         <thead><tr><th>Joint</th><th>Rotation axis</th></tr></thead>
         <tbody>
-          <tr><td>Claw mount · servo 2 / CH 1</td><td>+X · (1, 0, 0)</td></tr>
-          <tr><td>Wrist · servo 3 / CH 2</td><td>+Y · (0, 1, 0)</td></tr>
-          <tr><td>Middle arm · servo 4 / CH 3</td><td>+Y · (0, 1, 0)</td></tr>
-          <tr><td>Upper arm · servo 5 / CH 4</td><td>+Y · (0, 1, 0)</td></tr>
-          <tr><td>Base · servo 6 / CH 5</td><td>+Z · (0, 0, 1)</td></tr>
+          <tr><td>Wrist Rotation · CH 1</td><td>+X · (1, 0, 0)</td></tr>
+          <tr><td>Wrist Bend · CH 2</td><td>+Y · (0, 1, 0)</td></tr>
+          <tr><td>Elbow · CH 3</td><td>+Y · (0, 1, 0)</td></tr>
+          <tr><td>Shoulder · CH 4</td><td>+Y · (0, 1, 0)</td></tr>
+          <tr><td>Base · CH 5</td><td>+Z · (0, 0, 1)</td></tr>
         </tbody>
       </table>
       <p class="caption">Positive rotation follows the right-hand rule: about +X, +Y turns toward +Z; about +Y, +Z turns toward +X (and +X toward −Z). These are the axes at the neutral measurement pose; downstream axes move with upstream joints. Claw opening is covered by its capsule.</p>

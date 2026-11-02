@@ -1,5 +1,7 @@
 import type { components } from "@workbench/contracts";
 
+const channelLabels: Record<number, string> = { 5: "Base", 4: "Shoulder", 3: "Elbow", 2: "Wrist Bend", 1: "Wrist Rotation", 0: "Claw" };
+
 type ManualStatus = components["schemas"]["ManualStatus"];
 type ManualSession = components["schemas"]["ManualSession"];
 type WorkbenchStatus = components["schemas"]["WorkbenchStatus"];
@@ -9,13 +11,9 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     <div class="panel-heading"><div><p class="eyebrow">DIRECT ARM CONTROL</p>
       <h2 id="manual-title">Manual joints</h2></div><span id="manual-mode" class="badge">Connecting…</span></div>
     <p id="manual-message" role="status">Connecting to arm controller…</p>
-    <div class="actions manual-actions"><button id="manual-enable" disabled>Enable keyboard jogging</button>
-      <button id="manual-end" class="secondary" disabled>End manual control</button>
-      <button id="manual-stop" class="danger">Stop arm</button></div>
-    <button id="manual-reset" class="secondary" disabled>Reset all servos to 1500 µs</button>
-    <p id="manual-gate" role="status"></p>
-    <p id="manual-next" role="status"></p>
-    <p id="manual-clearance">Free play · table-clearance checks off · claw-current monitoring active.</p>
+    <div class="actions manual-actions"><button id="manual-enable" disabled>Enable jogging</button>
+      <button id="manual-end" class="secondary" disabled>End control</button>
+      <button id="manual-reset" class="secondary" disabled>Reset to 1500 µs</button></div>
     <p id="manual-direction" class="caption"></p>
     <label class="ack"><input id="manual-precision" type="checkbox" /> Precision speed (25%)</label>
     <div id="manual-pulses"></div>
@@ -135,7 +133,8 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     if (!el("manual-pulses").children.length && joints.length) {
       for (const j of joints) {
         const row = document.createElement("div");
-        row.innerHTML = `<label for="manual-pulse-${j.id}">${j.label} · Channel ${j.channel}</label>
+        row.dataset.channel = String(j.channel);
+        row.innerHTML = `<label for="manual-pulse-${j.id}">${channelLabels[j.channel] ?? j.label} · Channel ${j.channel}</label>
           <div class="manual-pulse-controls">
             <span class="caption" data-min></span><span aria-hidden="true">&lt;</span>
             <input id="manual-pulse-${j.id}" type="number" min="${j.min_us}" max="${j.max_us}" step="1" value="1500" required />
@@ -176,20 +175,9 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       row.setAttribute("data-selected", String(index === selected));
     });
     el("manual-direction").textContent = joint?.direction ?? "";
-    el("manual-next").textContent = status?.next_action ?? "";
     el("manual-preparation").hidden = !status || (status.prepared && !status.recovery_required) || !joints.length;
 
     button("manual-prepare").disabled = pending || !powerOff.checked || !status?.can_prepare;
-    const outdatedBackend = status !== null && typeof status.can_prepare !== "boolean";
-    el("manual-gate").textContent = outdatedBackend
-      ? "The backend is running an older version. Disconnect servo power, restart the app services, then reload this page."
-      : active ? "Manual enabled. Move applies a pulse immediately."
-      : !connected ? "Waiting for connection to the arm controller."
-      : anotherOwner ? "Another session owns manual control."
-      : blocked ? blockedMessage
-      : !status?.prepared ? "Disconnect servo power, support the arm, and prepare outputs below."
-      : !status?.available ? status?.message ?? "Manual control unavailable."
-      : "Ready. Move applies the entered pulse immediately; Reset applies 1500 µs to all servos.";
     const canMove = connected && !anotherOwner && !blocked && !!status?.available && !!status.prepared;
     button("manual-reset").disabled = (!active && !canMove) || commanding || pending;
     button("manual-enable").disabled = !connected || !visible || pending || active || anotherOwner || blocked ||
@@ -256,7 +244,6 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     finally { commanding = false; render(); }
   };
   button("manual-end").onclick = end;
-  button("manual-stop").onclick = () => { end(); stopArm(); };
   button("manual-prepare").onclick = async () => {
     if (button("manual-prepare").disabled) return;
     pending = true;

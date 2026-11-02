@@ -336,6 +336,7 @@ footer {
 .manual-settings select { display: block; max-width: 100%; padding: 9px; margin-top: 6px; font: inherit; border: 1px solid var(--border); border-radius: 7px; background: var(--input); color: inherit; }
 .manual-actions { flex-wrap: wrap; }
 .manual-actions > button:first-child { flex: none; }
+.manual-panel label.ack:has(#manual-precision) { margin-top: 10px; }
 .manual-jog { display: flex; gap: 12px; margin-top: 16px; }
 .manual-jog button { touch-action: none; user-select: none; }
 #manual-preparation { border: 1px solid var(--warning-border); padding: 14px; border-radius: 7px; margin: 16px 0; font-size: 13px; }
@@ -676,7 +677,6 @@ header:has(#servo-power[data-pill-state="off"]) #header-current .status-light {
 .geometry-axis-table td:last-child { white-space: nowrap; }
 #geometry-joint-details { margin: 12px 0; }
 #geometry-error { color: var(--danger); }
-#manual-clearance { font-size: 12px; color: var(--warning); }
 
 #arm-guide { margin-bottom: 20px; }
 .arm-guide-figure { margin: 12px 0; }
@@ -915,3 +915,8 @@ button.camera-record:focus-visible { outline-color: #999; }
 }
 #model-panel input[type="checkbox"] { width: auto; justify-self: start; }
 #model-panel select { width: 100%; padding: 6px; }
+
+#manual-pulses > div { border-left: 4px solid #ed303b; padding-left: 10px; }
+#manual-pulses > [data-channel="5"] { border-image: linear-gradient(to bottom, #f5a623 50%, #ffdf00 50%) 1; }
+#manual-pulses > [data-channel="4"] { border-left-color: #29b65a; }
+#manual-pulses > [data-channel="3"] { border-left-color: #19a8e0; }

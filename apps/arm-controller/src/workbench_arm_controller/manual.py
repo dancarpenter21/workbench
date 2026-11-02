@@ -13,6 +13,7 @@ from .movement import MovementRejected, MovementSession
 from .pca9685 import Pca9685Output, PulsePlan
 
 JOINT_ORDER = ("base", "joint_2", "joint_3", "joint_4", "joint_5", "claw")
+CHANNEL_LABELS = {5: "Base", 4: "Shoulder", 3: "Elbow", 2: "Wrist Bend", 1: "Wrist Rotation", 0: "Claw"}
 WATCHDOG_SECONDS = 0.3
 
 
@@ -21,7 +22,7 @@ def mock_configuration():
         "channels": {
             name: {
                 "channel": 5 - index,
-                "label": "Base" if index == 0 else "Claw" if index == 5 else f"Joint {index + 1}",
+                "label": CHANNEL_LABELS[5 - index],
                 "min_us": 1000,
                 "max_us": 2000,
                 "initial_us": 1500,

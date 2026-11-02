@@ -24,7 +24,7 @@ for (const viewport of [{ width: 800, height: 480 }, { width: 390, height: 844 }
           const color = getComputedStyle(element).backgroundColor;
           return color === "rgba(0, 0, 0, 0)" && element.parentElement ? background(element.parentElement) : color;
         }
-        return [...document.querySelectorAll("button, input:not([type=checkbox]), select, textarea, .caption, .current-interlock, #init-error, #manual-clearance")]
+        return [...document.querySelectorAll("button, input:not([type=checkbox]), select, textarea, .caption, .current-interlock, #init-error")]
           .filter(element => element.getClientRects().length && !(element as HTMLButtonElement).disabled)
           .map(element => ({ label: element.id || element.textContent?.slice(0, 40), ratio: contrast(getComputedStyle(element).color, background(element)) }));
       });
