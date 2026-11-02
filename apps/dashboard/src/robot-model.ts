@@ -28,10 +28,14 @@ export function mountRobotModel(root: HTMLElement) {
       <section id="measurement-dimensions" class="measurement-step" tabindex="-1">
         <h3>1. Measure the five physical assemblies</h3>
         <p>Use the all-servos-neutral pose as the measurement reference. Measure the base, base-to-shoulder connector, upper arm, forearm, and claw assembly. The turntable belongs to the base mechanism; its rotating output carries the connector. The last assembly contains channels 1 and 0; its subparts move differently, so their geometry stays separate inside one card.</p>
-        <details><summary>Identify the five colored components</summary>
-          <img src="/images/dfrobot-v2-components-marked.jpg" width="600" height="600" style="max-width:100%;height:auto" alt="Operator-marked DFRobot arm: orange base, yellow base-to-shoulder connector above the turntable, green upper arm, blue forearm, red claw assembly." />
+        <section aria-label="Arm component references">
+          <h4>Identify the five colored components</h4>
+          <div class="model-reference-images">
+            <figure><a href="/images/dfrobot-v2-reference.jpg" target="_blank" rel="noreferrer"><img src="/images/dfrobot-v2-reference.jpg" width="600" height="600" alt="Unmarked DFRobot arm reference showing the base, connector, upper arm, forearm and claw assembly." /></a><figcaption>Reference image · select to enlarge</figcaption></figure>
+            <figure><a href="/images/dfrobot-v2-components-marked.jpg" target="_blank" rel="noreferrer"><img src="/images/dfrobot-v2-components-marked.jpg" width="600" height="600" alt="Marked DFRobot arm: orange base, yellow base-to-shoulder connector, green upper arm, blue forearm, red claw assembly." /></a><figcaption>Marked components · select to enlarge</figcaption></figure>
+          </div>
           <p>Orange: base housing with channel 5 inside. Yellow: rotating connector from the base turntable to the shoulder. Green: upper arm. Blue: forearm. Red: claw assembly. The photo identifies components; it is not a measured neutral pose or a set of collision boxes.</p>
-        </details>
+        </section>
         <details><summary>Measurement guide: dimensions, offsets and box rotation</summary>
         <p>At your recorded zero pose, align a box with each component: box X along its length, box Y across its width, and box Z through its thickness. Measure the full extent along these box axes, including its servo and brackets. A component tilted upward can have a long, narrow box tilted with it; you do not need a large table-aligned box.</p>
         ${illustration("box")}${measurementDiagram("box")}${measurementDiagram("oriented-box")}

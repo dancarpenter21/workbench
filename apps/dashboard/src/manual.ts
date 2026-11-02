@@ -16,9 +16,6 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     <p id="manual-gate" role="status"></p>
     <p id="manual-next" role="status"></p>
     <p id="manual-clearance">Free play · table-clearance checks off · claw-current monitoring active.</p>
-    <div id="manual-joints" class="manual-joints" aria-label="Select joint"></div>
-    <div class="manual-readout"><strong id="manual-selected">Select a joint</strong>
-      <output id="manual-value">—</output><span id="manual-limits"></span></div>
     <p id="manual-direction" class="caption"></p>
     <label class="ack"><input id="manual-precision" type="checkbox" /> Precision speed (25%)</label>
     <div id="manual-pulses"></div>
@@ -138,9 +135,13 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
     if (!el("manual-pulses").children.length && joints.length) {
       for (const j of joints) {
         const row = document.createElement("div");
-        row.innerHTML = `<label>${j.label} · Servo ${j.channel} · Pulse (µs)
-          <input type="number" min="${j.min_us}" max="${j.max_us}" step="1" value="1500" required aria-describedby="manual-range-${j.id}" /></label><button type="button">Move</button>
-          <span id="manual-range-${j.id}" class="caption"></span>`;
+        row.innerHTML = `<label for="manual-pulse-${j.id}">${j.label} · Channel ${j.channel}</label>
+          <div class="manual-pulse-controls">
+            <span class="caption" data-min></span><span aria-hidden="true">&lt;</span>
+            <input id="manual-pulse-${j.id}" type="number" min="${j.min_us}" max="${j.max_us}" step="1" value="1500" required />
+            <span aria-hidden="true">&lt;</span><span class="caption" data-max></span>
+            <button type="button">Move</button>
+          </div>`;
         const field = row.querySelector("input")!;
         const move = row.querySelector("button")!;
         field.addEventListener("input", () => render());
@@ -171,22 +172,9 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       }
     }
 
-    if (el("manual-joints").children.length !== joints.length) {
-      el("manual-joints").replaceChildren(...joints.map((j, index) => {
-        const control = document.createElement("button");
-        control.className = "secondary";
-        control.textContent = `${index + 1} · ${j.label}`;
-        control.title = `Servo ${j.channel}`;
-        control.onclick = () => { selectJoint(index); root.focus(); };
-        return control;
-      }));
-    }
-    [...el("manual-joints").children].forEach((control, index) => {
-      control.setAttribute("aria-pressed", String(index === selected));
+    [...el("manual-pulses").children].forEach((row, index) => {
+      row.setAttribute("data-selected", String(index === selected));
     });
-    el("manual-selected").textContent = joint ? `${joint.label} · Servo ${joint.channel}` : "No joints available";
-    el("manual-value").textContent = joint?.commanded_us != null ? `${joint.commanded_us.toFixed(1)} µs` : "Unknown";
-    el("manual-limits").textContent = joint ? `${joint.min_us}–${joint.max_us} µs · max ${joint.max_rate_us_per_second} µs/s` : "";
     el("manual-direction").textContent = joint?.direction ?? "";
     el("manual-next").textContent = status?.next_action ?? "";
     el("manual-preparation").hidden = !status || (status.prepared && !status.recovery_required) || !joints.length;
@@ -214,7 +202,8 @@ export function mountManual(root: HTMLElement, stopArm: () => void) {
       if (currentJoint) {
         field.min = String(currentJoint.min_us);
         field.max = String(currentJoint.max_us);
-        row.querySelector("span")!.textContent = `Allowed: ${currentJoint.min_us}–${currentJoint.max_us} µs`;
+        row.querySelector("[data-min]")!.textContent = `${currentJoint.min_us} µs`;
+        row.querySelector("[data-max]")!.textContent = `${currentJoint.max_us} µs`;
       }
       const invalid = !field.validity.valid;
       field.setAttribute("aria-invalid", String(invalid));

@@ -14,8 +14,13 @@ test.afterEach(async ({ request }) => {
 });
 
 test("keyboard jogging, joint mapping, precision, release and focus loss", async ({ page }) => {
-  const value = () => page.locator("#manual-value").innerText();
-  await expect(page.locator("#manual-selected")).toHaveText("Base · Servo 5");
+  const value = async () => {
+    const selected = await page.locator("#manual-pulses > div[data-selected=\"true\"] > label").innerText();
+    const index = 5 - Number(selected.split("Channel ")[1]);
+    const response = await page.request.get("/api/coordinator/manual/status");
+    return String((await response.json()).joints[index].commanded_us);
+  };
+  await expect(page.locator("#manual-pulses > div[data-selected=\"true\"] > label")).toHaveText("Base · Channel 5");
   await page.locator("#manual-panel").screenshot({ path: "test-results/manual-ready.png" });
   await page.locator("#manual-enable").click();
   await expect(page.locator("#manual-end")).toBeEnabled();
@@ -38,7 +43,7 @@ test("keyboard jogging, joint mapping, precision, release and focus loss", async
   await page.waitForTimeout(300);
   expect(await value()).toBe(held);
   await page.keyboard.press("6");
-  await expect(page.locator("#manual-selected")).toHaveText("Claw · Servo 0");
+  await expect(page.locator("#manual-pulses > div[data-selected=\"true\"] > label")).toHaveText("Claw · Channel 0");
   // Joint selection requires a sampled neutral input before re-enabling movement.
   await page.waitForResponse(response => response.url().endsWith("/manual/input") &&
     response.request().postDataJSON()?.joint_id === "claw" &&
@@ -66,7 +71,8 @@ test("keyboard jogging, joint mapping, precision, release and focus loss", async
   await expect(page.locator("#manual-end")).toBeEnabled();
 });
 
-test("numeric moves and neutral reset with keyboard-only jogging", async ({ page }) => {
+test("numeric moves and neutral reset with keyboard-only jogging", async ({ page, request }) => {
+  const commanded = async () => (await (await request.get("/api/coordinator/manual/status")).json()).joints[0].commanded_us;
   await expect(page.locator("#jog-tab")).toContainText("Manual");
   await expect(page.locator("#manual-controller, #manual-source, #manual-plus")).toHaveCount(0);
   const fields = page.locator("#manual-pulses input");
@@ -80,13 +86,13 @@ test("numeric moves and neutral reset with keyboard-only jogging", async ({ page
   await fields.first().fill("1800");
   await page.locator("#manual-pulses button").first().click();
   await expect(page.locator("#manual-end")).toBeEnabled();
-  await expect.poll(() => page.locator("#manual-value").innerText()).toMatch(/^180/);
+  await expect.poll(async () => String(await commanded())).toMatch(/^180/);
   await fields.first().fill("1700");
   await fields.first().press("Enter");
-  await expect.poll(async () => Math.abs(parseFloat(await page.locator("#manual-value").innerText()) - 1700)).toBeLessThan(4.88);
+  await expect.poll(async () => Math.abs(Number(await commanded()) - 1700)).toBeLessThan(4.88);
   await page.locator("#manual-reset").click();
   for (let i = 0; i < 6; i++) await expect(fields.nth(i)).toHaveValue("1500");
-  await expect.poll(() => page.locator("#manual-value").innerText()).toMatch(/^149/);
+  await expect.poll(async () => String(await commanded())).toMatch(/^149/);
   await page.locator("#workbench-tab").click();
   await page.locator("#jog-tab").click();
   await expect(page.locator("#manual-reset")).toBeEnabled();

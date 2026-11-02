@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This monorepo implements a local robotic tool-retrieval workbench. Five Python services live in `apps/{coordinator,vision,voice,assistant,arm-controller}/src/workbench_*`; the TypeScript/Vite dashboard lives in `apps/dashboard/src/`. Shared API models and generated types are in `packages/contracts/`, with configuration, logging, and persistence utilities in `packages/python-common/`.
+This monorepo implements a local robotic workbench research prototype. Five Python services live in `apps/{coordinator,vision,voice,assistant,arm-controller}/src/workbench_*`; the TypeScript/Vite dashboard lives in `apps/dashboard/src/`. Shared API models and generated types are in `packages/contracts/`, with configuration, logging, and persistence utilities in `packages/python-common/`.
 
 Use `config/` for development settings and bench calibration, `scripts/` for launch and maintenance tools, and `docs/` for architecture, hardware, and commissioning guidance. Tests live in `tests/integration/` and `tests/e2e/`; physical acceptance procedures are documented in `tests/acceptance/`.
 
